@@ -187,7 +187,7 @@ function MarkdownRendererInner({ content }: MarkdownRendererProps): JSX.Element 
         data-testid="markdown-article"
         className="prose-kite w-full"
       >
-        <div data-testid="markdown-loading" className="prose-kite__inner text-muted">
+        <div data-testid="markdown-loading" className="text-muted">
           …
         </div>
       </article>
@@ -199,41 +199,39 @@ function MarkdownRendererInner({ content }: MarkdownRendererProps): JSX.Element 
       data-testid="markdown-article"
       className="prose-kite w-full"
     >
-      <div className="prose-kite__inner">
-        <ReactMarkdown
-          key={flagsHash}
-          remarkPlugins={remarkPlugins as never[]}
-          rehypePlugins={rehypePlugins as never[]}
-          // T19 (FR-03): 在 AST 阶段改写所有 href/src; 危险协议由 urlSafe 改写为 '#'.
-          // 形成与 Rust `open_external_url` 白名单的双层防御.
-          urlTransform={transformUrl}
-          components={{
-            // 注意 react-markdown 的 TypeScript signature 要求 props 是 LinkHandlerProps / ImageHandlerProps,
-            // 在运行时 props 是从 ast 派生的 React 标准元素 props. 此处通过类型断言平滑过渡.
-            a: LinkHandler as never,
-            img: ImageHandler as never,
-            // T07 行内扩展节点 — 详见 design §3.5.4 + 契约 3
-            mark: MarkHighlight as never,
-            sub: SubMark as never,
-            sup: SupMark as never,
-            del: DelStrike as never,
-            code: InlineCode as never,
-            // T08 step-3: 块级代码块 → 工具栏 (Copy / Fold) + 语言徽标.
-            // T17-P2: mermaid 命中时路由到 MermaidBlock.
-            pre: PreBlock as never,
-            // T09: h1~h6 注入锚点 id (与 Outline lib/outline.slugifyWithCounter 复用).
-            // react-markdown 9.x 自定义组件会传入 children + 节点 props; 通过类型断言平滑过渡.
-            h1: HeadingAnchor as never,
-            h2: HeadingAnchor as never,
-            h3: HeadingAnchor as never,
-            h4: HeadingAnchor as never,
-            h5: HeadingAnchor as never,
-            h6: HeadingAnchor as never,
-          }}
-        >
-          {content}
-        </ReactMarkdown>
-      </div>
+      <ReactMarkdown
+        key={flagsHash}
+        remarkPlugins={remarkPlugins as never[]}
+        rehypePlugins={rehypePlugins as never[]}
+        // T19 (FR-03): 在 AST 阶段改写所有 href/src; 危险协议由 urlSafe 改写为 '#'.
+        // 形成与 Rust `open_external_url` 白名单的双层防御.
+        urlTransform={transformUrl}
+        components={{
+          // 注意 react-markdown 的 TypeScript signature 要求 props 是 LinkHandlerProps / ImageHandlerProps,
+          // 在运行时 props 是从 ast 派生的 React 标准元素 props. 此处通过类型断言平滑过渡.
+          a: LinkHandler as never,
+          img: ImageHandler as never,
+          // T07 行内扩展节点 — 详见 design §3.5.4 + 契约 3
+          mark: MarkHighlight as never,
+          sub: SubMark as never,
+          sup: SupMark as never,
+          del: DelStrike as never,
+          code: InlineCode as never,
+          // T08 step-3: 块级代码块 → 工具栏 (Copy / Fold) + 语言徽标.
+          // T17-P2: mermaid 命中时路由到 MermaidBlock.
+          pre: PreBlock as never,
+          // T09: h1~h6 注入锚点 id (与 Outline lib/outline.slugifyWithCounter 复用).
+          // react-markdown 9.x 自定义组件会传入 children + 节点 props; 通过类型断言平滑过渡.
+          h1: HeadingAnchor as never,
+          h2: HeadingAnchor as never,
+          h3: HeadingAnchor as never,
+          h4: HeadingAnchor as never,
+          h5: HeadingAnchor as never,
+          h6: HeadingAnchor as never,
+        }}
+      >
+        {content}
+      </ReactMarkdown>
     </article>
   );
 }
