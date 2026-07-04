@@ -1,0 +1,1325 @@
+{
+  "id": "cg-880c2146c31cd46c",
+  "name": "kite",
+  "workspace_path": "/Users/tshinjeii/oss/kite",
+  "repo_root": "/Users/tshinjeii/oss/kite",
+  "storage_mode": "workspace",
+  "storage_path": "/Users/tshinjeii/oss/kite/.mote/codegraph",
+  "languages": [
+    "go",
+    "rust",
+    "typescript"
+  ],
+  "exclude": [
+    ".git",
+    ".svn",
+    ".hg",
+    ".mote",
+    ".idea",
+    ".vscode",
+    ".obsidian",
+    "node_modules",
+    ".next",
+    ".nuxt",
+    ".parcel-cache",
+    ".turbo",
+    ".svelte-kit",
+    "vendor",
+    ".gradle",
+    "build",
+    "target",
+    "out",
+    "__pycache__",
+    ".pytest_cache",
+    ".mypy_cache",
+    ".ruff_cache",
+    "venv",
+    ".venv",
+    "env",
+    ".tox",
+    "Pods",
+    ".symlinks",
+    "DerivedData",
+    "dist",
+    "bin",
+    "obj",
+    "tmp",
+    "temp"
+  ],
+  "default_for_workspace": true,
+  "status": "ready",
+  "built_at": "2026-07-04T22:37:43.347035+08:00",
+  "git_commit": "0e33564b0fd346b1809133a1d8a3bf10bac127e5",
+  "source_hash": "3ba9378af5b356820b41e4e3a64bcb20ebd5f076",
+  "stats": {
+    "node_count": 989,
+    "edge_count": 1779,
+    "file_count": 217,
+    "languages": [
+      "rust",
+      "typescript"
+    ],
+    "node_kinds": {
+      "file": 217,
+      "function": 593,
+      "interface": 119,
+      "repo": 1,
+      "type": 59
+    },
+    "edge_kinds": {
+      "contains": 988,
+      "imports": 791
+    },
+    "top_nodes": [
+      {
+        "id": "code:type:9cd74120fe7e6a94b29b",
+        "name": "Action",
+        "kind": "type",
+        "degree": 0
+      },
+      {
+        "id": "code:file:c139e6356846ecf5f7f2",
+        "name": "App.lazy.test.tsx",
+        "kind": "file",
+        "degree": 0
+      },
+      {
+        "id": "code:file:86af372063078f49c888",
+        "name": "App.search.test.tsx",
+        "kind": "file",
+        "degree": 0
+      },
+      {
+        "id": "code:file:394b0fd69a5e0e7f6b2f",
+        "name": "App.test.tsx",
+        "kind": "file",
+        "degree": 0
+      },
+      {
+        "id": "code:file:156caa9087f09a929222",
+        "name": "App.tsx",
+        "kind": "file",
+        "degree": 0
+      },
+      {
+        "id": "code:function:3ab30d078e025f3fb57e",
+        "name": "App2",
+        "kind": "function",
+        "degree": 0
+      },
+      {
+        "id": "code:function:c1b257951688a78871f6",
+        "name": "App2",
+        "kind": "function",
+        "degree": 0
+      },
+      {
+        "id": "code:interface:918a9c30e85b6d938ca2",
+        "name": "AppError",
+        "kind": "interface",
+        "degree": 0
+      },
+      {
+        "id": "code:type:848f778650c84ae3f3e2",
+        "name": "AppError",
+        "kind": "type",
+        "degree": 0
+      },
+      {
+        "id": "code:type:ee36d8e53a24ef694296",
+        "name": "AppErrorCode",
+        "kind": "type",
+        "degree": 0
+      }
+    ],
+    "built_at": "2026-07-04T22:37:43.347035+08:00",
+    "source_hash": "3ba9378af5b356820b41e4e3a64bcb20ebd5f076",
+    "git_commit": "0e33564b0fd346b1809133a1d8a3bf10bac127e5"
+  },
+  "code_map": {
+    "version": 1,
+    "corpus_id": "cg-880c2146c31cd46c",
+    "workspace": "/Users/tshinjeii/oss/kite",
+    "source_hash": "3ba9378af5b356820b41e4e3a64bcb20ebd5f076",
+    "git_commit": "0e33564b0fd346b1809133a1d8a3bf10bac127e5",
+    "built_at": "2026-07-04T22:37:43.347035+08:00",
+    "stats": {
+      "node_count": 989,
+      "edge_count": 1779,
+      "file_count": 217,
+      "languages": [
+        "rust",
+        "typescript"
+      ],
+      "node_kinds": {
+        "file": 217,
+        "function": 593,
+        "interface": 119,
+        "repo": 1,
+        "type": 59
+      },
+      "edge_kinds": {
+        "contains": 988,
+        "imports": 791
+      },
+      "top_nodes": [
+        {
+          "id": "code:type:9cd74120fe7e6a94b29b",
+          "name": "Action",
+          "kind": "type",
+          "degree": 0
+        },
+        {
+          "id": "code:file:c139e6356846ecf5f7f2",
+          "name": "App.lazy.test.tsx",
+          "kind": "file",
+          "degree": 0
+        },
+        {
+          "id": "code:file:86af372063078f49c888",
+          "name": "App.search.test.tsx",
+          "kind": "file",
+          "degree": 0
+        },
+        {
+          "id": "code:file:394b0fd69a5e0e7f6b2f",
+          "name": "App.test.tsx",
+          "kind": "file",
+          "degree": 0
+        },
+        {
+          "id": "code:file:156caa9087f09a929222",
+          "name": "App.tsx",
+          "kind": "file",
+          "degree": 0
+        },
+        {
+          "id": "code:function:3ab30d078e025f3fb57e",
+          "name": "App2",
+          "kind": "function",
+          "degree": 0
+        },
+        {
+          "id": "code:function:c1b257951688a78871f6",
+          "name": "App2",
+          "kind": "function",
+          "degree": 0
+        },
+        {
+          "id": "code:interface:918a9c30e85b6d938ca2",
+          "name": "AppError",
+          "kind": "interface",
+          "degree": 0
+        },
+        {
+          "id": "code:type:848f778650c84ae3f3e2",
+          "name": "AppError",
+          "kind": "type",
+          "degree": 0
+        },
+        {
+          "id": "code:type:ee36d8e53a24ef694296",
+          "name": "AppErrorCode",
+          "kind": "type",
+          "degree": 0
+        }
+      ],
+      "built_at": "2026-07-04T22:37:43.347035+08:00",
+      "source_hash": "3ba9378af5b356820b41e4e3a64bcb20ebd5f076",
+      "git_commit": "0e33564b0fd346b1809133a1d8a3bf10bac127e5"
+    },
+    "top_files": [
+      {
+        "id": "code:file:7b603847389c763ebedb",
+        "kind": "file",
+        "name": "recent_files.rs",
+        "qualified_name": "src-tauri/src/services/recent_files.rs",
+        "path": "src-tauri/src/services/recent_files.rs",
+        "degree": 40,
+        "summary": "src-tauri/src/services/recent_files.rs"
+      },
+      {
+        "id": "code:file:156caa9087f09a929222",
+        "kind": "file",
+        "name": "App.tsx",
+        "qualified_name": "src/App.tsx",
+        "path": "src/App.tsx",
+        "degree": 37,
+        "summary": "src/App.tsx"
+      },
+      {
+        "id": "code:file:afb5aa1aa35e8f8ffe7e",
+        "kind": "file",
+        "name": "preferences.rs",
+        "qualified_name": "src-tauri/src/services/preferences.rs",
+        "path": "src-tauri/src/services/preferences.rs",
+        "degree": 31,
+        "summary": "src-tauri/src/services/preferences.rs"
+      },
+      {
+        "id": "code:file:07900a0c302af58c7d32",
+        "kind": "file",
+        "name": "progress.rs",
+        "qualified_name": "src-tauri/src/services/progress.rs",
+        "path": "src-tauri/src/services/progress.rs",
+        "degree": 31,
+        "summary": "src-tauri/src/services/progress.rs"
+      },
+      {
+        "id": "code:file:a29dd55668d7ab355f09",
+        "kind": "file",
+        "name": "commands.rs",
+        "qualified_name": "src-tauri/src/commands.rs",
+        "path": "src-tauri/src/commands.rs",
+        "degree": 30,
+        "summary": "src-tauri/src/commands.rs"
+      },
+      {
+        "id": "code:file:1f6189e0c1b087a66b55",
+        "kind": "file",
+        "name": "MarkdownRenderer.tsx",
+        "qualified_name": "src/components/MarkdownRenderer.tsx",
+        "path": "src/components/MarkdownRenderer.tsx",
+        "degree": 28,
+        "summary": "src/components/MarkdownRenderer.tsx"
+      },
+      {
+        "id": "code:file:62c152e3aa3d5570b586",
+        "kind": "file",
+        "name": "link-safety.spec.ts",
+        "qualified_name": "e2e/link-safety.spec.ts",
+        "path": "e2e/link-safety.spec.ts",
+        "degree": 28,
+        "summary": "e2e/link-safety.spec.ts"
+      },
+      {
+        "id": "code:file:9072437e3ad40ad4eebd",
+        "kind": "file",
+        "name": "tauri.ts",
+        "qualified_name": "src/lib/tauri.ts",
+        "path": "src/lib/tauri.ts",
+        "degree": 28,
+        "summary": "src/lib/tauri.ts"
+      }
+    ],
+    "hotspots": [
+      {
+        "id": "code:file:7b603847389c763ebedb",
+        "kind": "file",
+        "name": "recent_files.rs",
+        "qualified_name": "src-tauri/src/services/recent_files.rs",
+        "path": "src-tauri/src/services/recent_files.rs",
+        "degree": 40,
+        "summary": "src-tauri/src/services/recent_files.rs"
+      },
+      {
+        "id": "code:file:156caa9087f09a929222",
+        "kind": "file",
+        "name": "App.tsx",
+        "qualified_name": "src/App.tsx",
+        "path": "src/App.tsx",
+        "degree": 37,
+        "summary": "src/App.tsx"
+      },
+      {
+        "id": "code:file:afb5aa1aa35e8f8ffe7e",
+        "kind": "file",
+        "name": "preferences.rs",
+        "qualified_name": "src-tauri/src/services/preferences.rs",
+        "path": "src-tauri/src/services/preferences.rs",
+        "degree": 31,
+        "summary": "src-tauri/src/services/preferences.rs"
+      },
+      {
+        "id": "code:file:07900a0c302af58c7d32",
+        "kind": "file",
+        "name": "progress.rs",
+        "qualified_name": "src-tauri/src/services/progress.rs",
+        "path": "src-tauri/src/services/progress.rs",
+        "degree": 31,
+        "summary": "src-tauri/src/services/progress.rs"
+      },
+      {
+        "id": "code:file:a29dd55668d7ab355f09",
+        "kind": "file",
+        "name": "commands.rs",
+        "qualified_name": "src-tauri/src/commands.rs",
+        "path": "src-tauri/src/commands.rs",
+        "degree": 30,
+        "summary": "src-tauri/src/commands.rs"
+      },
+      {
+        "id": "code:file:1f6189e0c1b087a66b55",
+        "kind": "file",
+        "name": "MarkdownRenderer.tsx",
+        "qualified_name": "src/components/MarkdownRenderer.tsx",
+        "path": "src/components/MarkdownRenderer.tsx",
+        "degree": 28,
+        "summary": "src/components/MarkdownRenderer.tsx"
+      },
+      {
+        "id": "code:file:62c152e3aa3d5570b586",
+        "kind": "file",
+        "name": "link-safety.spec.ts",
+        "qualified_name": "e2e/link-safety.spec.ts",
+        "path": "e2e/link-safety.spec.ts",
+        "degree": 28,
+        "summary": "e2e/link-safety.spec.ts"
+      },
+      {
+        "id": "code:file:9072437e3ad40ad4eebd",
+        "kind": "file",
+        "name": "tauri.ts",
+        "qualified_name": "src/lib/tauri.ts",
+        "path": "src/lib/tauri.ts",
+        "degree": 28,
+        "summary": "src/lib/tauri.ts"
+      },
+      {
+        "id": "code:file:4a99fef8258d96e9f2de",
+        "kind": "file",
+        "name": "external.rs",
+        "qualified_name": "src-tauri/src/services/external.rs",
+        "path": "src-tauri/src/services/external.rs",
+        "degree": 27,
+        "summary": "src-tauri/src/services/external.rs"
+      },
+      {
+        "id": "code:file:73de7fe978d939d45537",
+        "kind": "file",
+        "name": "markdown_file.rs",
+        "qualified_name": "src-tauri/src/services/markdown_file.rs",
+        "path": "src-tauri/src/services/markdown_file.rs",
+        "degree": 27,
+        "summary": "src-tauri/src/services/markdown_file.rs"
+      },
+      {
+        "id": "code:file:29e7d02e354ade4a8fba",
+        "kind": "file",
+        "name": "pipeline.ts",
+        "qualified_name": "src/lib/pipeline.ts",
+        "path": "src/lib/pipeline.ts",
+        "degree": 26,
+        "summary": "src/lib/pipeline.ts"
+      },
+      {
+        "id": "code:file:b7cd63059fb560ad5556",
+        "kind": "file",
+        "name": "Reader.tsx",
+        "qualified_name": "src/components/Reader.tsx",
+        "path": "src/components/Reader.tsx",
+        "degree": 23,
+        "summary": "src/components/Reader.tsx"
+      }
+    ],
+    "confidence_audit": {
+      "edge_count": 1779,
+      "average_confidence": 0.8221472737492599,
+      "by_confidence": {
+        "EXTRACTED": 988,
+        "INFERRED": 791
+      },
+      "unresolved_count": 791,
+      "low_confidence_count": 791,
+      "ambiguous_count": 0,
+      "unresolved_edges": [
+        {
+          "id": "edge:imports:012f9a45b1756fe80b128e6e",
+          "kind": "imports",
+          "source_id": "code:file:ebe055afffd24696c5e9",
+          "target_ref": "kite_lib::services::recent_files",
+          "file_path": "src-tauri/src/main.rs",
+          "line_start": 20,
+          "line_end": 20,
+          "confidence": "INFERRED",
+          "confidence_score": 0.6,
+          "metadata": {
+            "extractor": "regex:rust"
+          },
+          "updated_at": "2026-07-04T14:37:43.075018Z"
+        },
+        {
+          "id": "edge:imports:06478770b21642eccaae77a8",
+          "kind": "imports",
+          "source_id": "code:file:a29dd55668d7ab355f09",
+          "target_ref": "crate::services::preferences::ThemeMode",
+          "file_path": "src-tauri/src/commands.rs",
+          "line_start": 364,
+          "line_end": 364,
+          "confidence": "INFERRED",
+          "confidence_score": 0.6,
+          "metadata": {
+            "extractor": "regex:rust"
+          },
+          "updated_at": "2026-07-04T14:37:43.075018Z"
+        },
+        {
+          "id": "edge:imports:06994634cce2ad9b9e9a1ebd",
+          "kind": "imports",
+          "source_id": "code:file:59421f396216e97613e4",
+          "target_ref": "std::fs",
+          "file_path": "src-tauri/src/services/exporter.rs",
+          "line_start": 19,
+          "line_end": 19,
+          "confidence": "INFERRED",
+          "confidence_score": 0.6,
+          "metadata": {
+            "extractor": "regex:rust"
+          },
+          "updated_at": "2026-07-04T14:37:43.075018Z"
+        },
+        {
+          "id": "edge:imports:09beaeeb06d3a1b7707581a8",
+          "kind": "imports",
+          "source_id": "code:file:07900a0c302af58c7d32",
+          "target_ref": "std::collections::HashMap",
+          "file_path": "src-tauri/src/services/progress.rs",
+          "line_start": 20,
+          "line_end": 20,
+          "confidence": "INFERRED",
+          "confidence_score": 0.6,
+          "metadata": {
+            "extractor": "regex:rust"
+          },
+          "updated_at": "2026-07-04T14:37:43.075018Z"
+        },
+        {
+          "id": "edge:imports:11f45a8e8df62a4ccde3f3c7",
+          "kind": "imports",
+          "source_id": "code:file:afb5aa1aa35e8f8ffe7e",
+          "target_ref": "tauri_plugin_store::StoreExt",
+          "file_path": "src-tauri/src/services/preferences.rs",
+          "line_start": 18,
+          "line_end": 18,
+          "confidence": "INFERRED",
+          "confidence_score": 0.6,
+          "metadata": {
+            "extractor": "regex:rust"
+          },
+          "updated_at": "2026-07-04T14:37:43.075018Z"
+        },
+        {
+          "id": "edge:imports:1241bbd64a3cbca75975a5c4",
+          "kind": "imports",
+          "source_id": "code:file:ebe055afffd24696c5e9",
+          "target_ref": "tauri::Manager",
+          "file_path": "src-tauri/src/main.rs",
+          "line_start": 21,
+          "line_end": 21,
+          "confidence": "INFERRED",
+          "confidence_score": 0.6,
+          "metadata": {
+            "extractor": "regex:rust"
+          },
+          "updated_at": "2026-07-04T14:37:43.075018Z"
+        },
+        {
+          "id": "edge:imports:15962147aeb33d5e93450a62",
+          "kind": "imports",
+          "source_id": "code:file:73de7fe978d939d45537",
+          "target_ref": "std::path::",
+          "file_path": "src-tauri/src/services/markdown_file.rs",
+          "line_start": 23,
+          "line_end": 23,
+          "confidence": "INFERRED",
+          "confidence_score": 0.6,
+          "metadata": {
+            "extractor": "regex:rust"
+          },
+          "updated_at": "2026-07-04T14:37:43.075018Z"
+        },
+        {
+          "id": "edge:imports:1b2c928837b7b64a6673a51b",
+          "kind": "imports",
+          "source_id": "code:file:0f79bac4a0ca90d291df",
+          "target_ref": "serde::",
+          "file_path": "src-tauri/src/services/fs_reader.rs",
+          "line_start": 21,
+          "line_end": 21,
+          "confidence": "INFERRED",
+          "confidence_score": 0.6,
+          "metadata": {
+            "extractor": "regex:rust"
+          },
+          "updated_at": "2026-07-04T14:37:43.075018Z"
+        },
+        {
+          "id": "edge:imports:1d088e8d23df7c22c46d0e4b",
+          "kind": "imports",
+          "source_id": "code:file:07900a0c302af58c7d32",
+          "target_ref": "tauri_plugin_store::StoreExt",
+          "file_path": "src-tauri/src/services/progress.rs",
+          "line_start": 24,
+          "line_end": 24,
+          "confidence": "INFERRED",
+          "confidence_score": 0.6,
+          "metadata": {
+            "extractor": "regex:rust"
+          },
+          "updated_at": "2026-07-04T14:37:43.075018Z"
+        },
+        {
+          "id": "edge:imports:1d4b08d3bbe60ff41a62830c",
+          "kind": "imports",
+          "source_id": "code:file:59421f396216e97613e4",
+          "target_ref": "std::path::",
+          "file_path": "src-tauri/src/services/exporter.rs",
+          "line_start": 20,
+          "line_end": 20,
+          "confidence": "INFERRED",
+          "confidence_score": 0.6,
+          "metadata": {
+            "extractor": "regex:rust"
+          },
+          "updated_at": "2026-07-04T14:37:43.075018Z"
+        },
+        {
+          "id": "edge:imports:1d649c55cafda08c2dbeb315",
+          "kind": "imports",
+          "source_id": "code:file:ebe055afffd24696c5e9",
+          "target_ref": "kite_lib::commands",
+          "file_path": "src-tauri/src/main.rs",
+          "line_start": 19,
+          "line_end": 19,
+          "confidence": "INFERRED",
+          "confidence_score": 0.6,
+          "metadata": {
+            "extractor": "regex:rust"
+          },
+          "updated_at": "2026-07-04T14:37:43.075018Z"
+        },
+        {
+          "id": "edge:imports:20b48a8d552ff8a09ba99257",
+          "kind": "imports",
+          "source_id": "code:file:73de7fe978d939d45537",
+          "target_ref": "super::",
+          "file_path": "src-tauri/src/services/markdown_file.rs",
+          "line_start": 256,
+          "line_end": 256,
+          "confidence": "INFERRED",
+          "confidence_score": 0.6,
+          "metadata": {
+            "extractor": "regex:rust"
+          },
+          "updated_at": "2026-07-04T14:37:43.075018Z"
+        }
+      ],
+      "low_confidence_edges": [
+        {
+          "id": "edge:imports:012f9a45b1756fe80b128e6e",
+          "kind": "imports",
+          "source_id": "code:file:ebe055afffd24696c5e9",
+          "target_ref": "kite_lib::services::recent_files",
+          "file_path": "src-tauri/src/main.rs",
+          "line_start": 20,
+          "line_end": 20,
+          "confidence": "INFERRED",
+          "confidence_score": 0.6,
+          "metadata": {
+            "extractor": "regex:rust"
+          },
+          "updated_at": "2026-07-04T14:37:43.075018Z"
+        },
+        {
+          "id": "edge:imports:06478770b21642eccaae77a8",
+          "kind": "imports",
+          "source_id": "code:file:a29dd55668d7ab355f09",
+          "target_ref": "crate::services::preferences::ThemeMode",
+          "file_path": "src-tauri/src/commands.rs",
+          "line_start": 364,
+          "line_end": 364,
+          "confidence": "INFERRED",
+          "confidence_score": 0.6,
+          "metadata": {
+            "extractor": "regex:rust"
+          },
+          "updated_at": "2026-07-04T14:37:43.075018Z"
+        },
+        {
+          "id": "edge:imports:06994634cce2ad9b9e9a1ebd",
+          "kind": "imports",
+          "source_id": "code:file:59421f396216e97613e4",
+          "target_ref": "std::fs",
+          "file_path": "src-tauri/src/services/exporter.rs",
+          "line_start": 19,
+          "line_end": 19,
+          "confidence": "INFERRED",
+          "confidence_score": 0.6,
+          "metadata": {
+            "extractor": "regex:rust"
+          },
+          "updated_at": "2026-07-04T14:37:43.075018Z"
+        },
+        {
+          "id": "edge:imports:09beaeeb06d3a1b7707581a8",
+          "kind": "imports",
+          "source_id": "code:file:07900a0c302af58c7d32",
+          "target_ref": "std::collections::HashMap",
+          "file_path": "src-tauri/src/services/progress.rs",
+          "line_start": 20,
+          "line_end": 20,
+          "confidence": "INFERRED",
+          "confidence_score": 0.6,
+          "metadata": {
+            "extractor": "regex:rust"
+          },
+          "updated_at": "2026-07-04T14:37:43.075018Z"
+        },
+        {
+          "id": "edge:imports:11f45a8e8df62a4ccde3f3c7",
+          "kind": "imports",
+          "source_id": "code:file:afb5aa1aa35e8f8ffe7e",
+          "target_ref": "tauri_plugin_store::StoreExt",
+          "file_path": "src-tauri/src/services/preferences.rs",
+          "line_start": 18,
+          "line_end": 18,
+          "confidence": "INFERRED",
+          "confidence_score": 0.6,
+          "metadata": {
+            "extractor": "regex:rust"
+          },
+          "updated_at": "2026-07-04T14:37:43.075018Z"
+        },
+        {
+          "id": "edge:imports:1241bbd64a3cbca75975a5c4",
+          "kind": "imports",
+          "source_id": "code:file:ebe055afffd24696c5e9",
+          "target_ref": "tauri::Manager",
+          "file_path": "src-tauri/src/main.rs",
+          "line_start": 21,
+          "line_end": 21,
+          "confidence": "INFERRED",
+          "confidence_score": 0.6,
+          "metadata": {
+            "extractor": "regex:rust"
+          },
+          "updated_at": "2026-07-04T14:37:43.075018Z"
+        },
+        {
+          "id": "edge:imports:15962147aeb33d5e93450a62",
+          "kind": "imports",
+          "source_id": "code:file:73de7fe978d939d45537",
+          "target_ref": "std::path::",
+          "file_path": "src-tauri/src/services/markdown_file.rs",
+          "line_start": 23,
+          "line_end": 23,
+          "confidence": "INFERRED",
+          "confidence_score": 0.6,
+          "metadata": {
+            "extractor": "regex:rust"
+          },
+          "updated_at": "2026-07-04T14:37:43.075018Z"
+        },
+        {
+          "id": "edge:imports:1b2c928837b7b64a6673a51b",
+          "kind": "imports",
+          "source_id": "code:file:0f79bac4a0ca90d291df",
+          "target_ref": "serde::",
+          "file_path": "src-tauri/src/services/fs_reader.rs",
+          "line_start": 21,
+          "line_end": 21,
+          "confidence": "INFERRED",
+          "confidence_score": 0.6,
+          "metadata": {
+            "extractor": "regex:rust"
+          },
+          "updated_at": "2026-07-04T14:37:43.075018Z"
+        },
+        {
+          "id": "edge:imports:1d088e8d23df7c22c46d0e4b",
+          "kind": "imports",
+          "source_id": "code:file:07900a0c302af58c7d32",
+          "target_ref": "tauri_plugin_store::StoreExt",
+          "file_path": "src-tauri/src/services/progress.rs",
+          "line_start": 24,
+          "line_end": 24,
+          "confidence": "INFERRED",
+          "confidence_score": 0.6,
+          "metadata": {
+            "extractor": "regex:rust"
+          },
+          "updated_at": "2026-07-04T14:37:43.075018Z"
+        },
+        {
+          "id": "edge:imports:1d4b08d3bbe60ff41a62830c",
+          "kind": "imports",
+          "source_id": "code:file:59421f396216e97613e4",
+          "target_ref": "std::path::",
+          "file_path": "src-tauri/src/services/exporter.rs",
+          "line_start": 20,
+          "line_end": 20,
+          "confidence": "INFERRED",
+          "confidence_score": 0.6,
+          "metadata": {
+            "extractor": "regex:rust"
+          },
+          "updated_at": "2026-07-04T14:37:43.075018Z"
+        },
+        {
+          "id": "edge:imports:1d649c55cafda08c2dbeb315",
+          "kind": "imports",
+          "source_id": "code:file:ebe055afffd24696c5e9",
+          "target_ref": "kite_lib::commands",
+          "file_path": "src-tauri/src/main.rs",
+          "line_start": 19,
+          "line_end": 19,
+          "confidence": "INFERRED",
+          "confidence_score": 0.6,
+          "metadata": {
+            "extractor": "regex:rust"
+          },
+          "updated_at": "2026-07-04T14:37:43.075018Z"
+        },
+        {
+          "id": "edge:imports:20b48a8d552ff8a09ba99257",
+          "kind": "imports",
+          "source_id": "code:file:73de7fe978d939d45537",
+          "target_ref": "super::",
+          "file_path": "src-tauri/src/services/markdown_file.rs",
+          "line_start": 256,
+          "line_end": 256,
+          "confidence": "INFERRED",
+          "confidence_score": 0.6,
+          "metadata": {
+            "extractor": "regex:rust"
+          },
+          "updated_at": "2026-07-04T14:37:43.075018Z"
+        }
+      ]
+    },
+    "route_map": {
+      "entrypoints": [
+        {
+          "id": "code:function:6dfa549a853639fa39b7",
+          "name": "src-tauri/build.rs::main",
+          "kind": "function",
+          "file_path": "src-tauri/build.rs",
+          "line_start": 1,
+          "summary": "entry candidate: executable entry; score=100"
+        },
+        {
+          "id": "code:function:cdfaf972e7effcf50459",
+          "name": "src-tauri/src/main.rs::main",
+          "kind": "function",
+          "file_path": "src-tauri/src/main.rs",
+          "line_start": 23,
+          "summary": "entry candidate: executable entry; score=100"
+        },
+        {
+          "id": "code:function:c0219497e7cb41475f1e",
+          "name": "src-tauri/src/services/recent_files.rs::init_state",
+          "kind": "function",
+          "file_path": "src-tauri/src/services/recent_files.rs",
+          "line_start": 68,
+          "summary": "entry candidate: named lifecycle function; score=28"
+        },
+        {
+          "id": "code:function:436d4fc17245cf76b787",
+          "name": "src-tauri/src/services/recent_files.rs::init_state_yields_empty_deque",
+          "kind": "function",
+          "file_path": "src-tauri/src/services/recent_files.rs",
+          "line_start": 278,
+          "summary": "entry candidate: named lifecycle function; score=28"
+        },
+        {
+          "id": "code:function:194755e9185476576ec9",
+          "name": "src/components/__tests__/SearchBar.test.tsx::Starter",
+          "kind": "function",
+          "file_path": "src/components/__tests__/SearchBar.test.tsx",
+          "line_start": 301,
+          "summary": "entry candidate: named lifecycle function; score=28"
+        },
+        {
+          "id": "code:function:0a3fc8c8122d26ddfaf4",
+          "name": "src/components/inline/HeadingAnchor.tsx::registerOutlineIds",
+          "kind": "function",
+          "file_path": "src/components/inline/HeadingAnchor.tsx",
+          "line_start": 31,
+          "summary": "entry candidate: named lifecycle function; score=28"
+        },
+        {
+          "id": "code:function:704f28bcf69328138ac4",
+          "name": "src/hooks/useKeyboard.ts::registerGlobalShortcuts",
+          "kind": "function",
+          "file_path": "src/hooks/useKeyboard.ts",
+          "line_start": 216,
+          "summary": "entry candidate: named lifecycle function; score=28"
+        },
+        {
+          "id": "code:function:555a9a6effe29de2c8a5",
+          "name": "src/hooks/useKeyboard.ts::registerSearchShortcuts",
+          "kind": "function",
+          "file_path": "src/hooks/useKeyboard.ts",
+          "line_start": 263,
+          "summary": "entry candidate: named lifecycle function; score=28"
+        },
+        {
+          "id": "code:function:d28d2b7b980a7530a6b7",
+          "name": "src/hooks/useMarkdownDoc.ts::runLargeDocParse",
+          "kind": "function",
+          "file_path": "src/hooks/useMarkdownDoc.ts",
+          "line_start": 116,
+          "summary": "entry candidate: named lifecycle function; score=28"
+        },
+        {
+          "id": "code:function:9aa7a90661cb1ea25683",
+          "name": "src/App.tsx::handleReaderMounted",
+          "kind": "function",
+          "file_path": "src/App.tsx",
+          "line_start": 139,
+          "summary": "entry candidate: handler; score=18"
+        }
+      ],
+      "domain_areas": [
+        {
+          "name": "(root)",
+          "summary": "route-map domain area",
+          "keywords": [
+            "(root)"
+          ],
+          "entrypoints": [
+            {
+              "id": "code:function:6dfa549a853639fa39b7",
+              "kind": "function",
+              "name": "src-tauri/build.rs::main",
+              "qualified_name": "src-tauri/build.rs::main",
+              "path": "src-tauri/build.rs",
+              "summary": "entry candidate: executable entry; score=100"
+            },
+            {
+              "id": "code:function:cdfaf972e7effcf50459",
+              "kind": "function",
+              "name": "src-tauri/src/main.rs::main",
+              "qualified_name": "src-tauri/src/main.rs::main",
+              "path": "src-tauri/src/main.rs",
+              "summary": "entry candidate: executable entry; score=100"
+            },
+            {
+              "id": "code:function:c0219497e7cb41475f1e",
+              "kind": "function",
+              "name": "src-tauri/src/services/recent_files.rs::init_state",
+              "qualified_name": "src-tauri/src/services/recent_files.rs::init_state",
+              "path": "src-tauri/src/services/recent_files.rs",
+              "summary": "entry candidate: named lifecycle function; score=28"
+            },
+            {
+              "id": "code:function:436d4fc17245cf76b787",
+              "kind": "function",
+              "name": "src-tauri/src/services/recent_files.rs::init_state_yields_empty_deque",
+              "qualified_name": "src-tauri/src/services/recent_files.rs::init_state_yields_empty_deque",
+              "path": "src-tauri/src/services/recent_files.rs",
+              "summary": "entry candidate: named lifecycle function; score=28"
+            }
+          ]
+        },
+        {
+          "name": "src-tauri/src",
+          "summary": "route-map domain area",
+          "keywords": [
+            "src",
+            "tauri"
+          ],
+          "hotspots": [
+            {
+              "id": "code:file:7b603847389c763ebedb",
+              "kind": "file",
+              "name": "recent_files.rs",
+              "qualified_name": "src-tauri/src/services/recent_files.rs",
+              "path": "src-tauri/src/services/recent_files.rs",
+              "degree": 40,
+              "summary": "src-tauri/src/services/recent_files.rs"
+            },
+            {
+              "id": "code:file:afb5aa1aa35e8f8ffe7e",
+              "kind": "file",
+              "name": "preferences.rs",
+              "qualified_name": "src-tauri/src/services/preferences.rs",
+              "path": "src-tauri/src/services/preferences.rs",
+              "degree": 31,
+              "summary": "src-tauri/src/services/preferences.rs"
+            },
+            {
+              "id": "code:file:07900a0c302af58c7d32",
+              "kind": "file",
+              "name": "progress.rs",
+              "qualified_name": "src-tauri/src/services/progress.rs",
+              "path": "src-tauri/src/services/progress.rs",
+              "degree": 31,
+              "summary": "src-tauri/src/services/progress.rs"
+            },
+            {
+              "id": "code:file:a29dd55668d7ab355f09",
+              "kind": "file",
+              "name": "commands.rs",
+              "qualified_name": "src-tauri/src/commands.rs",
+              "path": "src-tauri/src/commands.rs",
+              "degree": 30,
+              "summary": "src-tauri/src/commands.rs"
+            }
+          ]
+        },
+        {
+          "name": "src/lib",
+          "summary": "route-map domain area",
+          "keywords": [
+            "src",
+            "lib"
+          ],
+          "hotspots": [
+            {
+              "id": "code:file:9072437e3ad40ad4eebd",
+              "kind": "file",
+              "name": "tauri.ts",
+              "qualified_name": "src/lib/tauri.ts",
+              "path": "src/lib/tauri.ts",
+              "degree": 28,
+              "summary": "src/lib/tauri.ts"
+            },
+            {
+              "id": "code:file:29e7d02e354ade4a8fba",
+              "kind": "file",
+              "name": "pipeline.ts",
+              "qualified_name": "src/lib/pipeline.ts",
+              "path": "src/lib/pipeline.ts",
+              "degree": 26,
+              "summary": "src/lib/pipeline.ts"
+            }
+          ]
+        },
+        {
+          "name": "src/components",
+          "summary": "route-map domain area",
+          "keywords": [
+            "src",
+            "components"
+          ],
+          "hotspots": [
+            {
+              "id": "code:file:1f6189e0c1b087a66b55",
+              "kind": "file",
+              "name": "MarkdownRenderer.tsx",
+              "qualified_name": "src/components/MarkdownRenderer.tsx",
+              "path": "src/components/MarkdownRenderer.tsx",
+              "degree": 28,
+              "summary": "src/components/MarkdownRenderer.tsx"
+            },
+            {
+              "id": "code:file:b7cd63059fb560ad5556",
+              "kind": "file",
+              "name": "Reader.tsx",
+              "qualified_name": "src/components/Reader.tsx",
+              "path": "src/components/Reader.tsx",
+              "degree": 23,
+              "summary": "src/components/Reader.tsx"
+            }
+          ]
+        },
+        {
+          "name": "src",
+          "summary": "route-map domain area",
+          "keywords": [
+            "src"
+          ],
+          "hotspots": [
+            {
+              "id": "code:file:156caa9087f09a929222",
+              "kind": "file",
+              "name": "App.tsx",
+              "qualified_name": "src/App.tsx",
+              "path": "src/App.tsx",
+              "degree": 37,
+              "summary": "src/App.tsx"
+            }
+          ]
+        }
+      ],
+      "investigation_routes": [
+        {
+          "topic": "(root)",
+          "intent_hints": [
+            "(root)"
+          ],
+          "start": [
+            {
+              "id": "code:function:6dfa549a853639fa39b7",
+              "kind": "function",
+              "name": "src-tauri/build.rs::main",
+              "qualified_name": "src-tauri/build.rs::main",
+              "path": "src-tauri/build.rs",
+              "summary": "entry candidate: executable entry; score=100"
+            },
+            {
+              "id": "code:function:cdfaf972e7effcf50459",
+              "kind": "function",
+              "name": "src-tauri/src/main.rs::main",
+              "qualified_name": "src-tauri/src/main.rs::main",
+              "path": "src-tauri/src/main.rs",
+              "summary": "entry candidate: executable entry; score=100"
+            },
+            {
+              "id": "code:function:c0219497e7cb41475f1e",
+              "kind": "function",
+              "name": "src-tauri/src/services/recent_files.rs::init_state",
+              "qualified_name": "src-tauri/src/services/recent_files.rs::init_state",
+              "path": "src-tauri/src/services/recent_files.rs",
+              "summary": "entry candidate: named lifecycle function; score=28"
+            }
+          ],
+          "steps": [
+            "Use the first query seed to get a compact structural context for this area.",
+            "Read the entrypoint or highest-degree package file before making precise claims.",
+            "Use callers/callees/impact only after a concrete symbol is identified.",
+            "Use grep_search for literal config keys, log messages, SQL, and error strings."
+          ],
+          "query_seeds": [
+            {
+              "label": "Explore (root)",
+              "tool": "codegraph_query",
+              "pattern": "explore_area",
+              "target": "code:function:6dfa549a853639fa39b7",
+              "why": "Return a compact local map before reading many files."
+            },
+            {
+              "label": "Context for code:function:6dfa549a853639fa39b7",
+              "tool": "codegraph_query",
+              "pattern": "context_for",
+              "target": "code:function:6dfa549a853639fa39b7",
+              "why": "Collect related symbols, relationships, and source snippets."
+            },
+            {
+              "label": "Trace src-tauri/build.rs::main",
+              "tool": "codegraph_query",
+              "pattern": "flow_trace",
+              "target": "code:function:6dfa549a853639fa39b7",
+              "why": "Follow first-hop execution from the likely entrypoint."
+            }
+          ]
+        },
+        {
+          "topic": "src-tauri/src",
+          "intent_hints": [
+            "src",
+            "tauri"
+          ],
+          "steps": [
+            "Use the first query seed to get a compact structural context for this area.",
+            "Read the entrypoint or highest-degree package file before making precise claims.",
+            "Use callers/callees/impact only after a concrete symbol is identified.",
+            "Use grep_search for literal config keys, log messages, SQL, and error strings."
+          ],
+          "query_seeds": [
+            {
+              "label": "Explore src-tauri/src",
+              "tool": "codegraph_query",
+              "pattern": "explore_area",
+              "target": "src-tauri/src",
+              "why": "Return a compact local map before reading many files."
+            },
+            {
+              "label": "Context for src-tauri/src",
+              "tool": "codegraph_query",
+              "pattern": "context_for",
+              "target": "src-tauri/src",
+              "why": "Collect related symbols, relationships, and source snippets."
+            }
+          ]
+        },
+        {
+          "topic": "src/lib",
+          "intent_hints": [
+            "src",
+            "lib"
+          ],
+          "steps": [
+            "Use the first query seed to get a compact structural context for this area.",
+            "Read the entrypoint or highest-degree package file before making precise claims.",
+            "Use callers/callees/impact only after a concrete symbol is identified.",
+            "Use grep_search for literal config keys, log messages, SQL, and error strings."
+          ],
+          "query_seeds": [
+            {
+              "label": "Explore src/lib",
+              "tool": "codegraph_query",
+              "pattern": "explore_area",
+              "target": "src/lib",
+              "why": "Return a compact local map before reading many files."
+            },
+            {
+              "label": "Context for src/lib",
+              "tool": "codegraph_query",
+              "pattern": "context_for",
+              "target": "src/lib",
+              "why": "Collect related symbols, relationships, and source snippets."
+            }
+          ]
+        },
+        {
+          "topic": "src/components",
+          "intent_hints": [
+            "src",
+            "components"
+          ],
+          "steps": [
+            "Use the first query seed to get a compact structural context for this area.",
+            "Read the entrypoint or highest-degree package file before making precise claims.",
+            "Use callers/callees/impact only after a concrete symbol is identified.",
+            "Use grep_search for literal config keys, log messages, SQL, and error strings."
+          ],
+          "query_seeds": [
+            {
+              "label": "Explore src/components",
+              "tool": "codegraph_query",
+              "pattern": "explore_area",
+              "target": "src/components",
+              "why": "Return a compact local map before reading many files."
+            },
+            {
+              "label": "Context for src/components",
+              "tool": "codegraph_query",
+              "pattern": "context_for",
+              "target": "src/components",
+              "why": "Collect related symbols, relationships, and source snippets."
+            }
+          ]
+        },
+        {
+          "topic": "src",
+          "intent_hints": [
+            "src"
+          ],
+          "steps": [
+            "Use the first query seed to get a compact structural context for this area.",
+            "Read the entrypoint or highest-degree package file before making precise claims.",
+            "Use callers/callees/impact only after a concrete symbol is identified.",
+            "Use grep_search for literal config keys, log messages, SQL, and error strings."
+          ],
+          "query_seeds": [
+            {
+              "label": "Explore src",
+              "tool": "codegraph_query",
+              "pattern": "explore_area",
+              "target": "src",
+              "why": "Return a compact local map before reading many files."
+            },
+            {
+              "label": "Context for src",
+              "tool": "codegraph_query",
+              "pattern": "context_for",
+              "target": "src",
+              "why": "Collect related symbols, relationships, and source snippets."
+            }
+          ]
+        }
+      ],
+      "query_seeds": [
+        {
+          "label": "Architecture communities",
+          "tool": "codegraph_query",
+          "pattern": "community_analysis",
+          "why": "High-level module grouping."
+        },
+        {
+          "label": "Cross-community coupling",
+          "tool": "codegraph_query",
+          "pattern": "cross_community_coupling",
+          "why": "Find package areas that interact heavily."
+        },
+        {
+          "label": "Entry flows",
+          "tool": "codegraph_query",
+          "pattern": "entry_flows",
+          "why": "Find likely runtime entrypoints and major execution traces."
+        },
+        {
+          "label": "Risk hotspots",
+          "tool": "codegraph_query",
+          "pattern": "risk_hotspots",
+          "why": "Prioritize high-degree, low-test, high-impact symbols."
+        },
+        {
+          "label": "Explore (root)",
+          "tool": "codegraph_query",
+          "pattern": "explore_area",
+          "target": "code:function:6dfa549a853639fa39b7",
+          "why": "Start a feature investigation in this domain area."
+        },
+        {
+          "label": "Search (root)",
+          "tool": "codegraph_search",
+          "query": "(root)",
+          "why": "Find concrete symbols/files for this domain keyword."
+        },
+        {
+          "label": "Explore src-tauri/src",
+          "tool": "codegraph_query",
+          "pattern": "explore_area",
+          "target": "src-tauri/src",
+          "why": "Start a feature investigation in this domain area."
+        },
+        {
+          "label": "Search src",
+          "tool": "codegraph_search",
+          "query": "src",
+          "why": "Find concrete symbols/files for this domain keyword."
+        },
+        {
+          "label": "Explore src/lib",
+          "tool": "codegraph_query",
+          "pattern": "explore_area",
+          "target": "src/lib",
+          "why": "Start a feature investigation in this domain area."
+        },
+        {
+          "label": "Search src",
+          "tool": "codegraph_search",
+          "query": "src",
+          "why": "Find concrete symbols/files for this domain keyword."
+        },
+        {
+          "label": "Explore src/components",
+          "tool": "codegraph_query",
+          "pattern": "explore_area",
+          "target": "src/components",
+          "why": "Start a feature investigation in this domain area."
+        },
+        {
+          "label": "Search src",
+          "tool": "codegraph_search",
+          "query": "src",
+          "why": "Find concrete symbols/files for this domain keyword."
+        }
+      ],
+      "confidence_gates": [
+        {
+          "issue": "unresolved call refs",
+          "count": 791,
+          "guidance": "Treat missing targets as a signal to search source text or inspect generated/external boundaries."
+        },
+        {
+          "issue": "low-confidence structural edges",
+          "count": 791,
+          "guidance": "Use CodeGraph for orientation, then verify source before precise behavior claims."
+        }
+      ]
+    },
+    "prompt_preview": "# Code Graph Route Map\n\n- Corpus: `cg-880c2146c31cd46c`\n- Workspace: `/Users/tshinjeii/oss/kite`\n- Status: `building`\n- Built at: `2026-07-04T22:37:43+08:00`\n- Stats: `989` nodes, `1779` edges, `217` files, languages `rust, typescript`\n\n- Node kinds: `file=217`, `function=593`, `interface=119`, `repo=1`, `type=59`\n- Edge kinds: `contains=988`, `imports=791`\n## How To Use\n\n- For narrow bug triage or a user-provided issue title, use `codegraph_search` as the structural locator for the primary symbol/file/concept. Then run `context_for` or `explore_area` on the best graph result before raw `read_file`. Inspect `context_for.insights` for peer comparisons, implementation candidates, and construction/injection paths. Treat returned snippets as already-read source and stop expanding once the root cause is clear. Use `grep_search` only for literal text, regex, log strings, or config keys.\n- Start with an `Investigation Route` when the user asks a broad feature, architecture, bug, or impact question. Pick the route whose intent hints match the task, run its first query seed, then inspect the returned files/snippets.\n- Use `Entrypoints` as runtime starting points for flow tracing. They are likely executables, handlers, listeners, schedulers, gateways, or lifecycle functions.\n- Use `Domain Areas` as workspace regions. They narrow the search to packages and entrypoints before reading individual files.\n- Use `Query Seeds` as ready-to-run tool calls for broad structure work. Prefer `grep_search` for exact strings, config keys, SQL, logs, regex, and path/include-scoped text.\n- Treat `Confidence Gates` as verification reminders. Code Graph is structural context, so confirm dynamic dispatch, unresolved calls, and generated/external boundaries in source before precise claims or edits.\n\n## Investigation Routes\n\n### (root)\n\n- Intent hints: `(root)`\n- Start here: `src-tauri/build.rs::main`, `src-tauri/src/main.rs::main`, `src-tauri/src/services/recent_files.rs::init_state`\n- Steps:\n  - Use the first query seed to get a compact structural context for this area.\n  - Read the entrypoint or highest-degree package file before making precise claims.\n  - Use callers/callees/impact only after a concrete symbol is identified.\n  - Use grep_search for literal config keys, log messages, SQL, and error strings.\n- Query seeds:\n  - `Explore (root)`: `codegraph_query(code_graph_id=\"cg-880c2146c31cd46c\", pattern=\"explore_area\", target=\"code:function:6dfa549a853639fa39b7\")`\n    - Why: Return a compact local map before reading many files.\n  - `Context for code:function:6dfa549a853639fa39b7`: `codegraph_query(code_graph_id=\"cg-880c2146c31cd46c\", pattern=\"context_for\", target=\"code:function:6dfa549a853639fa39b7\")`\n    - Why: Collect related symbols, relationships, and source snippets.\n  - `Trace src-tauri/build.rs::main`: `codegraph_query(code_graph_id=\"cg-880c2146c31cd46c\", pattern=\"flow_trace\", target=\"code:function:6dfa549a853639fa39b7\")`\n    - Why: Follow first-hop execution from the likely entrypoint.\n\n### src-tauri/src\n\n- Intent hints: `src`, `tauri`\n- Steps:\n  - Use the first query seed to get a compact structural context for this area.\n  - Read the entrypoint or highest-degree package file before making precise claims.\n  - Use callers/callees/impact only after a concrete symbol is identified.\n  - Use grep_search for literal config keys, log messages, SQL, and error strings.\n- Query seeds:\n  - `Explore src-tauri/src`: `codegraph_query(code_graph_id=\"cg-880c2146c31cd46c\", pattern=\"explore_area\", target=\"src-tauri/src\")`\n    - Why: Return a compact local map before reading many files.\n  - `Context for src-tauri/src`: `codegraph_query(code_graph_id=\"cg-880c2146c31cd46c\", pattern=\"context_for\", target=\"src-tauri/src\")`\n    - Why: Collect related symbols, relationships, and source snippets.\n\n### src/lib\n\n- Intent hints: `src`, `lib`\n- Steps:\n  - Use the first query seed to get a compact structural context for this area.\n  - Read the entrypoint or highest-degree package file before making precise claims.\n  - Use callers/callees/impact only after a concrete symbol is identified.\n  - Use grep_search for literal config keys, log messages, SQL, and error strings.\n- Query seeds:\n  - `Explore src/lib`: `codegraph_query(code_graph_id=\"cg-880c2146c31cd46c\", pattern=\"explore_area\", target=\"src/lib\")`\n    - Why: Return a compact local map before reading many files.\n  - `Context for src/lib`: `codegraph_query(code_graph_id=\"cg-880c2146c31cd46c\", pattern=\"context_for\", target=\"src/lib\")`\n    - Why: Collect related symbols, relationships, and source snippets.\n\n### src/components\n\n- Intent hints: `src`, `components`\n- Steps:\n  - Use the first query seed to get a compact structural context for this area.\n  - Read the entrypoint or highest-degree package file before making precise claims.\n  - Use callers/callees/impact only after a concrete symbol is identified.\n  - Use grep_search for literal config keys, log messages, SQL, and error strings.\n- Query seeds:\n  - `Explore src/components`: `codegraph_query(code_graph_id=\"cg-880c2146c31cd46c\", pattern=\"explore_area\", target=\"src/components\")`\n    - Why: Return a compact local map before reading many files.\n  - `Context for src/components`: `codegraph_query(code_graph_id=\"cg-880c2146c31cd46c\", pattern=\"context_for\", target=\"src/components\")`\n    - Why: Collect related symbols, relationships, and source snippets.\n\n### src\n\n- Intent hints: `src`\n- Steps:\n  - Use the first query seed to get a compact structural context for this area.\n  - Read the entrypoint or highest-degree package file before making precise claims.\n  - Use callers/callees/impact only after a concrete symbol is identified.\n  - Use grep_search for literal config keys, log messages, SQL, and error strings.\n- Query seeds:\n  - `Explore src`: `codegraph_query(code_graph_id=\"cg-880c2146c31cd46c\", pattern=\"explore_area\", target=\"src\")`\n    - Why: Return a compact local map before reading many files.\n  - `Context for src`: `codegraph_query(code_graph_id=\"cg-880c2146c31cd46c\", pattern=\"context_for\", target=\"src\")`\n    - Why: Collect related symbols, relationships, and source snippets.\n\n## Entrypoints\n\nUse these when the task is about runtime behavior, startup, request handling, scheduled work, listeners, or execution flow.\n\n- `src-tauri/build.rs::main` at `src-tauri/build.rs:1`; entry candidate: executable entry; score=100\n- `src-tauri/src/main.rs::main` at `src-tauri/src/main.rs:23`; entry candidate: executable entry; score=100\n- `src-tauri/src/services/recent_files.rs::init_state` at `src-tauri/src/services/recent_files.rs:68`; entry candidate: named lifecycle function; score=28\n- `src-tauri/src/services/recent_files.rs::init_state_yields_empty_deque` at `src-tauri/src/services/recent_files.rs:278`; entry candidate: named lifecycle function; score=28\n- `src/components/__tests__/SearchBar.test.tsx::Starter` at `src/components/__tests__/SearchBar.test.tsx:301`; entry candidate: named lifecycle function; score=28\n- `src/components/inline/HeadingAnchor.tsx::registerOutlineIds` at `src/components/inline/HeadingAnchor.tsx:31`; entry candidate: named lifecycle function; score=28\n- `src/hooks/useKeyboard.ts::registerGlobalShortcuts` at `src/hooks/useKeyboard.ts:216`; entry candidate: named lifecycle function; score=28\n- `src/hooks/useKeyboard.ts::registerSearchShortcuts` at `src/hooks/useKeyboard.ts:263`; entry candidate: named lifecycle function; score=28\n\n## Domain Areas\n\nUse these to choose the likely package region before opening files. Match user wording to keywords, then run the area query seed or inspect the listed packages.\n\n- `(root)` keywords `(root)`; entrypoints: `src-tauri/build.rs::main`, `src-tauri/src/main.rs::main`, `src-tauri/src/services/recent_files.rs::init_state`; route-map domain area\n- `src-tauri/src` keywords `src`, `tauri`; route-map domain area\n- `src/lib` keywords `src`, `lib`; route-map domain area\n- `src/components` keywords `src`, `components`; route-map domain area\n- `src` keywords `src`; route-map domain area\n\n## Query Seeds\n\nRun one of these before broad manual browsing when the task is not tied to a specific file or symbol.\n\n- `Architecture communities`: `codegraph_query(code_graph_id=\"cg-880c2146c31cd46c\", pattern=\"community_analysis\")` - High-level module grouping.\n- `Cross-community coupling`: `codegraph_query(code_graph_id=\"cg-880c2146c31cd46c\", pattern=\"cross_community_coupling\")` - Find package areas that interact heavily.\n- `Entry flows`: `codegraph_query(code_graph_id=\"cg-880c2146c31cd46c\", pattern=\"entry_flows\")` - Find likely runtime entrypoints and major execution traces.\n- `Risk hotspots`: `codegraph_query(code_graph_id=\"cg-880c2146c31cd46c\", pattern=\"risk_hotspots\")` - Prioritize high-degree, low-test, high-impact symbols.\n- `Explore (root)`: `codegraph_query(code_graph_id=\"cg-880c2146c31cd46c\", pattern=\"explore_area\", target=\"code:function:6dfa549a853639fa39b7\")` - Start a feature investigation in this domain area.\n- `Search (root)`: `codegraph_search(code_graph_id=\"cg-880c2146c31cd46c\", query=\"(root)\")` - Find concrete symbols/files for this domain keyword.\n- `Explore src-tauri/src`: `codegraph_query(code_graph_id=\"cg-880c2146c31cd46c\", pattern=\"explore_area\", target=\"src-tauri/src\")` - Start a feature investigation in this domain area.\n- `Search src`: `codegraph_search(code_graph_id=\"cg-880c2146c31cd46c\", query=\"src\")` - Find concrete symbols/files for this domain keyword.\n- `Explore src/lib`: `codegraph_query(code_graph_id=\"cg-880c2146c31cd46c\", pattern=\"explore_area\", target=\"src/lib\")` - Start a feature investigation in this domain area.\n- `Search src`: `codegraph_search(code_graph_id=\"cg-880c2146c31cd46c\", query=\"src\")` - Find concrete symbols/files for this domain keyword.\n- `Explore src/components`: `codegraph_query(code_graph_id=\"cg-880c2146c31cd46c\", pattern=\"explore_area\", target=\"src/components\")` - Start a feature investigation in this domain area.\n- `Search src`: `codegraph_search(code_graph_id=\"cg-880c2146c31cd46c\", query=\"src\")` - Find concrete symbols/files for this domain keyword.\n\n## Confidence Gates\n\n- `unresolved call refs` count `791`: Treat missing targets as a signal to search source text or inspect generated/external boundaries.\n- `low-confidence structural edges` count `791`: Use CodeGraph for orientation, then verify source before precise behavior claims.\n\n## Quality Summary\n\n- Unresolved: `791`\n- Low confidence: `791`\n- Ambiguous: `0`\n- Average confidence: `0.82`\n\n## Tool Routing\n\n- Architecture/module/theme questions: `codegraph_query(code_graph_id=\"cg-880c2146c31cd46c\", pattern=\"community_analysis\")`, `cross_community_coupling`, `entry_flows`, or `risk_hotspots`.\n- Named symbol/file/type lookup: `codegraph_search(code_graph_id=\"cg-880c2146c31cd46c\", query=\"...\")`, then `codegraph_query(pattern=\"context_for|explore_area\", target=\"best-result\")` before raw read_file.\n- Callers/callees/impact/dependencies/path: `codegraph_query(code_graph_id=\"cg-880c2146c31cd46c\", pattern=\"callers_of|callees_of|impact_of|dependencies_of|path_between\", target=\"...\")`.\n- Compact source context: `codegraph_query(code_graph_id=\"cg-880c2146c31cd46c\", pattern=\"context_for|explore_area\", target=\"...\")`; use this as the preferred follow-up to search and inspect `insights` before falling back to grep/read.\n- Read files from `node.read_path` exactly as returned; do not prepend the workspace basename or copy `qualified_name` as a filesystem path.\n- Literal text/config/error strings: use `grep_search` with normal text/regex arguments; it will stay on the text backend for non-structural searches.\n",
+    "tool_strategy": [
+      "Use route_map.query_seeds first for broad feature investigations.",
+      "Use route_map.domain_areas to choose a likely package area before reading files.",
+      "Use codegraph_query(pattern=context_for|explore_area) to fetch compact local source context.",
+      "Use grep_search for literal strings, config keys, log text, and error messages."
+    ]
+  },
+  "metadata": {
+    "debounce_ms": "1200",
+    "last_build_codemap_ms": "9",
+    "last_build_extract_ms": "92",
+    "last_build_snapshot_ms": "9",
+    "last_build_store_ms": "181",
+    "last_build_total_ms": "321",
+    "watcher": "polling"
+  },
+  "auto_start": true,
+  "created_at": "2026-07-04T22:37:38.732947+08:00",
+  "updated_at": "2026-07-04T22:37:43.347035+08:00"
+}
