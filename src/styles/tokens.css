@@ -28,9 +28,12 @@
 /* Reader 容器使用 token; 不读 store. usePreferences 在 hydrate + 每次变更时
  * 通过 document.documentElement.style.setProperty 覆写 :root, 由于 :root.dark
  * 也是 :root 选择器, 覆写对两个选择器都生效.
+ *
+ * 注意: .reader 容器本身不再 max-width; 阅读区占满外层 flex 父容器 (Outline + 抽屉
+ * 收缩后剩余宽度). 行宽封顶由 .prose-kite__inner 内的段落级 max-width 处理.
+ * 字号 / 行高 token 仍由 .reader 容器声明, 让内部 element 继承.
  */
 .reader {
   font-size: var(--kite-font-size, 16px);
   line-height: var(--kite-line-height, 1.6);
-  max-width: var(--kite-reader-max-width, 720px);
 }

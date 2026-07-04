@@ -82,8 +82,8 @@ body {
  * 设计依据: 用户要求「容器与显示区域一致, 行宽封顶; 超过行宽时左右留白」:
  *   - article.prose-kite 占满阅读区 (受 Outline / FileTree 抽屉动态收缩).
  *   - .prose-kite__inner 是普通 block 容器, 直接跟 article 同宽.
- *   - 行内 / 段落元素 (p / li / blockquote / ul / ol / h1~h6) 限制 max-width: 70ch,
- *     并居中, 保证文本在 ~70 字符最佳行宽内自然换行, 超过行宽 → 文档左右留白.
+ *   - 段落元素 (p / ul / ol / li / blockquote / h1~h6) max-width: clamp(540, 40em, 920),
+ *     居中; 超过 → 文档左右留白.
  *   - 表格 / 图片 / mermaid 撑满 article.
  */
 .prose-kite__inner {
