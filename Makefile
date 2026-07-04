@@ -2,7 +2,7 @@
 #
 # 与 .github/workflows/release.yml (T14 / F-30 / F-45) 流水线对齐：
 #   1. npm ci / npm run build            (前端构建，含 tsc + vite + drop_console)
-#   2. (cd src-tauri && cargo tauri build --release)
+#   2. (cd src-tauri && cargo tauri build)       (Tauri 默认 release 模式，无 --release 标志)
 #                                       (Tauri 打包：.app / .dmg / .msi / .exe)
 #   3. npm run check-perf-budget         (体积门禁 < 30 MB，T23.4)
 #
@@ -56,8 +56,8 @@ release-macos: ## 构建 macOS release 产物（.app + .dmg）
 	@npm ci
 	@echo "==> [macOS] 2/3  npm run build (tsc + vite + drop_console)"
 	@npm run build
-	@echo "==> [macOS] 3/3  cargo tauri build --release"
-	@(cd src-tauri && cargo tauri build --release)
+	@echo "==> [macOS] 3/3  cargo tauri build"
+	@(cd src-tauri && cargo tauri build)
 	@echo "==> [macOS] 体积门禁 (check-perf-budget)"
 	@npm run check-perf-budget
 	@echo ""
@@ -85,8 +85,8 @@ release-windows: ## 构建 Windows release 产物（.msi + .exe）
 	@npm ci
 	@echo "==> [Windows] 2/3  npm run build (tsc + vite + drop_console)"
 	@npm run build
-	@echo "==> [Windows] 3/3  cargo tauri build --release"
-	@(cd src-tauri && cargo tauri build --release)
+	@echo "==> [Windows] 3/3  cargo tauri build"
+	@(cd src-tauri && cargo tauri build)
 	@echo "==> [Windows] 体积门禁 (check-perf-budget)"
 	@npm run check-perf-budget
 	@echo ""
