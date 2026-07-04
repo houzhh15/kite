@@ -76,30 +76,44 @@ body {
 }
 /* prose-kite__inner: 段落级行宽封顶, 块级元素 (table / pre / figure / img) 不受限.
  *
- * 设计依据: 用户要求「容器与显示区域一致, 仅文本行宽封顶」:
+ * 设计依据: 用户要求「容器与显示区域一致, 行宽封顶; 超过行宽时左右留白」:
  *   - article.prose-kite 占满阅读区 (受 Outline / FileTree 抽屉动态收缩).
- *   - .prose-kite__inner 是普通 block 容器, 直接跟 article 同宽, 不再 mx-auto 居中.
+ *   - .prose-kite__inner 是普通 block 容器, 直接跟 article 同宽.
  *   - 行内 / 段落元素 (p / li / blockquote / ul / ol / h1~h6) 限制 max-width: 70ch,
- *     保证文本在 ~70 字符最佳行宽内自然换行; 表格 / 图片 / mermaid 撑满 article.
+ *     并居中, 保证文本在 ~70 字符最佳行宽内自然换行, 超过行宽 → 文档左右留白.
+ *   - 表格 / 图片 / mermaid 撑满 article.
  */
 .prose-kite__inner {
   width: 100%;
   min-width: 0;
 }
-/* 让"块级/容器级"元素 (table / pre / figure / img / hr / kite-*) 撑满 article.
- * 同时作用于它们, 避免 prose-* 默认主题的 max-width 截断.
- * 注意: 用通用元素 + kite- 类选择器, 兼容默认渲染与自定义组件 (CodeBlock/MermaidBlock 等). */
+/* 让"块级/容器级"元素 (table / pre / figure / img / hr / kite-*) 撑满 article,
+ * 覆盖 prose 主题默认的 max-width 截断. */
 .prose-kite__inner :is(table, pre, figure, img, hr, .kite-codeblock, .kite-mermaid, .kite-image, .kite-callout) {
   width: 100%;
   max-width: 100%;
   min-width: 0;
   margin-inline: 0;
 }
-.prose-kite__inner :is(p, ul, ol, li, blockquote) {
+/* 段落级: 行宽封顶 + 居中, 超过行宽 → 文档左右留白. */
+.prose-kite__inner > p,
+.prose-kite__inner > blockquote {
   max-width: 70ch;
+  margin-inline: auto;
 }
-.prose-kite__inner :is(h1, h2, h3, h4, h5, h6) {
+.prose-kite__inner > ul,
+.prose-kite__inner > ol {
   max-width: 70ch;
+  margin-inline: auto;
+}
+.prose-kite__inner > h1,
+.prose-kite__inner > h2,
+.prose-kite__inner > h3,
+.prose-kite__inner > h4,
+.prose-kite__inner > h5,
+.prose-kite__inner > h6 {
+  max-width: 70ch;
+  margin-inline: auto;
 }
 .prose-kite h1,
 .prose-kite h2,
