@@ -73,54 +73,17 @@ body {
 .prose-kite {
   line-height: 1.7;
   color: rgb(var(--color-fg) / 0.9);
-  /* 内容内边距 (左右 24px, 上下 32px). 之前挂在 article className 上,
-   * 改到 CSS 让样式职责单一. */
+  /* 内容内边距: 上下 32px, 左右 24px. */
   padding: 2rem 1.5rem;
 }
-/* prose-kite 直接子结构 (article > ReactMarkdown):
- *   - 段落级 (p / ul / ol / li / blockquote / h1~h6) → max-width 封顶 + 居中
- *   - 块级 (table / pre / figure / img / hr / kite-*) → 撑满 article
- *
- * 设计依据: 用户要求「容器与显示区域一致, 行宽封顶; 超过行宽时左右留白」.
- *   - article.prose-kite 占满阅读区 (受 Outline / FileTree 抽屉动态收缩).
- *   - 段落元素 max-width: clamp(540, 40em, 920), 居中; 超过 → 文档左右留白.
- *   - 表格 / 图片 / mermaid 撑满 article.
- */
-/* 块级元素: 撑满 article (覆盖 prose 主题默认的 max-width 截断). */
+/* .prose-kite 块级元素 (table / pre / figure / img / hr / .kite-*) 默认撑满 article,
+ * 避免 prose 主题的 max-width 截断.
+ * 段落 / 标题不再设 max-width — 完全跟随阅读区宽度, 由字号 + 字号档位自然控制行宽. */
 .prose-kite :is(table, pre, figure, img, hr, .kite-codeblock, .kite-mermaid, .kite-image, .kite-callout) {
   width: 100%;
   max-width: 100%;
   min-width: 0;
   margin-inline: 0;
-}
-/* 段落级: 行宽封顶 + 居中, 超过行宽 → 文档左右留白.
- *
- * 用 px 而非 ch: ch 是 ASCII '0' glyph 宽度, 在中日韩字体下不可靠,
- * 用绝对 px (追随 root font-size) 更稳定.
- *   sm (14px)  → 540px ≈ 39 汉字 / 行
- *   md (16px)  → 640px ≈ 40 汉字 / 行
- *   lg (18px)  → 720px ≈ 40 汉字 / 行
- *   xl (20px)  → 800px ≈ 40 汉字 / 行
- *   2xl (24px) → 920px ≈ 38 汉字 / 行
- */
-.prose-kite > p,
-.prose-kite > blockquote {
-  max-width: clamp(540px, 40em, 920px);
-  margin-inline: auto;
-}
-.prose-kite > ul,
-.prose-kite > ol {
-  max-width: clamp(540px, 40em, 920px);
-  margin-inline: auto;
-}
-.prose-kite > h1,
-.prose-kite > h2,
-.prose-kite > h3,
-.prose-kite > h4,
-.prose-kite > h5,
-.prose-kite > h6 {
-  max-width: clamp(540px, 40em, 920px);
-  margin-inline: auto;
 }
 .prose-kite h1,
 .prose-kite h2,
