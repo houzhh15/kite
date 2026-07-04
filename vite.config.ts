@@ -84,6 +84,12 @@ export default defineConfig({
         );
       },
     },
+    // mermaid-vendor 内含 mermaid + d3 + dagre, 单 chunk ~3.4 MB. 由于
+    // React.lazy 懒加载 + modulePreload.resolveDependencies 已过滤, 不会进入
+    // 首屏 preload 链路; 仅在用户首渲染 ```mermaid 围栏时按需下载. 500 kB
+    // 默认阈值会把 mermaid-vendor 持续报为 "大于阈值"; 此处明确放宽到 5 MB,
+    // 任何超 5 MB 的新 chunk 必须经过 review 才能合并 (T17-P2 / F-31 / FR-03).
+    chunkSizeWarningLimit: 5000,
   },
   test: {
     environment: 'jsdom',

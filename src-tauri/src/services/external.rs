@@ -1,6 +1,6 @@
-// src-tauri/src/services/external.rs (T19 重写)
+// src-tauri/src/services/external.rs (T19 重写; T23 迁移至 tauri-plugin-opener)
 //
-// FR-02 / NFR-S-01: Rust 端协议白名单; 调用 tauri-plugin-shell 的 open 唤起系统默认程序.
+// FR-02 / NFR-S-01: Rust 端协议白名单; 调用 tauri-plugin-opener 的 open_url 唤起系统默认程序.
 //
 // 架构依据: docs/architecture_design/compiled.md §3.2/§3.3 + 需求 §3 FR-02 + 设计 §3.7.
 //
@@ -8,17 +8,21 @@
 //   - validate(url) -> Result<Scheme, AppError>
 //       Ok(Scheme) 当 scheme ∈ {http, https, mailto, tel}; 否则 Err(InvalidPath).
 //   - open(app, url) -> Result<(), AppError>
-//       校验 + log + app.shell().open(url, None).
-//   - shell.open 不会触达 host 目录, 仅 fork 系统默认 program (macOS `open` / Windows `start` / Linux `xdg-open`).
+//       校验 + log + app.opener().open_url(url, None).
+//   - opener.open_url 不会触达 host 目录, 仅 fork 系统默认 program (macOS `open` / Windows `start` / Linux `xdg-open`).
 //
 // 约束:
 //   - C-01: 复用既有 `AppError::InvalidPath(String)` 携带协议名/reason, 不新增 enum 变体.
-//   - C-04: 仅依赖 tauri-plugin-shell (已是 [dependencies] 一项), 无新增 crate.
+//   - C-04: 仅依赖 tauri-plugin-opener (替代已废弃的 tauri-plugin-shell::Shell::open).
 //   - reason schema 与 TS `urlSafe.reason` 字段保持一致:
 //       "protocol:<head>" / "protocol:data-html" / "data:image" / "empty url" / "too-long".
-
+//
+// T23 变更 (2026-07-04):
+//   - 迁移: tauri_plugin_shell::Shell::open -> tauri_plugin_opener::OpenerExt::open_url
+//     原因: tauri_plugin_shell v2 中 Shell::open 已被标记 deprecated (issue #11467),
+//     推荐使用 tauri-plugin-opener 作为通用 URL/file 唤起入口.
 use tauri::AppHandle;
-use tauri_plugin_shell::ShellExt;
+use tauri_plugin_opener::OpenerExt;
 
 use crate::error::AppError;
 
@@ -113,19 +117,19 @@ fn extract_head(input: &str) -> String {
 /// 流程:
 ///   1. validate(&url) — 失败立即 Err(InvalidPath(reason))
 ///   2. log::info/eprintln 记录 scheme + url (供运维审计, NFR-S-01)
-///   3. app.shell().open(url, None) — Tauri 把 URL 转发给 OS 默认程序
+///   3. app.opener().open_url(url, None) — Tauri 把 URL 转发给 OS 默认程序
 ///
 /// 错误映射:
 ///   - 协议拒绝 → Err(AppError::InvalidPath("protocol:<head>"))
 ///   - 长度越界 → Err(AppError::InvalidPath("too-long"))
 ///   - 空串    → Err(AppError::InvalidPath("empty url"))
-///   - shell.open 内部失败 → Err(AppError::InvalidPath("shell.open failed: <e>"))
+///   - opener.open_url 内部失败 → Err(AppError::InvalidPath("opener.open_url failed: <e>"))
 pub async fn open(app: &AppHandle, url: String) -> Result<(), AppError> {
     let scheme = validate(&url)?;
     eprintln!("[external::open] scheme={:?} url={}", scheme, url);
-    app.shell()
-        .open(url, None)
-        .map_err(|e| AppError::InvalidPath(format!("shell.open failed: {e}")))
+    app.opener()
+        .open_url(url, None::<&str>)
+        .map_err(|e| AppError::InvalidPath(format!("opener.open_url failed: {e}")))
 }
 
 // ---------------------------------------------------------------------------

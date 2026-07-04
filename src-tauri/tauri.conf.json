@@ -62,9 +62,5 @@
       "exceptionDomain": ""
     }
   },
-  "plugins": {
-    "shell": {
-      "open": true
-    }
-  }
+  "plugins": {}
 }

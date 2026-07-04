@@ -213,16 +213,18 @@ _release-windows-cross:
 	@npm run build
 	@echo "==> [Windows/cross] 3/4  cargo tauri build --target x86_64-pc-windows-gnu"
 	@echo "    注：跨平台构建 (macOS→Windows) 仅产出 raw kite.exe + WebView2Loader.dll；"
-	@echo "        .msi / NSIS setup 打包需在 Windows 主机上执行（缺 makensis.exe / WiX）。"
+	@echo "        .msi (WiX) 与 NSIS setup 在 macOS host 上均需 Windows 工具链，本流程"
+	@echo "        显式禁用 (--bundles none)，仅生成可移植二进制。完整安装包需在"
+	@echo "        windows-latest runner 上跑 release-windows（原生 + 全 bundler）。"
 	@(cd src-tauri && \
 		PATH="$(RUSTUP_PREFIX_PATH)" \
 		CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER=x86_64-w64-mingw32-gcc \
-		$(CARGO) tauri build --target x86_64-pc-windows-gnu) || \
+		$(CARGO) tauri build --target x86_64-pc-windows-gnu --no-bundle) || \
 		( \
 			echo "" >&2; \
-			echo "WARN: Tauri bundler 在 macOS 上产出 .msi/.exe-setup 失败（已知限制）。" >&2; \
-			echo "      仅 raw 二进制 (kite.exe + WebView2Loader.dll) 已成功生成。" >&2; \
-			echo "      若仍需 .msi / NSIS 安装包，请在 windows-latest runner 上重跑 release-windows。" >&2; \
+			echo "WARN: Tauri cross-compile 在 macOS 上产出 kite.exe 失败。" >&2; \
+			echo "      已尝试链接器 x86_64-w64-mingw32-gcc + target x86_64-pc-windows-gnu。" >&2; \
+			echo "      若链接器 / cross stdlib 未就绪，请先 make check-toolchain-host / print-info 排查。" >&2; \
 		)
 	@echo "==> [Windows/cross] 4/4  体积门禁 (check-perf-budget)"
 	@npm run check-perf-budget
@@ -230,20 +232,20 @@ _release-windows-cross:
 	@echo "✓ Windows 交叉编译完成 (x86_64-pc-windows-gnu)"
 	@echo ""
 	@echo "  原生可执行文件："
-	@ls -lh src-tauri/target/x86_64-pc-windows-gnu/release/kite.exe 2>/dev/null || echo "  (kite.exe 缺失)"
-	@ls -lh src-tauri/target/x86_64-pc-windows-gnu/release/*.dll 2>/dev/null | awk '{print "  "$NF" ("$5"B)"}' || true
+	@if [ -f src-tauri/target/x86_64-pc-windows-gnu/release/kite.exe ]; then \
+		SIZE=$$(stat -f '%z' src-tauri/target/x86_64-pc-windows-gnu/release/kite.exe); \
+		printf "  kite.exe                  %d bytes (%.1f MB)\n" "$$SIZE" "$$(echo "$$SIZE / 1048576" | bc -l)"; \
+	else \
+		echo "  (kite.exe 缺失)"; \
+	fi
+	@for f in src-tauri/target/x86_64-pc-windows-gnu/release/*.dll; do \
+		if [ -f "$$f" ]; then \
+			SIZE=$$(stat -f '%z' "$$f"); \
+			printf "  %-25s  %d bytes (%.1f KB)\n" "$$(basename $$f)" "$$SIZE" "$$(echo "$$SIZE / 1024" | bc -l)"; \
+		fi; \
+	done
 	@echo ""
-	@echo "  安装包（仅当 host=Windows 时存在）："
-	@if [ -d src-tauri/target/x86_64-pc-windows-gnu/release/bundle/msi ]; then \
-		ls -lh src-tauri/target/x86_64-pc-windows-gnu/release/bundle/msi/ 2>/dev/null || true; \
-	else \
-		echo "    (未生成 — macOS host 无 WiX 工具链，跳过 msi)"; \
-	fi
-	@if [ -d src-tauri/target/x86_64-pc-windows-gnu/release/bundle/nsis ]; then \
-		ls -lh src-tauri/target/x86_64-pc-windows-gnu/release/bundle/nsis/ 2>/dev/null || true; \
-	else \
-		echo "    (未生成 — macOS host 无 makensis.exe，跳过 nsis)"; \
-	fi
+	@echo "  安装包：跨平台构建禁用 bundler（需在 Windows host 上重跑 release-windows 原生）。"
 
 # ==============================================================================
 # 一键双平台
