@@ -63,9 +63,6 @@
     }
   },
   "plugins": {
-    "fs": {
-      "scope": []
-    },
     "shell": {
       "open": true
     }
