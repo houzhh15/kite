@@ -1,0 +1,12 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "T02 capabilities: granted dialog:default + core:default. fs:* is intentionally NOT exposed to the frontend (NFR-SEC-03); all filesystem IO must flow through Rust commands.",
+  "windows": [
+    "main"
+  ],
+  "permissions": [
+    "core:default",
+    "dialog:default"
+  ]
+}

@@ -1,0 +1,40 @@
+/* fullscreen.css (T16-P2 / FR-03)
+ * 全屏态隐藏周边组件 + 鼠标静止 3 s 自动隐藏光标 (NFR-U-05).
+ *
+ * 选择器限定 [data-fullscreen="true"] + 具名类名,
+ * 不与 [data-theme] 冲突 (设计 §6 风险与待办).
+ *
+ * 引用方: src/main.tsx (顶部 @import './styles/fullscreen.css')
+ */
+
+/* 全屏态: 隐藏 Toolbar / Outline / StatusBar / ProgressBar (FR-03 / AC-03-1). */
+html[data-fullscreen='true'] .toolbar,
+html[data-fullscreen='true'] [data-testid='toolbar'],
+html[data-fullscreen='true'] .outline,
+html[data-fullscreen='true'] [data-testid='file-tree-drawer'],
+html[data-fullscreen='true'] .status-bar,
+html[data-fullscreen='true'] [data-testid='status-bar'],
+html[data-fullscreen='true'] .progress-bar,
+html[data-fullscreen='true'] [data-testid='progress-bar'] {
+  display: none !important;
+}
+
+/* 全屏态: 正文放大留白, 占据整个视口 (AC-03-1). */
+html[data-fullscreen='true'] body,
+html[data-fullscreen='true'] #root {
+  background: rgb(var(--color-bg));
+}
+
+/* NFR-U-05: 鼠标静止 3s 隐藏光标.
+ * 通过 .fs-cursor-hide (由 useFullscreen 控制) 切换 cursor: none.
+ */
+html[data-fullscreen='true'].fs-cursor-hide,
+html[data-fullscreen='true'].fs-cursor-hide * {
+  cursor: none !important;
+}
+
+/* 退出全屏: 显式复位 data-fullscreen, 即使外部 DOM 残留属性. */
+html:not([data-fullscreen='true']) .toolbar,
+html:not([data-fullscreen='true']) [data-testid='toolbar'] {
+  display: revert;
+}

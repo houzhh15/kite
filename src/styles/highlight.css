@@ -1,0 +1,161 @@
+/* highlight.css (T02 IMPL-17 / T08 step-0b+1)
+ * 14 类 highlight token 极简实现, 由 rehype-highlight 添加 .hljs-* 类.
+ * 不引入完整 highlight.js/styles/* 包, 用语义化 token + 主题一致的色值.
+ *
+ * 支持 14 种语言 (COMMON_LANGS):
+ *   ts / tsx / js / jsx / json / css / html / md / bash / rust / python / go / yaml / sql
+ *
+ * 主题策略:
+ *   - :root  走 light 配色 (主色 #b45309 / #6d28d9 / #047857 / #b91c1c)
+ *   - .dark  走 dark  配色 (--hl-* 调亮变体)
+ *   - token 颜色全部走 CSS 变量, 切主题时 <html> class 变更即时生效, 不需 JS 重渲 (AC-1-2)
+ */
+
+.hljs {
+  color: rgb(var(--color-fg));
+  background: transparent;
+  display: block;
+  overflow-x: auto;
+  padding: 0;
+}
+
+/* ---- keyword / built_in / tag / selector-tag (key/control flow) ---- */
+.hljs-keyword,
+.hljs-built_in,
+.hljs-tag,
+.hljs-selector-tag,
+.hljs-emphasis {
+  color: rgb(var(--color-accent));
+  font-weight: 600;
+}
+.dark .hljs-keyword,
+.dark .hljs-built_in,
+.dark .hljs-tag,
+.dark .hljs-selector-tag,
+.dark .hljs-emphasis {
+  color: rgb(var(--color-accent));
+  font-weight: 600;
+}
+
+/* ---- string / regexp / symbol / char (literals) ---- */
+.hljs-string,
+.hljs-regexp,
+.hljs-symbol,
+.hljs-char,
+.hljs-attribute,
+.hljs-quote {
+  color: #b45309;
+}
+.dark .hljs-string,
+.dark .hljs-regexp,
+.dark .hljs-symbol,
+.dark .hljs-char,
+.dark .hljs-attribute,
+.dark .hljs-quote {
+  color: #fcd34d;
+}
+
+/* ---- comment / meta (annots / low importance) ---- */
+.hljs-comment,
+.hljs-meta,
+.hljs-deletion,
+.hljs-quote,
+.hljs-strong {
+  color: rgb(var(--color-fg) / 0.5);
+  font-style: italic;
+}
+.dark .hljs-comment,
+.dark .hljs-meta,
+.dark .hljs-deletion {
+  color: rgb(var(--color-fg) / 0.5);
+  font-style: italic;
+}
+
+/* ---- number / literal (numeric / boolean / null) ---- */
+.hljs-number,
+.hljs-literal,
+.hljs-bullet,
+.hljs-link {
+  color: #047857;
+}
+.dark .hljs-number,
+.dark .hljs-literal,
+.dark .hljs-bullet,
+.dark .hljs-link {
+  color: #6ee7b7;
+}
+
+/* ---- function / title (callable names) ---- */
+.hljs-function,
+.hljs-title,
+.hljs-title.function_,
+.hljs-selector-id,
+.hljs-section {
+  color: #6d28d9;
+}
+.dark .hljs-function,
+.dark .hljs-title,
+.dark .hljs-title.function_,
+.dark .hljs-selector-id,
+.dark .hljs-section {
+  color: #c4b5fd;
+}
+
+/* ---- attr / name / class / type (identifiers / type names) ---- */
+.hljs-attr,
+.hljs-attribute,
+.hljs-name,
+.hljs-class,
+.hljs-type,
+.hljs-params,
+.hljs-property,
+.hljs-selector-class,
+.hljs-selector-pseudo,
+.hljs-variable,
+.hljs-template-variable,
+.hljs-builtin-name {
+  color: #b91c1c;
+}
+.dark .hljs-attr,
+.dark .hljs-attribute,
+.dark .hljs-name,
+.dark .hljs-class,
+.dark .hljs-type,
+.dark .hljs-params,
+.dark .hljs-property,
+.dark .hljs-selector-class,
+.dark .hljs-selector-pseudo,
+.dark .hljs-variable,
+.dark .hljs-template-variable,
+.dark .hljs-builtin-name {
+  color: #fca5a5;
+}
+
+/* ---- doxygen / addition (rare but used by hljs) ---- */
+.hljs-deletion {
+  background: rgba(185, 28, 28, 0.12);
+}
+.hljs-addition {
+  background: rgba(4, 120, 87, 0.12);
+  color: #047857;
+}
+.dark .hljs-addition {
+  color: #6ee7b7;
+}
+
+/* ---- formatting: bold/italic (md / rst etc.) ---- */
+.hljs-strong {
+  font-weight: 700;
+  color: rgb(var(--color-fg));
+  font-style: normal;
+}
+.hljs-emphasis {
+  font-style: italic;
+}
+
+/* ---- accessibility: focus-visible on toolbar buttons (NFR-U-1) ---- */
+.kite-codeblock button:focus-visible {
+  outline: 2px solid rgb(var(--color-accent));
+  outline-offset: 2px;
+  border-radius: 4px;
+}

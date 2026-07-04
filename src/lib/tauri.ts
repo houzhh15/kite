@@ -1,0 +1,391 @@
+/**
+ * lib/tauri.ts — KITE 唯一 IPC 出口
+ *
+ * 设计纪律 (R-04 缓解 / FR-04 / 设计 §3.2.3):
+ *   1. 这是前端访问 Rust commands 的**唯一**出口.
+ *      任何其它源码 (src/**) 都禁止直接
+ *      `import { invoke } from '@tauri-apps/api/core'`.
+ *   2. 类型 RecentItem / Preferences / AppError 与
+ *      src-tauri/src/commands.rs 严格一一对应, 命名保持 camelCase.
+ *   3. 修改顺序硬性:
+ *      **先改 commands.rs → 再改本文件 → 再改 docs/design/compiled.md §3.2**
+ *      反向或在其它地方编辑都会破坏契约, 需要 PR review 拦截.
+ *   4. 在 CSP `script-src 'self'` 下, 本文件作为模块被 Vite 打包到
+ *      /assets/index-*.js, 不依赖任何 inline script.
+ *
+ * 在 T01 阶段, 8 个方法都已落地但调用会触发 Rust 侧 unimplemented!() —
+ * 这是有意为之, 让消费者可以提前写 IPC 调用代码 (AC-04-1/2).
+ */
+
+import { invoke } from '@tauri-apps/api/core'; // eslint-disable-line no-restricted-imports -- single IPC exit
+
+// ---- 类型 (与 commands.rs serde rename_all = "camelCase" 严格对齐) ----
+
+/** RecentItem — 最近文件条目. */
+export interface RecentItem {
+  /** 绝对文件路径. */
+  path: string;
+  /** 文档标题 (取自首行 / 用户重命名). */
+  title: string;
+  /** ISO8601 时间戳, 例 "2026-01-30T12:34:56Z". */
+  lastOpenedAt: string;
+}
+
+/** Preferences — 用户偏好. */
+export interface Preferences {
+  /** 'light' | 'dark' | 'system'. T03 step-03: 由 string 收紧为三档 union,
+   *  与 prefStore / theme-types 同步; 字段名保持 'theme' 便于 T04 持久化对接. */
+  theme?: 'light' | 'dark' | 'system';
+  /** 正文字号 px (T04: 12..24, 默认 16). */
+  fontSize?: number;
+  /** 行高 (T04: 1.4 | 1.6 | 1.8, 默认 1.6). */
+  lineHeight?: number;
+  /** 代码块主题: 'github' | 'monokai' | ... */
+  codeBlockTheme?: string;
+  /** T15 (FR-05): 界面语言. 值域 'zh-CN' | 'en-US'. 缺省/非法回退 zh-CN. */
+  language?: 'zh-CN' | 'en-US';
+  /** T17-P2 (F-21): mermaid 图表渲染开关. 缺省/非法回退 false. */
+  mermaidEnabled?: boolean;
+  /** T17-P2 (F-22): KaTeX 公式渲染开关. 缺省/非法回退 false. */
+  katexEnabled?: boolean;
+}
+
+/**
+ * ProgressEntry — 单文档阅读进度 (T11, 设计 §3.2.2 / §3.6.10).
+ *
+ * 字段约束 (sanitize):
+ *   - pct ∈ [0,100], 整数百分比.
+ *   - scrollTop ≥ 0, 像素.
+ *   - updatedAt: Unix seconds (UTC).
+ */
+export interface ProgressEntry {
+  pct: number;
+  scrollTop: number;
+  updatedAt: number;
+}
+
+/**
+ * ProgressState — `progress` 顶层键值 (T11, 设计 §3.2.2 / §3.6.10).
+ *
+ * 键空间: kite.store.json["progress"] = ProgressState.
+ * 与 preferences / recents 同级不混用 (架构 §6 T11 演进记录).
+ */
+export interface ProgressState {
+  /** 当前打开文档的绝对路径, 或 null. */
+  lastPath: string | null;
+  /** 路径 → 进度. */
+  perFile: Record<string, ProgressEntry>;
+  /** 用户是否已关闭过快捷键速查 (FR-12, 缺省 false). */
+  seenShortcutsHint?: boolean;
+}
+
+/**
+ * AppErrorCode — Rust AppError.code() 返回值 union.
+ *
+ * Rust 侧用 SCREAMING_SNAKE_CASE 序列化, 顺序固定, 不可新增未登记值
+ * (check-contract.mjs 会做静态校验).
+ */
+export type AppErrorCode =
+  | 'NOT_FOUND'
+  | 'TOO_LARGE'
+  | 'ENCODING'
+  | 'IO'
+  | 'INVALID_PATH'
+  | 'NOT_A_DIRECTORY'
+  | 'PERMISSION_DENIED'
+  | 'UNKNOWN'
+  // T16-P2 (FR-01 导出 HTML) 新增错误码, 与 src-tauri/src/services/exporter.rs 对应.
+  | 'PAYLOAD_TOO_LARGE'
+  | 'INVALID_TARGET_PATH';
+
+/** AppError — Rust 侧 AppError 序列化后的形状 (FR-05). */
+export interface AppError {
+  code: AppErrorCode;
+  message: string;
+}
+
+/** 类型 guard: 判断 unknown 是否为 AppError. */
+export function isAppError(err: unknown): err is AppError {
+  return (
+    typeof err === 'object' &&
+    err !== null &&
+    'code' in err &&
+    'message' in err &&
+    typeof (err as { code: unknown }).code === 'string' &&
+    typeof (err as { message: unknown }).message === 'string'
+  );
+}
+
+/**
+ * DirEntry — T15 (FR-02 / FR-01) list_dir 返回条目.
+ * 严格 camelCase, 与 commands::DirEntry 序列化形状一致.
+ */
+export interface DirEntry {
+  path: string;
+  name: string;
+  isDir: boolean;
+}
+
+// ---- 9 个 IPC 方法 ----
+//
+// 名称与 commands.rs 函数名 snake_case 一一对应:
+//   read_markdown_file  ↔ readMarkdownFile
+//   get_recent_files    ↔ getRecentFiles
+//   add_recent_file     ↔ addRecentFile
+//   clear_recent_files  ↔ clearRecentFiles
+//   load_preferences    ↔ loadPreferences
+//   save_preferences    ↔ savePreferences
+//   open_external_url   ↔ openExternalUrl
+//   resolve_image_path  ↔ resolveImagePath
+//   set_window_title    ↔ setWindowTitle (T04 新增, FR-07)
+
+/**
+ * readMarkdownFile — F-01/F-02 (AC-04-1)
+ *
+ * 读 markdown 文件, 返回原始 utf-8 文本.
+ *
+ * 契约:
+ *   - 成功 → Ok(string) 文件原文
+ *   - 失败 → reject(AppError), code ∈ {NOT_FOUND, TOO_LARGE, ENCODING, IO, INVALID_PATH}
+ *
+ * @param path 文件绝对路径
+ */
+export function readMarkdownFile(path: string): Promise<string> {
+  return invoke<string>('read_markdown_file', { path });
+}
+
+/**
+ * getRecentFiles — F-03 (AC-07-1)
+ *
+ * 取最近文件列表 (按 lastOpenedAt 倒序, 长度 0..8).
+ */
+export function getRecentFiles(): Promise<RecentItem[]> {
+  return invoke<RecentItem[]>('get_recent_files');
+}
+
+/**
+ * addRecentFile — F-03
+ *
+ * 推入一条最近文件记录 (去重 + 截断到 8 条, 由 Rust 侧保证).
+ */
+export function addRecentFile(path: string, title: string): Promise<void> {
+  return invoke<void>('add_recent_file', { path, title });
+}
+
+/**
+ * clearRecentFiles — F-03
+ *
+ * 清空最近文件列表.
+ */
+export function clearRecentFiles(): Promise<void> {
+  return invoke<void>('clear_recent_files');
+}
+
+/**
+ * loadPreferences — F-33
+ *
+ * 加载用户偏好, 首次启动返回 defaults.
+ */
+export function loadPreferences(): Promise<Preferences> {
+  return invoke<Preferences>('load_preferences');
+}
+
+/**
+ * savePreferences — F-33
+ *
+ * 写用户偏好, 调用者负责合并默认值.
+ */
+export function savePreferences(prefs: Preferences): Promise<void> {
+  return invoke<void>('save_preferences', { prefs });
+}
+
+/**
+ * openExternalUrl — F-15
+ *
+ * 打开外部 http/https 链接. Rust 侧对 url 做协议白名单, 任何非 http(s)
+ * 都会 reject INVALID_PATH (F-32 / NFR-SEC-04).
+ */
+export function openExternalUrl(url: string): Promise<void> {
+  return invoke<void>('open_external_url', { url });
+}
+
+/**
+ * resolveImagePath — F-15 / T08 step-5 (v2)
+ *
+ * 解析 Markdown 内嵌图片相对路径, 返回可用于 <img src> 的 URL.
+ *
+ * 契约 (T08 升级, 设计 §3.2.1 / §3.2.2):
+ *   - rel 以 http(s):// / data: / asset: 开头 → **前端短路**, Promise.resolve(rel)
+ *     (AC-4-2 + NFR-P-4 缓存命中路径)
+ *   - rel 为相对路径 + base 不空 → invoke('resolve_image_path', { base, rel })
+ *     Rust 端解析后返回 `data:<mime>;base64,...` 字符串
+ *   - 文件不存在 → reject(NOT_FOUND) → UI broken-image 占位
+ *   - 路径越界 (rel 含 ../ 跳出 base 所在目录) → reject(INVALID_PATH) (NFR-S-1)
+ *   - 文件大小 ≥ 10 MB → reject(TOO_LARGE) (AC-4-4)
+ *   - 扩展名不在白名单 → reject(INVALID_PATH)
+ *   - base 为空 → 前端直接 reject, 不触发 IPC
+ */
+export function resolveImagePath(base: string, rel: string): Promise<string> {
+  // 1) 前端短路: 协议类 URL 不走 IPC.
+  if (
+    rel.startsWith('http://') ||
+    rel.startsWith('https://') ||
+    rel.startsWith('data:') ||
+    rel.startsWith('asset:')
+  ) {
+    return Promise.resolve(rel);
+  }
+  // 2) base 为空 → 前端 guard, 不发 IPC (AC-4-3 失败路径).
+  if (!base || base.trim().length === 0) {
+    return Promise.reject(new Error('base_path is empty'));
+  }
+  return invoke<string>('resolve_image_path', { base, rel });
+}
+
+/**
+ * setWindowTitle — F-16 (T04 新增, AC-FR07-1/2/3 / AC-NFR05-1).
+ *
+ * 设置窗口标题栏. 后端规则: title 非空 → `{title} - KITE`; 空 → `KITE`.
+ * 不会解析 HTML / 不进 shell, 仅字符串拼接.
+ *
+ * @param title 文档标题 (basename 去扩展名); 空串表示还原默认标题.
+ */
+export function setWindowTitle(title: string): Promise<void> {
+  return invoke<void>('set_window_title', { title });
+}
+
+/**
+ * loadProgress — T11 (FR-09 / FR-10 / FR-12, 设计 §3.6.7).
+ *
+ * 读 store key "progress"; 文件不存在 → 返回默认 ProgressState.
+ * JSON 损坏 → reject AppError { code: "ENCODING" }, 由前端 resetCorrupted 处理.
+ *
+ * @returns 完整的 ProgressState (含 lastPath / perFile / seenShortcutsHint).
+ */
+export function loadProgress(): Promise<ProgressState> {
+  return invoke<ProgressState>('load_progress');
+}
+
+/**
+ * saveProgress — T11 (FR-09 / FR-11 / FR-12, 设计 §3.6.8).
+ *
+ * 整体覆盖写 store key "progress". 写入前 Rust 端 sanitize.
+ *
+ * @param payload 完整的 ProgressState; 缺字段默认空.
+ */
+export function saveProgress(payload: ProgressState): Promise<void> {
+  return invoke<void>('save_progress', { payload });
+}
+
+/**
+ * listDir — T15 (FR-02 / FR-01).
+ *
+ * 列出指定目录下受支持的 Markdown 条目 (设计 §3.2):
+ *   - 文件按扩展名 .md/.markdown/.mdx 过滤 (大小写不敏感).
+ *   - 目录保留「含至少一个 md 子项」的.
+ *   - 排序: 目录优先 + 字典序.
+ *
+ * 错误约定:
+ *   - NOT_FOUND: 路径不存在.
+ *   - NOT_A_DIRECTORY: 路径指向文件.
+ *   - PERMISSION_DENIED: 含 `..` 段或不在授权 scope.
+ *   - IO: 其它 IO 失败.
+ *
+ * @param path 目录绝对路径.
+ */
+export function listDir(path: string): Promise<DirEntry[]> {
+  return invoke<DirEntry[]>('list_dir', { path });
+}
+
+/**
+ * setLanguage — T15 (FR-05) 无 IPC 命令包装 (usePreferences 仍走 save_preferences).
+ *
+ * 这里保留占位: 实际语言切换走 prefStore.setLanguage + i18n.changeLanguage,
+ * 持久化由 usePreferences hook (debounce 300ms) 调 save_preferences 一并写入.
+ * 提供 setLanguage 仅为调用面统一.
+ */
+export function setLanguage(_lng: 'zh-CN' | 'en-US'): void {
+  // no-op: 实现在 prefStore.setLanguage().
+}
+
+/* -------------------------------------------------------------------------- */
+/* T16-P2 (FR-01 导出 HTML) — 类型与 invoke 包装                              */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * ExportFormat — 导出目标格式 (设计 §3.1).
+ *
+ * 范围: 'html' | 'pdf'.
+ * 当前实现仅 HTML 走 Rust 命令; PDF 走前端 window.print() (FR-02).
+ */
+export type ExportFormat = 'html' | 'pdf';
+
+/**
+ * ExportHtmlArgs — 导出 HTML 的 IPC 参数 (设计 §3.1 / §3.2.3).
+ *
+ * 字段语义:
+ *   - content:  已经拼装好的 UTF-8 HTML 字符串 (含 <!DOCTYPE> / <article>).
+ *   - targetPath: 经 tauri-plugin-dialog.save() 确认的绝对路径.
+ *
+ * 与 Rust 命令 `export_html(content, target_path)` 严格一一对应
+ * (Tauri 默认按 camelCase 反序列化).
+ */
+export interface ExportHtmlArgs {
+  content: string;
+  targetPath: string;
+}
+
+/**
+ * ExportResult — 导出结果 (FR-01 / NFR-P-01).
+ */
+export interface ExportResult {
+  ok: true;
+  path: string;
+  bytes: number;
+  durationMs: number;
+}
+
+/**
+ * FullscreenState — 全屏状态 (FR-03 / AC-03-5).
+ *
+ * 字段:
+ *   - isFullscreen: 当前是否全屏; **不持久化**, 每次启动恢复 false.
+ *   - since: 进入全屏的时间戳; 内存态, 退出后置 null.
+ */
+export interface FullscreenState {
+  isFullscreen: boolean;
+  since: number | null;
+}
+
+/**
+ * exportHtml — T16-P2 (FR-01) 调 Rust 命令 `export_html`.
+ *
+ * 契约:
+ *   - content 长度 ≤ 5 MB 且 targetPath 后缀 .html → resolve(void).
+ *   - 错误由 Rust 侧 AppError 序列化后 reject, 形状同 AppError.
+ *
+ * @param args 见 ExportHtmlArgs.
+ */
+export function exportHtml(args: ExportHtmlArgs): Promise<void> {
+  return invoke<void>('export_html', {
+    content: args.content,
+    targetPath: args.targetPath,
+  });
+}
+
+/** 默认导出聚合对象 (方便消费者 `import { tauri } from '@/lib/tauri'`). */
+export const tauri = {
+  readMarkdownFile,
+  getRecentFiles,
+  addRecentFile,
+  clearRecentFiles,
+  loadPreferences,
+  savePreferences,
+  openExternalUrl,
+  resolveImagePath,
+  setWindowTitle,
+  loadProgress,
+  saveProgress,
+};
+
+export default tauri;

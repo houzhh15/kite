@@ -1,0 +1,39 @@
+[package]
+name = "kite"
+version = "0.0.1"
+edition = "2021"
+
+[lib]
+name = "kite_lib"
+path = "src/lib.rs"
+
+[[bin]]
+name = "kite"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+tauri-plugin-fs = "2"
+tauri-plugin-shell = "2"
+tauri-plugin-store = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "1"
+tokio = { version = "1", features = ["rt", "rt-multi-thread", "macros"] }
+base64 = "0.22"
+
+[features]
+default = []
+
+# T13 (F-31 / FR-01) release profile 五项强制参数.
+# 任何放宽必须在 docs/perf.md 写 "DEVIATION:<参数>:<原因>" (C2 / N9).
+[profile.release]
+strip = true            # 移除符号表与调试信息 (典型 -2~4MB).
+lto = true              # 跨 crate 内联优化 (典型 -1~3MB + 启动加速).
+opt-level = "z"         # 体积优先; vs "s" 更激进.
+panic = "abort"         # 移除 unwinding 表与 landingpad 代码.
+codegen-units = 1       # 单 codegen unit, 最大化 LTO 效果.

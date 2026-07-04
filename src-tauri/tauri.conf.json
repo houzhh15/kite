@@ -1,0 +1,73 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "KITE",
+  "mainBinaryName": "kite",
+  "identifier": "com.kite.app",
+  "version": "0.0.1",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build",
+    "devUrl": "http://localhost:1420",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "KITE",
+        "width": 1024,
+        "height": 720,
+        "resizable": true,
+        "fullscreen": false,
+        "dragDropEnabled": true
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: https: data:; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "publisher": "KITE Team",
+    "copyright": "© 2026 KITE",
+    "shortDescription": "KITE Markdown Reader",
+    "longDescription": "KITE is a local Markdown reader for Tauri 2 with strict CSP, single IPC egress, and a clean three-layer architecture.",
+    "category": "Productivity",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "windows": {
+      "digestAlgorithm": "sha256",
+      "timestampUrl": "http://timestamp.digicert.com",
+      "webviewInstallMode": {
+        "type": "downloadBootstrapper"
+      },
+      "wix": {
+        "language": ["en-US"],
+        "upgradeCode": "{8F6D2E1A-1B4C-4F2E-9B7D-7E2C4A1F5B3D}"
+      },
+      "nsis": {
+        "languages": ["en-US"],
+        "displayLanguageSelector": false
+      }
+    },
+    "macOS": {
+      "minimumSystemVersion": "11.0",
+      "entitlements": "entitlements/entitlements.plist",
+      "infoPlist": "entitlements/Info.plist",
+      "exceptionDomain": ""
+    }
+  },
+  "plugins": {
+    "fs": {
+      "scope": []
+    },
+    "shell": {
+      "open": true
+    }
+  }
+}

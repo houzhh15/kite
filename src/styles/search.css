@@ -1,0 +1,82 @@
+/* src/styles/search.css — T10 页内查找高亮样式 (设计 §7 + FR-06 / NFR-03).
+ *
+ * 设计依据: docs/design/compiled.md §7 + 需求 FR-06 / AC-06-1..3.
+ *
+ * 责任:
+ *   - `.search-hit` 浅色背景 (命中段), `.search-hit-current` 加深 (当前下标).
+ *   - 浅/深主题适配 (`html.dark` 选择器).
+ *   - 与项目 CSS 变量 token 协同 (rgb(var(--color-*) / 0.x)).
+ *   - 不污染 react-markdown 默认输出 (NFR-04-2); 不修改任何 markdown 容器样式.
+ *   - prefers-reduced-motion: 关闭 transition / 平滑滚动回退.
+ *
+ * 纪律:
+ *   - 仅本任务新增 .search-hit / .search-hit-current 两个 class.
+ *   - Tailwind 不写颜色 token, 这里统一管理.
+ *   - 不使用 !important, 不依赖全局 order.
+ */
+
+/* 命中段 — 浅主题 (默认). */
+.search-hit {
+  background-color: rgba(250, 204, 21, 0.45); /* yellow-400 @ 45% */
+  color: inherit;
+  border-radius: 2px;
+  padding: 0 1px;
+  /* 强制 inline (防止 markdown 把它包成 block). */
+  display: inline;
+}
+
+/* 当前下标 — 加深背景 + 字色反转 + 描边 (强对比, 即便深色主题下也满足 4.5:1). */
+.search-hit[data-current='true'],
+.search-hit-current {
+  background-color: rgba(250, 204, 21, 0.9);
+  color: #1a1a1a;
+  box-shadow: 0 0 0 1px rgba(250, 204, 21, 0.6);
+  border-radius: 2px;
+  padding: 0 1px;
+}
+
+/* 深色主题 — 浅黄半透明, 不改变字色. */
+html.dark .search-hit {
+  background-color: rgba(250, 204, 21, 0.3);
+  color: inherit;
+}
+
+/* 深色主题当前下标 — 保持高对比: 字色反转为深色, 背景保持高 alpha. */
+html.dark .search-hit[data-current='true'],
+html.dark .search-hit-current {
+  background-color: rgba(250, 204, 21, 0.75);
+  color: #1a1a1a;
+  box-shadow: 0 0 0 1px rgba(250, 204, 21, 0.5);
+}
+
+/* 浮层过渡 — 100ms 以内 (NFR-03-2). */
+.search-bar {
+  animation: search-bar-fade 100ms ease-out;
+}
+@keyframes search-bar-fade {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 焦点环 — 2px outline, 对比度 ≥4.5:1 (NFR-03-3 / AC-06-2). */
+.search-bar__input:focus-visible,
+.search-bar__btn:focus-visible {
+  outline: 2px solid rgb(var(--color-accent));
+  outline-offset: 1px;
+}
+
+/* prefers-reduced-motion: 关闭过渡 + 不平滑滚动 (useSearch.scrollCurrentIntoView 兼容). */
+@media (prefers-reduced-motion: reduce) {
+  .search-bar {
+    animation: none;
+  }
+  .search-hit {
+    transition: none;
+  }
+}

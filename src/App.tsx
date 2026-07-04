@@ -1,0 +1,327 @@
+/**
+ * App — 顶层装配 (T02 / T06 / T08 / T09 / T10 / T11).
+ *
+ * 设计依据: docs/design/compiled.md §3.4 + docs/plan/compiled.md Step 7 / Step 8 / Step 13.
+ *
+ * 三层结构:
+ *   <Toaster />            — 全局 toast 列表.
+ *   <Toolbar />            — 顶栏 (受控 onOpen + disabled=loading + 最近文件下拉).
+ *   <Reader />             — 状态分发 (idle/loading/ok/error). T09: 嵌入 Outline/ProgressBar.
+ *   <StatusBar />          — T09: 接收 progress + content 渲染顶部百分比 / 字数 / 行数.
+ *   <ImageViewer />        — T08 step-4: 单例全屏模态 (随 useImageViewer 状态挂载).
+ *   <SearchBar />          — T10: 页内查找浮层 (useSearch 单例 store 消费者).
+ *   <ShortcutsHint />      — T11: 首启快捷键速查浮层 (基于 seenShortcutsHint).
+ *
+ * T10 增量:
+ *   - useKeyboard() 在顶层挂载, 注册 Ctrl/Cmd+F 与 Esc 全局快捷键.
+ *   - SearchBar 浮层挂在 App 顶层 (z-index 高于 Reader), 不破坏阅读布局.
+ *   - Reader 内部通过 useSearch(content) 写入 content, 并用 <SearchHighlight>
+ *     包裹 MarkdownRenderer 实现命中高亮注入 (post-render DOM 注入).
+ *
+ * T11 增量:
+ *   - useProgress() 订阅 useScrollSpy.progress → progressStore (300ms debounce 落盘).
+ *   - registerGlobalShortcuts(api) 注入 10 条快捷键 (open/find/zoom/theme/recent/scroll/esc).
+ *   - tryRestoreLastPath() 在 progressStore.hydrated=true 后调一次 (FR-10).
+ *   - restoreScrollAfterOpen() 在 Reader onMounted 后调一次 (FR-10).
+ *   - ShortcutsHint 挂在顶层, hydrated 后判断是否首启.
+ */
+
+import { useEffect, useRef, useState, lazy, Suspense } from 'react';
+import { useTranslation } from 'react-i18next';
+
+import { Toaster } from './components/Toaster';
+import { Toolbar } from './components/Toolbar';
+import { SkipLink } from './components/SkipLink';
+import { Reader } from './components/Reader';
+import { DragOverlay } from './components/DragOverlay';
+import { StatusBar } from './components/StatusBar';
+import { LinkTooltip } from './components/inline/LinkTooltip';
+import { ImageViewer } from './components/ImageViewer';
+import { SearchBar } from './components/SearchBar';
+import { ShortcutsHint } from './components/ShortcutsHint';
+// T15 (FR-01): React.lazy 接入 FileTree, 不阻塞首屏.
+const FileTreeLazy = lazy(() => import('./components/FileTree').then((m) => ({ default: m.FileTree })));
+import { useMarkdownDoc } from './hooks/useMarkdownDoc';
+import { usePreferences } from './hooks/usePreferences';
+import { useTheme } from './hooks/useTheme';
+import { useFileDrop } from './hooks/useFileDrop';
+import { useImageViewer } from './hooks/useImageViewer';
+import { useProgress } from './hooks/useProgress';
+import { useReaderFontSize } from './hooks/useReaderFontSize';
+import { useReaderLineHeight } from './hooks/useReaderLineHeight';
+import { useReaderCodeFontSize } from './hooks/useReaderCodeFontSize';
+import { useFullscreen } from './hooks/useFullscreen';
+import {
+  registerGlobalShortcuts,
+  unregisterGlobalShortcuts,
+  type KeyboardShortcutApi,
+} from './hooks/useKeyboard';
+import { useDocStore } from './stores/docStore';
+import { cycleTheme, usePrefStore } from './stores/prefStore';
+import { useProgressStore } from './stores/progressStore';
+import { useRecentStore } from './stores/recentStore';
+import { useLayoutStore } from './stores/layoutStore';
+import { useImageViewer as useImageViewerHook } from './hooks/useImageViewer';
+import { useSearch } from './hooks/useSearch';
+import { loadProgress, tauri as tauriApi } from './lib/tauri';
+import { imageCache } from './lib/imageCache';
+import { setWindowTitle } from './lib/window';
+import { pushToast } from './lib/toast';
+
+export default function App(): JSX.Element {
+  const { t } = useTranslation(); // T18 (FR-02): 4 个 toast 文案通过 t('app.*') 取值.
+  usePreferences(); // T04: 顶层挂载, 启动 hydrate + 订阅 store debounced save.
+  useTheme(); // T03 step-10: 单行订阅, 不修改 JSX.
+  useFileDrop(); // T05: 订阅 Tauri 2 拖拽事件, 维护 <body data-drag-active> 视觉态.
+  // T12: 三个订阅型 hook 把档位写入 CSS 变量/根字号 (设计 §3.6.4-6).
+  useReaderFontSize();
+  useReaderLineHeight();
+  useReaderCodeFontSize();
+  // T15 (FR-01): FileTree 根目录 — 留作占位; 真实选择目录 dialog 接入
+  // 在后续 T16+ 任务. 本期 rootPath 维持 null, FileTree 显示 emptyHint.
+  const [treeRootPath] = useState<string | null>(null);
+  const treeOpen = useLayoutStore((s) => s.treeOpen);
+  const { state, open, retry, tryRestoreLastPath, restoreScrollAfterOpen } = useMarkdownDoc();
+  const viewer = useImageViewer(); // T08: 订阅 image viewer 单例 store.
+  const search = useSearch();
+  // T16-P2 (FR-03): 全屏状态机在顶层挂载, 供快捷键 API 调用.
+  const fullscreen = useFullscreen();
+  const scrollContainerRef = useRef<HTMLElement | null>(null);
+
+  // T06: F-16 窗口标题联动.
+  const docTitle = useDocStore((s) => s.state.title);
+  useEffect(() => {
+    void setWindowTitle(docTitle).catch((e) =>
+      console.warn('[App] setWindowTitle failed:', e),
+    );
+  }, [docTitle]);
+
+  // T08 step-5 (R-4 缓解): 文档切换 (currentPath 变化) 时清空 imageCache.
+  const currentPath = useDocStore((s) => s.state.currentPath);
+  useEffect(() => {
+    imageCache.clear();
+  }, [currentPath]);
+
+  // T11: 启动 hydrate progressStore (FR-09 / FR-10 / FR-12).
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const raw = await loadProgress();
+        if (cancelled) return;
+        useProgressStore.getState().hydrate(raw);
+      } catch (err) {
+        if (cancelled) return;
+        const msg =
+          typeof err === 'object' && err && 'code' in err && (err as { code: unknown }).code === 'ENCODING'
+            ? t('app.progressCorrupted')
+            : t('app.progressCorrupted');
+        useProgressStore.getState().resetCorrupted(msg);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [t]);
+
+  // T11: progressStore.hydrated=true 后, 一次性调 tryRestoreLastPath (FR-10).
+  const progressHydrated = useProgressStore((s) => s.hydrated);
+  const restoreAttemptedRef = useRef(false);
+  useEffect(() => {
+    if (!progressHydrated) return;
+    if (restoreAttemptedRef.current) return;
+    restoreAttemptedRef.current = true;
+    void tryRestoreLastPath();
+  }, [progressHydrated, tryRestoreLastPath]);
+
+  // T11: Reader 挂载完成后, 一次性调 restoreScrollAfterOpen.
+  const restoreScrollOnceRef = useRef(false);
+  const handleReaderMounted = (): void => {
+    if (restoreScrollOnceRef.current) return;
+    if (state.status !== 'ok') return;
+    restoreScrollOnceRef.current = true;
+    restoreScrollAfterOpen();
+  };
+  // 切换文档时重置一次性 flag.
+  useEffect(() => {
+    restoreScrollOnceRef.current = false;
+  }, [currentPath]);
+
+  // T09: Reader 把 progress / currentId 透传回顶层 (供 StatusBar + T11 占位).
+  const [progress, setProgress] = useState(0);
+  const docContent = useDocStore((s) => s.state.content);
+
+  const handleCurrentChange = (id: string | null, p: number): void => {
+    if (typeof window !== 'undefined') {
+      console.debug('[outline] current:', id, 'progress:', p.toFixed(3));
+    }
+  };
+
+  // T11: useProgress 订阅 useScrollSpy → progressStore (300ms debounce 落盘).
+  useProgress({
+    scrollContainer: typeof document !== 'undefined'
+      ? document.querySelector<HTMLElement>('[data-testid="reader-scroll-container"]')
+      : null,
+  });
+
+  // T11: 注入 10 条全局快捷键 api (设计 §3.3.3).
+  // T15 (FR-01/FR-04): 增加 toggleTree / historyBack / historyForward.
+  // 注意: deps 只取 search 的稳定方法 (open/close/isOpenNow) + open + viewer 的稳定引用,
+  // 避免 useSearch 返回新对象导致 effect 反复注册/卸载.
+  const openSearchFn = search.open;
+  const closeSearchFn = search.close;
+  const isOpenFn = search.isOpenNow;
+  const viewerCurrent = viewer.current;
+  const viewerClose = viewer.close;
+  useEffect(() => {
+    const api: KeyboardShortcutApi = {
+      isSearchOpen: isOpenFn,
+      openSearch: openSearchFn,
+      closeSearch: () => {
+        if (!isOpenFn()) return false;
+        closeSearchFn();
+        return true;
+      },
+      closeTopOverlay: () => {
+        // ImageViewer > SearchBar > RecentDrawer
+        if (viewerCurrent) {
+          viewerClose();
+          return true;
+        }
+        if (isOpenFn()) {
+          closeSearchFn();
+          return true;
+        }
+        if (typeof window !== 'undefined') {
+          // RecentDrawer 通过 CustomEvent 让 Toolbar 关闭.
+          window.dispatchEvent(new CustomEvent('kite:close-recent-drawer'));
+          return false;
+        }
+        return false;
+      },
+      openFile: () => {
+        void open();
+      },
+      bumpFontSize: (delta) => {
+        if (delta === 0) {
+          // T12: Cmd/Ctrl+0 触发 resetReadingPrefs (字号 + 行高 + 代码块字号回默认).
+          usePrefStore.getState().resetReadingPrefs();
+          return;
+        }
+        const before = usePrefStore.getState().prefs.fontSizeId;
+        usePrefStore.getState().cycleFontSize(delta);
+        const after = usePrefStore.getState().prefs.fontSizeId;
+        // 上限/下限钳制提示
+        if (before === after) {
+          pushToast({
+            kind: 'info',
+            message: delta > 0 ? t('app.fontSizeMax') : t('app.fontSizeMin'),
+          });
+        }
+      },
+      cycleTheme: () => {
+        cycleTheme();
+      },
+      openRecentDrawer: () => {
+        if (typeof window === 'undefined') return;
+        window.dispatchEvent(new CustomEvent('kite:open-recent-drawer'));
+      },
+      scrollReaderTo: (pos) => {
+        const container = scrollContainerRef.current
+          ?? (typeof document !== 'undefined'
+            ? document.querySelector<HTMLElement>('[data-testid="reader-scroll-container"]')
+            : null);
+        if (!container) return;
+        if (pos === 'top') {
+          container.scrollTo({ top: 0, behavior: 'smooth' });
+        } else {
+          container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+        }
+      },
+      getReaderScrollEl: () => scrollContainerRef.current,
+      // T15 (FR-01): Ctrl/Cmd+T 切换目录树.
+      toggleTree: () => {
+        useLayoutStore.getState().toggleTree();
+      },
+      // T15 (FR-04): 历史后退.
+      historyBack: () => {
+        const canBack = useDocStore.getState().canGoBack();
+        if (!canBack) {
+          pushToast({ kind: 'info', message: t('app.historyStart') });
+          return;
+        }
+        void useDocStore.getState().moveCursor(-1);
+      },
+      // T15 (FR-04): 历史前进.
+      historyForward: () => {
+        const canFwd = useDocStore.getState().canGoForward();
+        if (!canFwd) {
+          pushToast({ kind: 'info', message: t('app.historyEnd') });
+          return;
+        }
+        void useDocStore.getState().moveCursor(1);
+      },
+      // T16-P2 (FR-03): 切换全屏 (Cmd+Ctrl+F / F11).
+      toggleFullscreen: () => {
+        void fullscreen.toggle();
+      },
+    };
+    registerGlobalShortcuts(api);
+    return () => {
+      unregisterGlobalShortcuts();
+    };
+    // openSearchFn / closeSearchFn / isOpenFn / viewerCurrent / viewerClose 已展开为稳定引用.
+    // open 在 deps 中保证最新 (用户可能在后续重新创建).
+  }, [open, openSearchFn, closeSearchFn, isOpenFn, viewerCurrent, viewerClose, fullscreen]);
+
+  // T11: Toolbar 监听 CustomEvent 切换最近抽屉 (与 Cmd/Ctrl+Shift+P 联动).
+  // 这里仅占位 — 真实逻辑在 Toolbar.tsx 内.
+
+  // SSR / build 时 tauriApi 会被 tree-shake; 这里显式引用以保留类型.
+  void tauriApi;
+  void useImageViewerHook;
+  void useRecentStore;
+
+  return (
+    <div className="flex h-screen w-screen flex-col bg-bg text-fg">
+      <SkipLink />
+      <Toaster />
+      <LinkTooltip />
+      <DragOverlay />
+      <Toolbar disabled={state.status === 'loading'} onOpen={open} />
+      {/* T15 (FR-01): 左侧目录树抽屉 (React.lazy), 仅在 treeOpen 时渲染. */}
+      {treeOpen && (
+        <aside
+          data-testid="file-tree-drawer"
+          aria-label="File tree"
+          className="fixed left-0 top-12 z-30 h-[calc(100vh-3rem)] w-[280px] border-r border-fg/20 bg-bg shadow-md"
+        >
+          <Suspense fallback={<div className="p-4 text-sm text-muted">…</div>}>
+            <FileTreeLazy
+              rootPath={treeRootPath}
+              onOpenFile={(p) => void useDocStore.getState().loadFile(p)}
+            />
+          </Suspense>
+        </aside>
+      )}
+      <Reader
+        state={state}
+        onRetry={retry}
+        onOpen={open}
+        onRenderError={() => {
+          // Reader 内部 ErrorBoundary 捕获渲染异常 (例如插件 panic).
+        }}
+        docTitle={docTitle}
+        onCurrentChange={handleCurrentChange}
+        onProgressChange={setProgress}
+        onMounted={handleReaderMounted}
+      />
+      <StatusBar progress={progress} content={docContent} />
+      {viewer.current ? (
+        <ImageViewer src={viewer.current.src} alt={viewer.current.alt} onClose={viewer.close} />
+      ) : null}
+      <SearchBar />
+      <ShortcutsHint />
+    </div>
+  );
+}

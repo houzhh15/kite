@@ -1,0 +1,36 @@
+/* src/styles/tokens.css — T04 字号 / 行高运行时 token (设计 §3.7).
+ *
+ * 责任:
+ *   - 定义 :root 与 :root.dark 下的 --kite-font-size / --kite-line-height / --kite-reader-max-width.
+ *   - .reader 容器使用 var() 驱动, 不读 store (CSS 变量驱动避免整树重建).
+ *   - 字号 / 行高 token 不区分主题; :root 与 :root.dark 值一致.
+ *
+ * 内部 fallback: var(--kite-font-size, 16px) / var(--kite-line-height, 1.6);
+ * 拼写错误或缺失 → 自动 fallback 到声明默认值, 不会出现 0px 或 NaN.
+ */
+
+:root {
+  /* Reader 字号, 单位 px, 默认 16 (与 prefStore 默认一致). */
+  --kite-font-size: 16px;
+  /* Reader 行高, 无单位, 默认 1.6. */
+  --kite-line-height: 1.6;
+  /* Reader 最大宽度, 不在 usePreferences 控制范围内, 留常量. */
+  --kite-reader-max-width: 720px;
+}
+
+:root.dark {
+  /* 不区分主题 — 字号行高 token 与 :root 保持一致 (FR-08). */
+  --kite-font-size: 16px;
+  --kite-line-height: 1.6;
+  --kite-reader-max-width: 720px;
+}
+
+/* Reader 容器使用 token; 不读 store. usePreferences 在 hydrate + 每次变更时
+ * 通过 document.documentElement.style.setProperty 覆写 :root, 由于 :root.dark
+ * 也是 :root 选择器, 覆写对两个选择器都生效.
+ */
+.reader {
+  font-size: var(--kite-font-size, 16px);
+  line-height: var(--kite-line-height, 1.6);
+  max-width: var(--kite-reader-max-width, 720px);
+}

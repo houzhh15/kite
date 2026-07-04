@@ -1,0 +1,32 @@
+# Node
+node_modules/
+dist/
+*.log
+
+# Tauri
+src-tauri/target/
+
+# Editor / OS
+.DS_Store
+.vscode/
+.idea/
+*.swp
+
+# Env
+.env
+.env.local
+
+# Certificate / signing material (NEVER commit; CI uses secrets.* only)
+*.p12
+*.pfx
+*.pem
+*.key
+keystore.jks
+*.cer
+*.der
+
+# T13: 改动前的配置文件备份 (不 commit; 仅保留在本地作为对比基线)
+.pre-t13/
+
+# T14: scripts/check-bundle-config.mjs --report 输出的 ephemeral 文件
+.reports/

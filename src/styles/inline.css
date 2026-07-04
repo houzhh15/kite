@@ -1,0 +1,148 @@
+/* src/styles/inline.css — 行内格式样式 (T07 / FR-12 / AC-12-1..4).
+ *
+ * 设计依据: docs/design/compiled.md §3.6 / 需求 FR-12 / AC-12-1..4.
+ *
+ * 责任:
+ *   - 行内 anchor / mark / sub / sup / del / code 视觉契约.
+ *   - 锚点偏移 (避免 sticky header 遮挡).
+ *   - wiki-missing 红色下划线视觉降级.
+ *   - 焦点环 / 颜色对比度 (NFR-A-01/02).
+ *
+ * 纪律:
+ *   - 全部走 RGB token (来自 global.css), 不硬编码 hex.
+ *   - 浅/深主题通用; 不写 :root.dark 重复声明.
+ */
+
+/* 锚点偏移 (T07 step-2c): 让 #xxx 跳转不被状态栏遮挡. */
+.prose-kite [id] {
+  scroll-margin-top: 4.5rem;
+}
+
+/* 链接视觉契约 (AC-12-1/2/3/4 + FR-12). */
+.prose-kite a {
+  color: rgb(var(--color-accent));
+  text-decoration: underline;
+  text-decoration-style: dashed;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+}
+.prose-kite a:hover {
+  text-decoration-style: solid;
+  opacity: 0.9;
+}
+/* 坏链视觉降级 (AC-12-4). */
+.prose-kite a[data-broken='true'] {
+  color: rgb(220 38 38);
+  text-decoration-color: rgb(220 38 38);
+}
+/* 键盘焦点环 (NFR-A-02). */
+.prose-kite a:focus-visible,
+.prose-kite img:focus-visible,
+.prose-kite button:focus-visible {
+  outline: 2px solid rgb(var(--color-accent));
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* 高亮 mark (FR-04). */
+.prose-kite mark {
+  background: rgb(var(--color-accent) / 0.22);
+  color: inherit;
+  padding: 0 0.15em;
+  border-radius: 0.15em;
+}
+
+/* 上下标 (FR-05). */
+.prose-kite sub,
+.prose-kite sup {
+  font-size: 0.75em;
+  line-height: 0;
+  position: relative;
+  vertical-align: baseline;
+}
+.prose-kite sup {
+  top: -0.5em;
+}
+.prose-kite sub {
+  bottom: -0.25em;
+}
+
+/* 删除线 (FR-02). */
+.prose-kite del,
+.prose-kite s {
+  color: rgb(var(--color-fg) / 0.5);
+  text-decoration: line-through;
+}
+
+/* 行内 code (FR-03) — 与 global.css .prose-kite code 协同. */
+.prose-kite code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  background: rgb(var(--color-fg) / 0.08);
+  padding: 0.1em 0.35em;
+  border-radius: 0.25em;
+  font-size: 0.92em;
+}
+/* 块级 code 覆盖 (F-06 / T05 已实现). */
+.prose-kite pre code {
+  background: transparent;
+  padding: 0;
+  font-size: inherit;
+}
+
+/* 行内代码不应进入 Tab 序列 (AC-15-3). */
+.prose-kite code {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* Wiki 链接未命中视觉降级 (FR-09 / AC-09-2). */
+.prose-kite a.wiki-missing {
+  color: rgb(220 38 38);
+  text-decoration-color: rgb(220 38 38);
+  text-decoration-style: wavy;
+}
+
+/* 图片 (FR-10) — 与 global.css 协同, 不重复 max-width. */
+.prose-kite img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.25em;
+}
+.prose-kite img[data-broken='true'] {
+  /* onError 占位: 用背景纹理表达 "破图" 视觉降级 (AC-10-4). */
+  background: rgb(var(--color-fg) / 0.05);
+  outline: 1px dashed rgb(var(--color-fg) / 0.3);
+  min-height: 2rem;
+}
+
+/* 链接 tooltip portal 浮层 (FR-17). */
+.kite-link-tooltip {
+  position: fixed;
+  z-index: 60;
+  background: rgb(var(--color-fg));
+  color: rgb(var(--color-bg));
+  font-size: 0.78rem;
+  padding: 0.35em 0.6em;
+  border-radius: 0.3em;
+  pointer-events: none;
+  max-width: 360px;
+  word-break: break-all;
+  box-shadow: 0 6px 18px rgb(0 0 0 / 0.2);
+  opacity: 1;
+  transition: opacity 200ms ease-out;
+}
+.kite-link-tooltip[data-fading='true'] {
+  opacity: 0;
+}
+
+/* 状态栏外链 chip (FR-16). */
+.kite-external-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25em;
+  font-size: 0.78rem;
+  padding: 0.15em 0.45em;
+  border-radius: 0.3em;
+  background: rgb(var(--color-fg) / 0.06);
+  color: rgb(var(--color-fg) / 0.8);
+}

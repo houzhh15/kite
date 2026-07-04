@@ -1,0 +1,31 @@
+/* drag-state.css — T05 拖拽视觉态 (F-02 / 设计 §3.1.3)
+ *
+ * 纪律:
+ *   - 仅新增以下规则; 不修改 global.css 既有 token.
+ *   - 光标态: dragover 期间 <body> 获得 data-drag-active="true", cursor: copy.
+ *   - 遮罩: 条件渲染由 DragOverlay 组件控制 (visible 仅在 drag 期间).
+ *
+ * 满足: AC-04-1/2/4, NFR-01-2.
+ */
+
+body[data-drag-active='true'] {
+  cursor: copy;
+}
+
+.drag-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgb(var(--color-bg) / 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 9999;
+  font-size: 1.125rem;
+  color: rgb(var(--color-fg));
+  backdrop-filter: blur(2px);
+}
+
+.drag-overlay[hidden] {
+  display: none;
+}

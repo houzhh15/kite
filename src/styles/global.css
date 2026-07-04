@@ -1,0 +1,264 @@
+/* Tailwind 入口
+ * - 三个 @tailwind 指令顺序固定
+ * - 顶层声明 :root 与 .dark 颜色变量
+ * - KITE Tailwind 配置 (tailwind.config.js) 把 bg / fg / accent
+ *   解析到这些 RGB 通道, 因此 UI 元素用 bg-bg text-fg bg-accent
+ *   即可在运行时跟随主题切换.
+ */
+
+/* T07 行内格式样式: 行内 anchor / mark / sub / sup / del / code / wiki / tooltip / chip. */
+@import './inline.css';
+
+/* T10 页内查找样式: search-hit / search-hit-current / 浮层. */
+@import './search.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-bg: 250 250 252;
+  --color-fg: 15 23 42;
+  /* T12 step-12: 校正 --color-accent 从 #3b82f6 (3.68:1, 失败 AA) → #1d4ed8 (6.70:1, 通过 AA+).
+     仅 light token 调整; dark token (#60a5fa) 6.97:1 维持原值. */
+  --color-accent: 29 78 216;
+  /* T03 step-04: 辅助 token (FR-05 推荐, 设计 §3.8 表). */
+  --color-border: 15 23 42 / 0.20;
+  --color-muted: 15 23 42 / 0.60;
+
+  color-scheme: light;
+}
+
+.dark {
+  --color-bg: 15 23 42;
+  --color-fg: 226 232 240;
+  --color-accent: 96 165 250;
+  /* T03 step-04: 辅助 token (与 :root 对齐, alpha 用于边框/弱化文本). */
+  --color-border: 226 232 240 / 0.20;
+  --color-muted: 226 232 240 / 0.60;
+
+  color-scheme: dark;
+}
+
+/* T03 step-04: sepia 主题接口占位.
+ * AC-05-3: 保留接口, 不实现颜色 (设计 §1.2 / 设计 §3.8).
+ * 未来开启时, 在 :root.sepia 下覆写 --color-*, 由 useTheme toggle html.sepia 类即可.
+ * 当前阶段 UI 不暴露 sepia 选项, Theme 类型不包含 'sepia'.
+ */
+/*
+:root.sepia {
+  --color-bg: ...;
+  --color-fg: ...;
+  --color-accent: ...;
+  --color-border: ...;
+  --color-muted: ...;
+}
+*/
+
+html,
+body,
+#root {
+  height: 100%;
+  width: 100%;
+}
+
+body {
+  @apply bg-bg text-fg antialiased;
+}
+
+/* prose-kite (T02 IMPL-16)
+ * Markdown 排版样式, 全部走语义化 token, 不硬编码 hex.
+ * 与 Tailwind text-base 联动; 内容容器用 .prose-kite 包裹.
+ */
+.prose-kite {
+  line-height: 1.7;
+  color: rgb(var(--color-fg) / 0.9);
+}
+.prose-kite h1,
+.prose-kite h2,
+.prose-kite h3,
+.prose-kite h4 {
+  font-weight: 600;
+  color: rgb(var(--color-fg));
+  margin-top: 1.4em;
+  margin-bottom: 0.6em;
+  letter-spacing: -0.01em;
+}
+.prose-kite h1 {
+  font-size: 1.875rem;
+  border-bottom: 1px solid rgb(var(--color-fg) / 0.15);
+  padding-bottom: 0.25em;
+}
+.prose-kite h2 {
+  font-size: 1.5rem;
+}
+.prose-kite h3 {
+  font-size: 1.25rem;
+}
+.prose-kite h4 {
+  font-size: 1.05rem;
+}
+.prose-kite p {
+  margin-top: 1em;
+  margin-bottom: 1em;
+}
+.prose-kite a {
+  color: rgb(var(--color-accent));
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.prose-kite a:hover {
+  opacity: 0.85;
+}
+.prose-kite ul,
+.prose-kite ol {
+  margin: 1em 0;
+  padding-left: 1.5em;
+}
+.prose-kite ul {
+  list-style: disc;
+}
+.prose-kite ol {
+  list-style: decimal;
+}
+.prose-kite li {
+  margin: 0.25em 0;
+}
+.prose-kite li > input[type='checkbox'] {
+  margin-right: 0.5em;
+}
+.prose-kite blockquote {
+  border-left: 3px solid rgb(var(--color-accent));
+  padding-left: 1em;
+  color: rgb(var(--color-fg) / 0.7);
+  font-style: italic;
+  margin: 1em 0;
+}
+.prose-kite code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  background: rgb(var(--color-fg) / 0.08);
+  padding: 0.1em 0.35em;
+  border-radius: 0.25em;
+  font-size: 0.92em;
+}
+.prose-kite pre {
+  background: rgb(var(--color-fg) / 0.06);
+  border: 1px solid rgb(var(--color-fg) / 0.1);
+  border-radius: 0.4em;
+  padding: 1em;
+  overflow-x: auto;
+  font-size: 0.92em;
+  margin: 1.2em 0;
+}
+.prose-kite pre code {
+  background: transparent;
+  padding: 0;
+  font-size: inherit;
+}
+.prose-kite table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1em 0;
+}
+.prose-kite th,
+.prose-kite td {
+  border: 1px solid rgb(var(--color-fg) / 0.2);
+  padding: 0.5em 0.75em;
+  text-align: left;
+}
+.prose-kite th {
+  background: rgb(var(--color-fg) / 0.05);
+  font-weight: 600;
+}
+.prose-kite hr {
+  border: 0;
+  border-top: 1px solid rgb(var(--color-fg) / 0.15);
+  margin: 2em 0;
+}
+.prose-kite img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.25em;
+}
+.prose-kite del,
+.prose-kite s {
+  color: rgb(var(--color-fg) / 0.5);
+}
+
+/* T08 step-3: kite-codeblock 工具栏 / 折叠体 */
+.kite-codeblock {
+  position: relative;
+}
+.kite-codeblock__toolbar {
+  position: absolute;
+  top: 0.25rem;
+  right: 0.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.15rem 0.35rem;
+  border-radius: 0.35rem;
+  background: rgb(var(--color-fg) / 0.06);
+  font-size: 0.78rem;
+  z-index: 1;
+}
+.dark .kite-codeblock__toolbar {
+  background: rgb(var(--color-fg) / 0.1);
+}
+.kite-codeblock__lang {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: rgb(var(--color-fg) / 0.7);
+  padding: 0 0.4em;
+  letter-spacing: 0.04em;
+}
+.kite-codeblock__btn {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+  padding: 0.1rem 0.4rem;
+  border-radius: 0.25rem;
+  color: rgb(var(--color-fg) / 0.85);
+  line-height: 1;
+}
+.kite-codeblock__btn:hover {
+  background: rgb(var(--color-fg) / 0.12);
+}
+.kite-codeblock__btn:focus-visible {
+  outline: 2px solid rgb(var(--color-accent));
+  outline-offset: 1px;
+}
+.kite-codeblock__body {
+  display: block;
+}
+.kite-codeblock__body[data-collapsed='true'] {
+  display: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .kite-codeblock__body {
+    transition: none !important;
+  }
+}
+
+/* T12 step-13: 全局 :focus-visible 焦点环 (设计 §3.6.8 / NFR-A-04).
+ * 视觉对所有键盘聚焦的元素给出 2px outline + accent 边框,
+ * 不影响鼠标点击的 outline:none 行为.
+ * 注: 浏览器默认 :focus-visible 仅在键盘聚焦时显示, 鼠标聚焦不显示.
+ */
+*:focus-visible {
+  outline: 2px solid rgb(var(--color-accent));
+  outline-offset: 2px;
+}
+
+/* T12 step-13: prefers-reduced-motion 媒体查询: 关闭所有过渡 / 动画 (NFR-A-04). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
