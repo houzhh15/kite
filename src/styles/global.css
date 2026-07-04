@@ -73,6 +73,9 @@ body {
 .prose-kite {
   line-height: 1.7;
   color: rgb(var(--color-fg) / 0.9);
+  /* 内容内边距 (左右 24px, 上下 32px). 之前挂在 article className 上,
+   * 改到 CSS 让样式职责单一. */
+  padding: 2rem 1.5rem;
 }
 /* prose-kite__inner: 段落级行宽封顶, 块级元素 (table / pre / figure / img) 不受限.
  *
@@ -95,15 +98,24 @@ body {
   min-width: 0;
   margin-inline: 0;
 }
-/* 段落级: 行宽封顶 + 居中, 超过行宽 → 文档左右留白. */
+/* 段落级: 行宽封顶 + 居中, 超过行宽 → 文档左右留白.
+ *
+ * 用 px 而非 ch: ch 是 ASCII '0' glyph 宽度, 在中日韩字体下不可靠,
+ * 用绝对 px (追随 root font-size) 更稳定.
+ *   sm (14px)  → 540px ≈ 39 汉字 / 行
+ *   md (16px)  → 640px ≈ 40 汉字 / 行
+ *   lg (18px)  → 720px ≈ 40 汉字 / 行
+ *   xl (20px)  → 800px ≈ 40 汉字 / 行
+ *   2xl (24px) → 920px ≈ 38 汉字 / 行
+ */
 .prose-kite__inner > p,
 .prose-kite__inner > blockquote {
-  max-width: 70ch;
+  max-width: clamp(540px, 40em, 920px);
   margin-inline: auto;
 }
 .prose-kite__inner > ul,
 .prose-kite__inner > ol {
-  max-width: 70ch;
+  max-width: clamp(540px, 40em, 920px);
   margin-inline: auto;
 }
 .prose-kite__inner > h1,
@@ -112,7 +124,7 @@ body {
 .prose-kite__inner > h4,
 .prose-kite__inner > h5,
 .prose-kite__inner > h6 {
-  max-width: 70ch;
+  max-width: clamp(540px, 40em, 920px);
   margin-inline: auto;
 }
 .prose-kite h1,

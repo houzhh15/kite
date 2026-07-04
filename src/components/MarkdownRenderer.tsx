@@ -185,7 +185,7 @@ function MarkdownRendererInner({ content }: MarkdownRendererProps): JSX.Element 
     return (
       <article
         data-testid="markdown-article"
-        className="prose-kite w-full px-6 py-8"
+        className="prose-kite w-full"
       >
         <div data-testid="markdown-loading" className="prose-kite__inner text-muted">
           …
@@ -197,7 +197,7 @@ function MarkdownRendererInner({ content }: MarkdownRendererProps): JSX.Element 
   return (
     <article
       data-testid="markdown-article"
-      className="prose-kite w-full px-6 py-8"
+      className="prose-kite w-full"
     >
       <div className="prose-kite__inner">
         <ReactMarkdown
