@@ -151,9 +151,27 @@ export function CodeBlock(props: CodeBlockProps): JSX.Element {
           aria-expanded={!collapsed}
           data-testid="codeblock-fold"
           onClick={onToggleFold}
-          className="kite-codeblock__btn"
+          className={`kite-codeblock__btn kite-codeblock__fold-btn${collapsed ? ' kite-codeblock__fold-btn--collapsed' : ''}`}
         >
-          {collapsed ? '▶' : '▼'}
+          {/* inline SVG (Lucide "chevron-down"), 14×14, 颜色走 currentColor.
+              与"复制"图标同源风格 (strokeWidth=2 round caps), 折叠时
+              由 CSS rotate(−90deg) 旋转为 ▶ — 避免两套图标 + 跨字体 fallback 锯齿. */}
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+            focusable="false"
+            className="kite-codeblock__fold-icon"
+          >
+            <path d="m6 9 6 6 6-6" />
+          </svg>
         </button>
       </div>
       <div

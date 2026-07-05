@@ -242,6 +242,18 @@ body {
   height: 14px;
   display: block;
 }
+
+/* 折叠指示: chevron 向下默认; collapsed → 旋转 −90° = ▶.
+   0.18s ease-out 让视觉更柔和, 不闪烁. */
+.kite-codeblock__fold-icon {
+  transition: transform 0.18s ease-out;
+}
+.kite-codeblock__fold-btn--collapsed .kite-codeblock__fold-icon {
+  transform: rotate(-90deg);
+}
+@media (prefers-reduced-motion: reduce) {
+  .kite-codeblock__fold-icon { transition: none; }
+}
 .kite-codeblock__btn:hover {
   background: rgb(var(--color-fg) / 0.12);
 }
