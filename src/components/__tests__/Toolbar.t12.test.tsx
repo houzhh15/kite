@@ -2,7 +2,7 @@
  * Toolbar.t12.test.tsx — T12 字号指示器 + aria-live announcer 测试.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { render } from '@testing-library/react';
+import { render, fireEvent } from '@testing-library/react';
 
 import { Toolbar } from '../Toolbar';
 import { usePrefStore } from '../../stores/prefStore';
@@ -109,5 +109,93 @@ describe('Toolbar — T19 Logo 与按钮同行', () => {
     // 按钮组自身也不允许换行, 保证所有按钮与 logo 同行.
     expect(buttonGroup.className).toContain('whitespace-nowrap');
     expect(buttonGroup.className).toContain('flex-nowrap');
+  });
+});
+
+describe('Toolbar — T19 字号选择器 (替代单纯 cycle)', () => {
+  beforeEach(() => {
+    usePrefStore.setState({
+      prefs: {
+        theme: 'system',
+        fontSize: 16,
+        lineHeight: 1.6,
+        codeBlockTheme: 'github',
+        fontSizeId: 'md',
+        lineHeightId: 'cozy',
+        codeFontSizeId: 'md',
+        language: 'zh-CN',
+        mermaidEnabled: false,
+        katexEnabled: false,
+      },
+      hydrated: true,
+      loaded: true,
+    });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('默认收起: indicator 显示当前字号 + ▾, 不显示 popover', () => {
+    const { getByTestId, queryByTestId } = render(
+      <Toolbar disabled={false} onOpen={() => {}} />,
+    );
+    const trigger = getByTestId('font-size-indicator');
+    expect(trigger.textContent).toContain('16px');
+    expect(trigger.getAttribute('aria-haspopup')).toBe('menu');
+    expect(trigger.getAttribute('aria-expanded')).toBe('false');
+    expect(queryByTestId('font-picker')).toBeNull();
+  });
+
+  it('点击 indicator 打开 popover, 含 5 档选项, 当前档 aria-checked=true', () => {
+    const { getByTestId, queryAllByTestId } = render(
+      <Toolbar disabled={false} onOpen={() => {}} />,
+    );
+    const trigger = getByTestId('font-size-indicator');
+    fireEvent.click(trigger);
+    expect(trigger.getAttribute('aria-expanded')).toBe('true');
+    const picker = getByTestId('font-picker');
+    expect(picker.getAttribute('role')).toBe('menu');
+
+    const options = queryAllByTestId('font-picker-option');
+    expect(options.length).toBe(5);
+    expect(options.map((o) => o.getAttribute('data-font-size-id'))).toEqual([
+      'sm', 'md', 'lg', 'xl', '2xl',
+    ]);
+    const checked = options.filter((o) => o.getAttribute('aria-checked') === 'true');
+    expect(checked.length).toBe(1);
+    expect(checked[0]?.getAttribute('data-font-size-id')).toBe('md');
+  });
+
+  it('选中其它档 → 写 store + 关闭 popover', () => {
+    const { getByTestId, queryByTestId, queryAllByTestId } = render(
+      <Toolbar disabled={false} onOpen={() => {}} />,
+    );
+    fireEvent.click(getByTestId('font-size-indicator'));
+    const options = queryAllByTestId('font-picker-option');
+    const xl = options.find((o) => o.getAttribute('data-font-size-id') === 'xl');
+    expect(xl).toBeDefined();
+    if (!xl) return;
+    fireEvent.click(xl);
+    expect(usePrefStore.getState().prefs.fontSizeId).toBe('xl');
+    expect(usePrefStore.getState().prefs.fontSize).toBe(20);
+    expect(queryByTestId('font-picker')).toBeNull();
+  });
+
+  it('再次点击 indicator / Esc 都能关闭 popover', () => {
+    const { getByTestId, queryByTestId } = render(
+      <Toolbar disabled={false} onOpen={() => {}} />,
+    );
+    const trigger = getByTestId('font-size-indicator');
+    fireEvent.click(trigger);
+    expect(getByTestId('font-picker')).toBeTruthy();
+    // 1) 再次点击 toggle 关闭
+    fireEvent.click(trigger);
+    expect(queryByTestId('font-picker')).toBeNull();
+    // 2) Esc 关闭
+    fireEvent.click(trigger);
+    expect(getByTestId('font-picker')).toBeTruthy();
+    // useFullscreen 上 useKeyboard 挂全局 keydown; 这里模拟 Escape 按键 (同事件).
+    fireEvent.keyDown(document.body, { key: 'Escape' });
+    expect(queryByTestId('font-picker')).toBeNull();
   });
 });

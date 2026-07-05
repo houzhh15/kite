@@ -21,7 +21,11 @@ import { useLayoutStore } from '../stores/layoutStore';
 import { useFullscreen } from '../hooks/useFullscreen';
 import { FullscreenButton } from './FullscreenButton';
 import { ToolbarExportMenu } from './ToolbarExportMenu';
-import { getFontSizeMeta } from '../lib/reader-prefs';
+import {
+  FONT_SIZES,
+  getFontSizeMeta,
+  type FontSize,
+} from '../lib/reader-prefs';
 import kiteLogoUrl from '../assets/kite_logo.png';
 
 export interface ToolbarProps {
@@ -32,8 +36,11 @@ export interface ToolbarProps {
 export function Toolbar({ disabled, onOpen }: ToolbarProps): JSX.Element {
   const { t } = useTranslation();
   const [recentOpen, setRecentOpen] = useState(false);
+  const [fontPickerOpen, setFontPickerOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement | null>(null);
+  const fontPickerRef = useRef<HTMLDivElement | null>(null);
   const fontSizeId = usePrefStore((s) => s.prefs.fontSizeId);
+  const setFontSizeId = usePrefStore((s) => s.setFontSizeId);
   const lineHeightId = usePrefStore((s) => s.prefs.lineHeightId);
   const fontMeta = getFontSizeMeta(fontSizeId);
   const announcerRef = useRef<HTMLSpanElement | null>(null);
@@ -97,6 +104,41 @@ export function Toolbar({ disabled, onOpen }: ToolbarProps): JSX.Element {
     };
   }, []);
 
+  // T19 字号选择器: 点击外部 / Esc 关闭 (与「最近文件」下拉一致模式).
+  // 仅在打开时挂全局事件, 关闭即卸载以避免性能/串扰.
+  useEffect(() => {
+    if (!fontPickerOpen) return;
+    const onDocDown = (e: MouseEvent): void => {
+      const wrap = fontPickerRef.current;
+      if (!wrap) return;
+      if (e.target instanceof Node && wrap.contains(e.target)) return;
+      setFontPickerOpen(false);
+    };
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') setFontPickerOpen(false);
+    };
+    document.addEventListener('mousedown', onDocDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDocDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [fontPickerOpen]);
+
+  // 打开字号选择器时, 把焦点收到第一个选项, 方便键盘操作.
+  useEffect(() => {
+    if (!fontPickerOpen) return;
+    const wrap = fontPickerRef.current;
+    if (!wrap) return;
+    const first = wrap.querySelector<HTMLButtonElement>('[data-testid="font-picker-option"]');
+    first?.focus();
+  }, [fontPickerOpen]);
+
+  const handleSelectFontSize = (id: FontSize): void => {
+    setFontSizeId(id);
+    setFontPickerOpen(false);
+  };
+
   return (
     <header
       role="banner"
@@ -121,21 +163,68 @@ export function Toolbar({ disabled, onOpen }: ToolbarProps): JSX.Element {
       {/* ml-auto 把按钮组钉在右侧; flex-shrink-0 + whitespace-nowrap + flex-nowrap
           共同保证按钮组不折行. 与 Logo 严格同一水平行. */}
       <div className="ml-auto flex shrink-0 flex-nowrap items-center justify-end gap-2 whitespace-nowrap">
-        <button
-          type="button"
-          data-testid="font-size-indicator"
-          // T19: 之前作为被动 indicator (T12 aria-hidden) 现在改为可点击按钮:
-          // 点击循环字号 (sm → md → lg → xl → 2xl → sm). 与快捷键
-          // `Cmd/Ctrl +` / `-` 等价, 但部分用户更习惯 UI 触发. aria-live
-          // 区域依然保留 (已 aria-live="polite").
-          title={`${t('toolbar.fontSizeLabel')} ${fontMeta.label} (${fontMeta.px}px) · ${lineHeightId}`}
-          aria-label={`${t('toolbar.fontSizeLabel')} ${fontMeta.label} (${fontMeta.px}px). 点击循环字号.`}
-          onClick={() => usePrefStore.getState().cycleFontSize(1)}
-          className="rounded-md border border-border px-2 py-1 text-xs text-muted transition-colors hover:bg-fg/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-        >
-          <span className="font-medium text-fg">{fontMeta.hint}</span>
-          <span className="ml-1">{fontMeta.px}px</span>
-        </button>
+        <div ref={fontPickerRef} className="relative">
+          <button
+            type="button"
+            data-testid="font-size-indicator"
+            // T19: 字号指示器改为下拉触发器.
+            //   - 默认 (fontPickerOpen=false) → 显示当前字号 + ▼ 标识.
+            //   - 点击后展开 Popover 列出 5 档 (sm/md/lg/xl/2xl), 选中即应用并关闭.
+            //   - 键盘可达: aria-haspopup="menu" + aria-expanded, Enter/Space 触发,
+            //     Esc / 外部点击关闭 (见上方 effect).
+            //   - aria-live 区域依然保留 (屏读器朗读字号变化).
+            title={`${t('toolbar.fontSizeLabel')} ${fontMeta.label} (${fontMeta.px}px) · ${lineHeightId}`}
+            aria-label={`${t('toolbar.fontSizeLabel')} ${fontMeta.label} (${fontMeta.px}px). 点击选择字号.`}
+            aria-haspopup="menu"
+            aria-expanded={fontPickerOpen}
+            onClick={() => setFontPickerOpen((v) => !v)}
+            className="flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-muted transition-colors hover:bg-fg/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          >
+            <span className="font-medium text-fg">{fontMeta.hint}</span>
+            <span className="ml-1">{fontMeta.px}px</span>
+            <span aria-hidden="true" className="ml-1 text-[10px] opacity-60">▾</span>
+          </button>
+          {fontPickerOpen && (
+            <div
+              role="menu"
+              aria-label={t('toolbar.fontSizeLabel')}
+              data-testid="font-picker"
+              className="absolute right-0 top-full z-40 mt-2 min-w-[10rem] rounded-md border border-fg/20 bg-bg py-1 shadow-lg"
+            >
+              {FONT_SIZES.map((id) => {
+                const meta = getFontSizeMeta(id);
+                const isActive = id === fontSizeId;
+                // 优先 i18n 标签 (settings.fontSizes.<id>), 无 i18n 时回退 meta.label
+                // (T18 FR-02: 业务 UI 不可硬编码文案).
+                const i18nLabel = t(`settings.fontSizes.${id}`, { defaultValue: '' });
+                const label = i18nLabel || meta.label;
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    role="menuitemradio"
+                    aria-checked={isActive}
+                    data-testid="font-picker-option"
+                    data-font-size-id={id}
+                    onClick={() => handleSelectFontSize(id)}
+                    className={
+                      'flex w-full items-center justify-between gap-3 px-3 py-1.5 text-left text-sm transition-colors hover:bg-fg/5 focus:bg-fg/5 focus:outline-none ' +
+                      (isActive ? 'bg-accent/10 font-semibold text-accent' : 'text-fg')
+                    }
+                  >
+                    <span className="flex items-center gap-2">
+                      <span className="inline-block w-7 text-center text-xs font-medium opacity-70">
+                        {meta.hint}
+                      </span>
+                      <span>{label}</span>
+                    </span>
+                    <span className="text-xs tabular-nums opacity-60">{meta.px}px</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
         {/* 屏读器朗读区: aria-live="polite", 内容由 effect 写入. */}
         <span
           ref={announcerRef}
