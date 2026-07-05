@@ -294,7 +294,7 @@ export default function App(): JSX.Element {
         <aside
           data-testid="file-tree-drawer"
           aria-label="File tree"
-          className="fixed left-0 top-12 z-30 h-[calc(100vh-3rem)] w-[280px] border-r border-fg/20 bg-bg shadow-md"
+          className="fixed left-0 top-[50px] z-30 h-[calc(100vh-50px)] w-[280px] border-r border-fg/20 bg-bg shadow-md"
         >
           <Suspense fallback={<div className="p-4 text-sm text-muted">…</div>}>
             <FileTreeLazy
