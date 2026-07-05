@@ -316,24 +316,24 @@ export function Toolbar({
           title={t('toolbar.tree')}
           onClick={toggleTree}
           className={
-            'inline-flex items-center justify-center rounded-md border px-3 py-1.5 text-sm hover:bg-fg/5 ' +
+            'inline-flex items-center justify-center rounded-md border px-3 py-1.5 text-sm transition-colors hover:bg-fg/5 ' +
             (treeOpen ? 'border-accent bg-accent/10 font-semibold' : 'border-fg/30')
           }
         >
-          {/* inline SVG (Lucide "folder"), 14×14 strokeWidth=1.5, 颜色走 currentColor. */}
+          {/* inline SVG (Lucide "folder"), 16×16 strokeWidth=2, 颜色走 currentColor. */}
           <svg
             xmlns="http://www.w3.org/2000/svg"
-            width="14"
-            height="14"
+            width="16"
+            height="16"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
-            strokeWidth="1.5"
+            strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round"
             aria-hidden="true"
             focusable="false"
-            className="toolbar-tree__icon"
+            className={`toolbar-tree__icon${treeOpen ? ' toolbar-tree__icon--open' : ''}`}
           >
             <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 9.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />
           </svg>

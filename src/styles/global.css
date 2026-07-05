@@ -254,6 +254,19 @@ body {
   .file-tree__chevron { transition: none; }
 }
 
+/* Toolbar 文件夹图标: 主动加粗 (strokeWidth=2) + toggle 微缩放, 视觉与 ↩/→
+   Unicode 字符 (高 ~18px) 占比匹配. 减弱密集, 强调"在 36px 按钮里很有分量". */
+.toolbar-tree__icon {
+  display: block;
+  transition: transform 0.15s ease-out;
+}
+.toolbar-tree__icon--open {
+  transform: scale(1.08);
+}
+@media (prefers-reduced-motion: reduce) {
+  .toolbar-tree__icon { transition: none; }
+}
+
 /* 折叠指示: chevron 向下默认; collapsed → 旋转 −90° = ▶.
    0.18s ease-out 让视觉更柔和, 不闪烁. */
 .kite-codeblock__fold-icon {
