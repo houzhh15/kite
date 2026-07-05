@@ -232,6 +232,15 @@ body {
   border-radius: 0.25rem;
   color: rgb(var(--color-fg) / 0.85);
   line-height: 1;
+  /* inline SVG: 垂直对齐 + 小图标尺寸; emoji 切换为 SVG 后保持视觉一致. */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.kite-codeblock__btn svg {
+  width: 14px;
+  height: 14px;
+  display: block;
 }
 .kite-codeblock__btn:hover {
   background: rgb(var(--color-fg) / 0.12);
