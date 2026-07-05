@@ -8,6 +8,9 @@
 //   - load_from_store 在 setup 钩子中调用一次 hydrate (NFR-05).
 //   - 在 invoke_handler 中追加 get_recent_files / add_recent_file / clear_recent_files.
 //
+// T16-P2 增量:
+//   - 在 invoke_handler 中追加 export_html (FR-01) + set_fullscreen (FR-03).
+//
 // 注释:
 // - 因为 main.rs 是独立二进制 (Cargo.toml `[[bin]]`), 通过 kite_lib::commands
 //   引用 lib 模块, 不要绕过 kite_lib (避免双份代码).

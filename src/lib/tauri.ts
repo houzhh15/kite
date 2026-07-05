@@ -385,6 +385,30 @@ export interface FullscreenState {
 }
 
 /**
+ * setFullscreen — T16-P2 (FR-03) 调 Rust 命令 `set_fullscreen`.
+ *
+ * 与 Tauri 命令 `set_fullscreen(fullscreen: bool)` 一一对应, 改变原生
+ * WebView 所在窗口的全屏状态. 因为这是窗口级别 (非 DOM Fullscreen API),
+ * 在 Tauri 2 里需要走 `getCurrentWindow().setFullscreen()` 才会真正生效;
+ * 若直接调 `document.documentElement.requestFullscreen()` 在 Tauri WebView
+ * 中通常静默失败 (无用户手势所需 top-level browsing context).
+ *
+ * 契约:
+ *   - 成功 → resolve(void).
+ *   - 失败 → reject(AppError), code ∈ {IO, UNKNOWN, ...}.
+ *
+ * @param fullscreen 是否进入全屏; false 表示退出全屏.
+ */
+export function setFullscreen(fullscreen: boolean): Promise<void> {
+  // IPC 出口 (R-04): 走 safeInvoke 而不是直连 @tauri-apps/api/window, 与
+  // commands.rs 一一对齐, 允许在浏览器模式下走 reject 而不是抛同步错.
+  // Rust 侧 (commands.rs) 也提供 `set_fullscreen` 命令, 内部等价于调用
+  // `app.get_webview_window().set_fullscreen(fullscreen)` —— Rust 路径可
+  // 跨平台工作, 不依赖前端运行时 (Web vs Tauri) 分支.
+  return safeInvoke<void>('set_fullscreen', { fullscreen });
+}
+
+/**
  * exportHtml — T16-P2 (FR-01) 调 Rust 命令 `export_html`.
  *
  * 契约:

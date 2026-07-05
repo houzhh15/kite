@@ -121,15 +121,21 @@ export function Toolbar({ disabled, onOpen }: ToolbarProps): JSX.Element {
       {/* ml-auto 把按钮组钉在右侧; flex-shrink-0 + whitespace-nowrap + flex-nowrap
           共同保证按钮组不折行. 与 Logo 严格同一水平行. */}
       <div className="ml-auto flex shrink-0 flex-nowrap items-center justify-end gap-2 whitespace-nowrap">
-        <div
+        <button
+          type="button"
           data-testid="font-size-indicator"
+          // T19: 之前作为被动 indicator (T12 aria-hidden) 现在改为可点击按钮:
+          // 点击循环字号 (sm → md → lg → xl → 2xl → sm). 与快捷键
+          // `Cmd/Ctrl +` / `-` 等价, 但部分用户更习惯 UI 触发. aria-live
+          // 区域依然保留 (已 aria-live="polite").
           title={`${t('toolbar.fontSizeLabel')} ${fontMeta.label} (${fontMeta.px}px) · ${lineHeightId}`}
-          aria-hidden="true"
-          className="rounded-md border border-border px-2 py-1 text-xs text-muted"
+          aria-label={`${t('toolbar.fontSizeLabel')} ${fontMeta.label} (${fontMeta.px}px). 点击循环字号.`}
+          onClick={() => usePrefStore.getState().cycleFontSize(1)}
+          className="rounded-md border border-border px-2 py-1 text-xs text-muted transition-colors hover:bg-fg/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
         >
           <span className="font-medium text-fg">{fontMeta.hint}</span>
           <span className="ml-1">{fontMeta.px}px</span>
-        </div>
+        </button>
         {/* 屏读器朗读区: aria-live="polite", 内容由 effect 写入. */}
         <span
           ref={announcerRef}

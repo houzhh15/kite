@@ -27,10 +27,12 @@ describe('ARIA landmarks — T12', () => {
     expect(link.getAttribute('href')).toBe('#main-content');
   });
 
-  it('字号指示器 aria-hidden=true (屏幕阅读器跳过 visual only)', () => {
+  it('字号指示器现在为可点击按钮, 含 aria-label (T19 把 indicator 升级为控件)', () => {
     const { getByTestId } = render(<Toolbar disabled={false} onOpen={() => {}} />);
     const ind = getByTestId('font-size-indicator');
-    expect(ind.getAttribute('aria-hidden')).toBe('true');
+    expect(ind.tagName.toLowerCase()).toBe('button');
+    expect(ind.getAttribute('aria-label')).toBeTruthy();
+    expect(ind.getAttribute('aria-hidden')).not.toBe('true');
   });
 
   it('字号 announcer 是 aria-live=polite', () => {

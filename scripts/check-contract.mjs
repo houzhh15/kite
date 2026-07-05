@@ -88,9 +88,9 @@ for (const m of rustText.matchAll(/#\[tauri::command\][\s\S]*?pub\s+(?:async\s+)
 
 const tsText = await readFile(tauriFile, 'utf8');
 const tsNames = new Set();
-// match: invoke<...>('name', ...) or invoke('name', ...)
+// match: invoke<...>('name' | invoke('name' | safeInvoke<...>('name' | safeInvoke('name'
 // capture group 1 = snake_case command name
-for (const m of tsText.matchAll(/\binvoke(?:\s*<[^>]+>)?\s*\(\s*['"]([a-z_][a-z0-9_]*)['"]/g)) {
+for (const m of tsText.matchAll(/(?:safe)?invoke(?:\s*<[^>]+>)?\s*\(\s*['"]([a-z_][a-z0-9_]*)['"]/gi)) {
   tsNames.add(m[1]);
 }
 

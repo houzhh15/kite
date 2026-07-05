@@ -349,6 +349,44 @@ pub async fn export_html(
     crate::services::exporter::export_html(content, PathBuf::from(target_path))
 }
 
+// ---------- 14. set_fullscreen (T16-P2 — FR-03) ----------
+
+/// set_fullscreen — F-20 (FR-03 / 设计 §3.3.4 / NFR-U-02).
+///
+/// - Input:  fullscreen (bool) — true 进入全屏, false 退出全屏.
+/// - Output: Ok(()).
+/// - Error 约定 (AppError code):
+///   - IO (E003): 当前窗口不存在 / 底层窗口对象方法调用失败.
+///
+/// 实现:
+///   - 通过 `app.get_webview_window("main")` 拿到主窗口句柄;
+///   - 调用 Tauri 2 标准 API `WebviewWindow::set_fullscreen(bool)`,
+///     跨平台一致工作 (macOS: native window.fullScreen / Windows: WM_FULLSCREEN /
+///     Linux: _NET_WM_STATE_FULLSCREEN).
+///   - 与前端 `FullscreenButton` + `useFullscreen` 共同构成完整 FR-03 闭环 (AC-03-1~5).
+///
+/// 边界:
+///   - 若主窗口 label 不是 "main" (例如多窗口场景), 这里只覆盖默认主窗口.
+///     这与设计 §3.3.4 "main window" 限定一致.
+#[tauri::command]
+pub async fn set_fullscreen(
+    app: tauri::AppHandle,
+    fullscreen: bool,
+) -> Result<(), AppError> {
+    let window = app
+        .get_webview_window("main")
+        .ok_or_else(|| AppError::Io(std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            "main webview window not found",
+        )))?;
+    window
+        .set_fullscreen(fullscreen)
+        .map_err(|e| AppError::Io(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            format!("set_fullscreen failed: {e}"),
+        )))
+}
+
 // ---- private helpers ----
 
 fn theme_mode_to_str(m: crate::services::preferences::ThemeMode) -> &'static str {
