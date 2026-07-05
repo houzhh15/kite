@@ -24,6 +24,7 @@ import { useTranslation } from 'react-i18next';
 
 import { useDocStore } from '../stores/docStore';
 import { exportHtml } from '../lib/tauri';
+import { isTauri } from '../lib/env';
 import { pushToast } from '../lib/toast';
 import { buildHtml } from '../lib/exportHtml';
 
@@ -32,11 +33,6 @@ export interface ToolbarExportMenuProps {
   disabled: boolean;
   /** 主题 — 来自 useTheme; 默认 'light'. */
   theme?: 'light' | 'dark' | 'sepia';
-}
-
-function isTauriEnv(): boolean {
-  if (typeof window === 'undefined') return false;
-  return typeof (window as unknown as { __TAURI__?: unknown }).__TAURI__ !== 'undefined';
 }
 
 export function ToolbarExportMenu({
@@ -75,7 +71,7 @@ export function ToolbarExportMenu({
   const handleHtml = async (): Promise<void> => {
     setOpen(false);
     if (disabled) return;
-    if (!isTauriEnv()) {
+    if (!isTauri()) {
       showDevModeToast();
       return;
     }
@@ -123,7 +119,7 @@ export function ToolbarExportMenu({
   const handlePdf = async (): Promise<void> => {
     setOpen(false);
     if (disabled) return;
-    if (!isTauriEnv()) {
+    if (!isTauri()) {
       showDevModeToast();
       return;
     }

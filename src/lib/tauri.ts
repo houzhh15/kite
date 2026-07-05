@@ -18,6 +18,33 @@
  */
 
 import { invoke } from '@tauri-apps/api/core'; // eslint-disable-line no-restricted-imports -- single IPC exit
+import { isTauri } from './env';
+
+/**
+ * safeInvoke — IPC 入口护栏 (Tauri 环境检测).
+ *
+ * 单一来源: src/lib/env.ts::isTauri(). 浏览器场景下 (无
+ * window.__TAURI_INTERNALS__) 所有 IPC 统一 reject 一个
+ * IPCUnavailable 错误, 顶层 .catch(console.warn) 消化,
+ * 避免 React 树因为 undefined.invoke 抛出同步错误.
+ *
+ * 设计: 这是 lib/tauri.ts **内部**的私有包装, 不导出给业务层;
+ * 业务层继续通过具名函数 (getRecentFiles / setWindowTitle 等)
+ * 调用, 保持 R-04 "IPC 唯一出口" 的纪律.
+ */
+class IPCUnavailableError extends Error {
+  constructor(cmd: string) {
+    super(`IPC unavailable (not in Tauri): ${cmd}`);
+    this.name = 'IPCUnavailableError';
+  }
+}
+
+function safeInvoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
+  if (!isTauri()) {
+    return Promise.reject(new IPCUnavailableError(cmd));
+  }
+  return invoke<T>(cmd, args);
+}
 
 // ---- 类型 (与 commands.rs serde rename_all = "camelCase" 严格对齐) ----
 
@@ -151,7 +178,7 @@ export interface DirEntry {
  * @param path 文件绝对路径
  */
 export function readMarkdownFile(path: string): Promise<string> {
-  return invoke<string>('read_markdown_file', { path });
+  return safeInvoke<string>('read_markdown_file', { path });
 }
 
 /**
@@ -160,7 +187,7 @@ export function readMarkdownFile(path: string): Promise<string> {
  * 取最近文件列表 (按 lastOpenedAt 倒序, 长度 0..8).
  */
 export function getRecentFiles(): Promise<RecentItem[]> {
-  return invoke<RecentItem[]>('get_recent_files');
+  return safeInvoke<RecentItem[]>('get_recent_files');
 }
 
 /**
@@ -169,7 +196,7 @@ export function getRecentFiles(): Promise<RecentItem[]> {
  * 推入一条最近文件记录 (去重 + 截断到 8 条, 由 Rust 侧保证).
  */
 export function addRecentFile(path: string, title: string): Promise<void> {
-  return invoke<void>('add_recent_file', { path, title });
+  return safeInvoke<void>('add_recent_file', { path, title });
 }
 
 /**
@@ -178,7 +205,7 @@ export function addRecentFile(path: string, title: string): Promise<void> {
  * 清空最近文件列表.
  */
 export function clearRecentFiles(): Promise<void> {
-  return invoke<void>('clear_recent_files');
+  return safeInvoke<void>('clear_recent_files');
 }
 
 /**
@@ -187,7 +214,7 @@ export function clearRecentFiles(): Promise<void> {
  * 加载用户偏好, 首次启动返回 defaults.
  */
 export function loadPreferences(): Promise<Preferences> {
-  return invoke<Preferences>('load_preferences');
+  return safeInvoke<Preferences>('load_preferences');
 }
 
 /**
@@ -196,7 +223,7 @@ export function loadPreferences(): Promise<Preferences> {
  * 写用户偏好, 调用者负责合并默认值.
  */
 export function savePreferences(prefs: Preferences): Promise<void> {
-  return invoke<void>('save_preferences', { prefs });
+  return safeInvoke<void>('save_preferences', { prefs });
 }
 
 /**
@@ -206,7 +233,7 @@ export function savePreferences(prefs: Preferences): Promise<void> {
  * 都会 reject INVALID_PATH (F-32 / NFR-SEC-04).
  */
 export function openExternalUrl(url: string): Promise<void> {
-  return invoke<void>('open_external_url', { url });
+  return safeInvoke<void>('open_external_url', { url });
 }
 
 /**
@@ -239,7 +266,7 @@ export function resolveImagePath(base: string, rel: string): Promise<string> {
   if (!base || base.trim().length === 0) {
     return Promise.reject(new Error('base_path is empty'));
   }
-  return invoke<string>('resolve_image_path', { base, rel });
+  return safeInvoke<string>('resolve_image_path', { base, rel });
 }
 
 /**
@@ -251,7 +278,7 @@ export function resolveImagePath(base: string, rel: string): Promise<string> {
  * @param title 文档标题 (basename 去扩展名); 空串表示还原默认标题.
  */
 export function setWindowTitle(title: string): Promise<void> {
-  return invoke<void>('set_window_title', { title });
+  return safeInvoke<void>('set_window_title', { title });
 }
 
 /**
@@ -263,7 +290,7 @@ export function setWindowTitle(title: string): Promise<void> {
  * @returns 完整的 ProgressState (含 lastPath / perFile / seenShortcutsHint).
  */
 export function loadProgress(): Promise<ProgressState> {
-  return invoke<ProgressState>('load_progress');
+  return safeInvoke<ProgressState>('load_progress');
 }
 
 /**
@@ -274,7 +301,7 @@ export function loadProgress(): Promise<ProgressState> {
  * @param payload 完整的 ProgressState; 缺字段默认空.
  */
 export function saveProgress(payload: ProgressState): Promise<void> {
-  return invoke<void>('save_progress', { payload });
+  return safeInvoke<void>('save_progress', { payload });
 }
 
 /**
@@ -294,7 +321,7 @@ export function saveProgress(payload: ProgressState): Promise<void> {
  * @param path 目录绝对路径.
  */
 export function listDir(path: string): Promise<DirEntry[]> {
-  return invoke<DirEntry[]>('list_dir', { path });
+  return safeInvoke<DirEntry[]>('list_dir', { path });
 }
 
 /**
@@ -367,7 +394,7 @@ export interface FullscreenState {
  * @param args 见 ExportHtmlArgs.
  */
 export function exportHtml(args: ExportHtmlArgs): Promise<void> {
-  return invoke<void>('export_html', {
+  return safeInvoke<void>('export_html', {
     content: args.content,
     targetPath: args.targetPath,
   });

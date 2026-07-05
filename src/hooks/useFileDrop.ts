@@ -11,6 +11,7 @@ import { getCurrentWebview } from '@tauri-apps/api/webview';
 import { useDocStore } from '../stores/docStore';
 import { useRecentStore } from '../stores/recentStore';
 import { addRecentFile, readMarkdownFile } from '../lib/tauri';
+import { isTauri } from '../lib/env';
 import { pushToast } from '../lib/toast';
 import { pickMarkdownPath } from '../lib/fileTypes';
 import { basename as fileBasename, extractExt as fileExtractExt, firstUnsupportedExt, formatDropError, isAppErrorCode as isCodeSupported } from '../lib/fileDropHelpers';
@@ -50,8 +51,22 @@ function showDropToast(
 /**
  * createFileDropSource — 生产实现: 包装 Tauri 2 webview 拖拽事件.
  * 归一化 payload 为 FileDropEvent; 非 enter/over/drop/leave 忽略; paths 类型防御.
+ *
+ * 浏览器降级 (无 Tauri): 返回 no-op source. useEffect cleanup 调用 unlisten()
+ * 是空操作, 不会抛错. 不发任何 handler 事件 → 视觉态 (data-drag-active) 始终
+ * false, 浏览器里看起来「不响应拖拽」是预期行为 (无原生桥接).
  */
 export function createFileDropSource(): FileDropSource {
+  // 浏览器 / 测试场景: 挂 no-op, 让 App 不因为 undefined.metadata 抛同步错误.
+  if (!isTauri()) {
+    return {
+      subscribe(_handler) {
+        return () => {
+          /* noop */
+        };
+      },
+    };
+  }
   return {
     subscribe(handler) {
       let unlisten: (() => void) | null = null;

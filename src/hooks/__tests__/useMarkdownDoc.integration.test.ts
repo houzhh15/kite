@@ -31,6 +31,15 @@ vi.mock('@tauri-apps/plugin-dialog', () => ({
   open: vi.fn(async () => FIXTURE_PATH),
 }));
 
+// Tauri 环境检测 stub: lib/tauri.ts::safeInvoke 在非 Tauri 环境下会 reject,
+// 此测试意图是 "IPC 可用" 场景, 因此把 __TAURI_INTERNALS__ 挂到 window 上.
+beforeEach(() => {
+  (window as unknown as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__ = {
+    invoke: () => Promise.resolve(),
+    metadata: { currentWindow: { label: 'main' }, currentWebview: { label: 'main' } },
+  };
+});
+
 describe('useMarkdownDoc integration (mocked IPC)', () => {
   beforeEach(() => {
     // 避免上一个用例的副作用影响
