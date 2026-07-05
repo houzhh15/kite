@@ -31,7 +31,12 @@ use std::path::PathBuf;
 use kite_lib::commands;
 use kite_lib::pending_open::{is_markdown_path, PendingOpen};
 use kite_lib::services::recent_files as recent_svc;
-use tauri::{Emitter, Manager, RunEvent};
+// macOS / iOS / Android 专属: RunEvent::Opened 变体在这些平台才存在;
+// Emitter 在 on_opened 内部 emit 时使用. 都用 #[cfg] 隔离, 避免非这些平台
+// 出现 unused import 警告.
+use tauri::Manager;
+#[cfg(any(target_os = "macos", target_os = "ios", target_os = "android"))]
+use tauri::{Emitter as _, RunEvent};
 
 fn main() {
     // 冷启动 argv: argv[0] = 二进制自身, argv[1] = 路径 (macOS Finder 双击时传入).
@@ -103,29 +108,48 @@ fn main() {
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|app_handle, event| {
-            // macOS 仅: 应用已运行时, Finder 再次 "打开方式 → KITE" 会派发 Opened.
-            // 这里把 URL 缓存 + 向前端 emit, 由前端 loadFile(path) 接管.
+            // macOS / iOS / Android: 应用已运行时, Finder/Dock 重新打开会派发 Opened.
+            // 注意: RunEvent::Opened 变体在 tauri 2.x 里有 #[cfg(target_os = ...)] 闸控,
+            // Windows / Linux 上不存在; 用单独的可调用函数走 #[cfg] 隔离,
+            // 避免对非 macOS 目标引入编译错误.
+            #[cfg(any(target_os = "macos", target_os = "ios", target_os = "android"))]
             if let RunEvent::Opened { urls } = &event {
-                for url in urls {
-                    // file:///path/to/foo.md → /path/to/foo.md
-                    let path_opt = if url.scheme() == "file" {
-                        url.to_file_path().ok()
-                    } else {
-                        None
-                    };
-                    let Some(path) = path_opt else { continue };
-                    if is_markdown_path(path.to_string_lossy().as_ref()) {
-                        if let Some(state) = app_handle.try_state::<PendingOpen>() {
-                            state.set(path.clone());
-                        }
-                        // 广播给前端; 前端 listen("kite://open-file") 会触发 loadFile.
-                        if let Err(e) =
-                            app_handle.emit("kite://open-file", path.to_string_lossy().to_string())
-                        {
-                            eprintln!("[file-open] emit failed: {e}");
-                        }
-                    }
-                }
+                on_opened(app_handle, urls);
+            }
+
+            // 非 Apple/Android 平台: 暂时没有等价事件.
+            // Windows 的 file-association 重打开走 argv (冷启动相同路径),
+            // 由 std::env::args() 的循环处理, 不需要在这里 hook.
+            #[cfg(not(any(target_os = "macos", target_os = "ios", target_os = "android")))]
+            {
+                let _ = (app_handle, &event);
             }
         });
+}
+
+/// 处理 macOS / iOS / Android 的 RunEvent::Opened 事件:
+///   1. 把 file:// URL 转 PathBuf
+///   2. 过滤出 markdown 路径, 写入 PendingOpen 状态 (以备前端 cold-poll)
+///   3. emit("kite://open-file") 推送给已在前端 mount 的 App
+#[cfg(any(target_os = "macos", target_os = "ios", target_os = "android"))]
+fn on_opened(app_handle: &tauri::AppHandle, urls: &[tauri::Url]) {
+    for url in urls {
+        let path_opt = if url.scheme() == "file" {
+            url.to_file_path().ok()
+        } else {
+            None
+        };
+        let Some(path) = path_opt else {
+            continue;
+        };
+        if !is_markdown_path(path.to_string_lossy().as_ref()) {
+            continue;
+        }
+        if let Some(state) = app_handle.try_state::<PendingOpen>() {
+            state.set(path.clone());
+        }
+        if let Err(e) = app_handle.emit("kite://open-file", path.to_string_lossy().to_string()) {
+            eprintln!("[file-open] emit failed: {e}");
+        }
+    }
 }
