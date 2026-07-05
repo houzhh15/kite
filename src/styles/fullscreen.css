@@ -1,25 +1,25 @@
 /* fullscreen.css (T16-P2 / FR-03)
- * 全屏态隐藏周边组件 + 鼠标静止 3 s 自动隐藏光标 (NFR-U-05).
+ * 全屏态下的视觉装饰规则 (T19+ 用户反馈修正).
  *
- * 选择器限定 [data-fullscreen="true"] + 具名类名,
- * 不与 [data-theme] 冲突 (设计 §6 风险与待办).
+ * 历史:
+ *   - 早期 (T16-P2 初版): 全屏态用 display:none 隐藏 Toolbar / Outline / StatusBar
+ *     / ProgressBar. 设计意图: 阅读器沉浸, 类似 Readwise Reader / Bear.
+ *   - T19+ 反馈修正: 用户发现这个行为与 macOS 原生 View → Toggle Full Screen
+ *     (调 NSWindow.toggleFullScreen) 不一致 —— 系统级全屏保留窗口 chrome
+ *     (菜单栏), 我的 toolbar-button 全屏却把整个 header 隐藏. 不一致会让用户
+ *     误以为按钮坏了 / 全屏后无法退出.
+ *   - 决策: 与 macOS 系统行为对齐 —— **全屏态不再隐藏任何 chrome**.
+ *     这是 T19+ 的新约定, 与 AC-03-1 的 "沉浸式阅读" 假设松绑 (用户已确认偏好).
+ *
+ * 全屏态保留的视觉规则:
+ *   - 背景色与正文颜色统一 (避免出现颜色断层).
+ *   - 鼠标静止 3s 自动隐藏光标 (NFR-U-05) — 这与 chrome 隐藏无关, 是 macOS / Word
+ *     等全屏模式下的常见 UX 习惯, 仍然有意义.
  *
  * 引用方: src/main.tsx (顶部 @import './styles/fullscreen.css')
  */
 
-/* 全屏态: 隐藏 Toolbar / Outline / StatusBar / ProgressBar (FR-03 / AC-03-1). */
-html[data-fullscreen='true'] .toolbar,
-html[data-fullscreen='true'] [data-testid='toolbar'],
-html[data-fullscreen='true'] .outline,
-html[data-fullscreen='true'] [data-testid='file-tree-drawer'],
-html[data-fullscreen='true'] .status-bar,
-html[data-fullscreen='true'] [data-testid='status-bar'],
-html[data-fullscreen='true'] .progress-bar,
-html[data-fullscreen='true'] [data-testid='progress-bar'] {
-  display: none !important;
-}
-
-/* 全屏态: 正文放大留白, 占据整个视口 (AC-03-1). */
+/* 全屏态: 正文背景与正文区背景统一, 避免边缘颜色断层 (无功能性, 仅美观). */
 html[data-fullscreen='true'] body,
 html[data-fullscreen='true'] #root {
   background: rgb(var(--color-bg));
@@ -27,6 +27,7 @@ html[data-fullscreen='true'] #root {
 
 /* NFR-U-05: 鼠标静止 3s 隐藏光标.
  * 通过 .fs-cursor-hide (由 useFullscreen 控制) 切换 cursor: none.
+ * Toolbar / StatusBar 等 chrome 仍可见, 鼠标只是从视觉上淡出, 不影响可点性.
  */
 html[data-fullscreen='true'].fs-cursor-hide,
 html[data-fullscreen='true'].fs-cursor-hide * {
@@ -39,6 +40,9 @@ html[data-fullscreen='true'].fs-cursor-hide * {
  *   <header>/<aside> 的 `display` 强制回退为 UA 默认值 (`block`),
  *   覆盖掉 Tailwind 提供的 `flex` 等原子类, 导致 Toolbar/FileTree 等
  *   失去横向 / 纵向 flex 布局 (Logo 与按钮上下排列).
- *   退出全屏只需移除 `data-fullscreen="true"`, `display: none !important`
- *   选择器不再命中, 元素的最终 `display` 自然回到 Tailwind 声明的值.
+ *   退出全屏只需移除 `data-fullscreen="true"`, 元素的最终 `display` 自然回到
+ *   Tailwind 声明的值.
+ *
+ * 早期版本曾用 `display: revert` 修复 exit 模式, 早期还有
+ *   `display: none !important` 隐藏 Toolbar (T19 已移除, 见顶部历史).
  */
