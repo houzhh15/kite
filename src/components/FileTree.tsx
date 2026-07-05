@@ -204,8 +204,43 @@ function TreeNode({
         onClick={() => onToggle(path)}
         aria-expanded={isOpen}
       >
-        <span className="mr-1 text-muted">{isOpen ? '▼' : '▶'}</span>
-        <span className="mr-1 text-muted">📁</span>
+        {/* 折叠指示: chevron-down SVG, 折叠时旋转 −90° → ▶. */}
+        <span className="mr-1 inline-flex items-center justify-center text-muted">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="10"
+            height="10"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.25"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+            focusable="false"
+            className={`file-tree__chevron${isOpen ? '' : ' file-tree__chevron--collapsed'}`}
+          >
+            <path d="m6 9 6 6 6-6" />
+          </svg>
+        </span>
+        {/* 文件夹 SVG (Lucide "folder"), 10×10 strokeWidth=1.25, 与 chevron 视觉一致. */}
+        <span className="mr-1 inline-flex items-center justify-center text-muted">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="10"
+            height="10"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.25"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+            focusable="false"
+          >
+            <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 9.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />
+          </svg>
+        </span>
         <span className="truncate">{name}</span>
       </button>
       {isOpen && (

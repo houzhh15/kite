@@ -243,6 +243,17 @@ body {
   display: block;
 }
 
+/* FileTree 行内 chevron 折叠指示: 默认向下; 折叠时旋转 −90° = ▶. */
+.file-tree__chevron {
+  transition: transform 0.15s ease-out;
+}
+.file-tree__chevron--collapsed {
+  transform: rotate(-90deg);
+}
+@media (prefers-reduced-motion: reduce) {
+  .file-tree__chevron { transition: none; }
+}
+
 /* 折叠指示: chevron 向下默认; collapsed → 旋转 −90° = ▶.
    0.18s ease-out 让视觉更柔和, 不闪烁. */
 .kite-codeblock__fold-icon {
