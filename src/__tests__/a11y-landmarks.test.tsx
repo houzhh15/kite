@@ -14,10 +14,11 @@ describe('ARIA landmarks — T12', () => {
     expect(tb.getAttribute('role')).toBe('banner');
   });
 
-  it('Toolbar brand heading KITE is present', () => {
-    const { container } = render(<Toolbar disabled={false} onOpen={() => {}} />);
-    const h1 = container.querySelector('h1');
-    expect(h1?.textContent).toBe('KITE');
+  it('Toolbar brand logo image is present (T19)', () => {
+    const { getByTestId } = render(<Toolbar disabled={false} onOpen={() => {}} />);
+    const logo = getByTestId('toolbar-logo');
+    expect(logo.tagName.toLowerCase()).toBe('img');
+    expect(logo.getAttribute('alt')).toBe('KITE');
   });
 
   it('SkipLink 链接到 #main-content', () => {

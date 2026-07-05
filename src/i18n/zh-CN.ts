@@ -188,6 +188,7 @@ export const zhCN = {
     empty: '无目录',
     toggleExpand: '展开目录',
     toggleCollapse: '折叠目录',
+    resizeLabel: '拖动以调整目录宽度',
   },
   status: {
     emptyTitle: '还没有打开任何文件',

@@ -167,6 +167,7 @@ export const enUS = {
     empty: 'No outline',
     toggleExpand: 'Expand outline',
     toggleCollapse: 'Collapse outline',
+    resizeLabel: 'Drag to resize outline width',
   },
   status: {
     emptyTitle: 'No file opened yet',

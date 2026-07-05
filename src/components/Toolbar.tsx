@@ -22,6 +22,7 @@ import { useFullscreen } from '../hooks/useFullscreen';
 import { FullscreenButton } from './FullscreenButton';
 import { ToolbarExportMenu } from './ToolbarExportMenu';
 import { getFontSizeMeta } from '../lib/reader-prefs';
+import kiteLogoUrl from '../assets/kite_logo.png';
 
 export interface ToolbarProps {
   disabled: boolean;
@@ -100,10 +101,19 @@ export function Toolbar({ disabled, onOpen }: ToolbarProps): JSX.Element {
     <header
       role="banner"
       data-testid="toolbar"
-      className="flex shrink-0 items-center justify-between gap-4 border-b border-fg/20 px-4 py-2"
+      className="flex shrink-0 items-center gap-3 border-b border-fg/20 px-3 py-1.5"
     >
-      <h1 className="text-base font-semibold tracking-tight">KITE</h1>
-      <div className="flex items-center gap-2">
+      {/* T19: 应用 Logo (替代原 KITE 文字品牌, 由 src/assets/kite_logo.png 提供). */}
+      <img
+        src={kiteLogoUrl}
+        alt="KITE"
+        width={88}
+        height={28}
+        draggable={false}
+        className="kite-toolbar__logo h-7 w-auto select-none"
+        data-testid="toolbar-logo"
+      />
+      <div className="flex flex-1 items-center justify-end gap-2">
         <div
           data-testid="font-size-indicator"
           title={`${t('toolbar.fontSizeLabel')} ${fontMeta.label} (${fontMeta.px}px) · ${lineHeightId}`}

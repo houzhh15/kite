@@ -215,4 +215,29 @@ describe('Outline', () => {
     expect((all[1] as HTMLElement).style.paddingLeft).toBe('12px');
     expect((all[5] as HTMLElement).style.paddingLeft).toBe('60px');
   });
+
+  it('T19 展开态显示 resize 手柄, 折叠态不显示', () => {
+    const items = makeStructured();
+    const { queryByTestId, rerender } = renderOutline(
+      <Outline outline={items} currentId={null} />,
+    );
+    expect(queryByTestId('outline-resize-handle')).toBeTruthy();
+    // Outline 由 React.memo 包裹; 用受控 collapsed 重新挂载以便观察未折叠态.
+    rerender(
+      <I18nextProvider i18n={i18n}>
+        <Outline outline={items} currentId={null} collapsed={true} />
+      </I18nextProvider>,
+    );
+    expect(queryByTestId('outline-resize-handle')).toBeNull();
+  });
+
+  it('T19 拖拽手柄 aria-label 来自 i18n (resizeLabel)', () => {
+    const items = makeStructured();
+    const { getByTestId } = renderOutline(<Outline outline={items} currentId={null} />);
+    const handle = getByTestId('outline-resize-handle');
+    expect(handle.getAttribute('aria-label')).toBeTruthy();
+    // 触摸事件中, role="separator" 让屏读器把它当作可调整分隔符.
+    expect(handle.getAttribute('role')).toBe('separator');
+    expect(handle.getAttribute('aria-orientation')).toBe('vertical');
+  });
 });
