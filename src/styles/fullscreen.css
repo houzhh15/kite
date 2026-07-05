@@ -33,8 +33,12 @@ html[data-fullscreen='true'].fs-cursor-hide * {
   cursor: none !important;
 }
 
-/* 退出全屏: 显式复位 data-fullscreen, 即使外部 DOM 残留属性. */
-html:not([data-fullscreen='true']) .toolbar,
-html:not([data-fullscreen='true']) [data-testid='toolbar'] {
-  display: revert;
-}
+/* 退出全屏: 显式复位 data-fullscreen, 即使外部 DOM 残留属性.
+ *
+ * ⚠ 不可使用 `display: revert` / `display: revert-layer`: 这会把
+ *   <header>/<aside> 的 `display` 强制回退为 UA 默认值 (`block`),
+ *   覆盖掉 Tailwind 提供的 `flex` 等原子类, 导致 Toolbar/FileTree 等
+ *   失去横向 / 纵向 flex 布局 (Logo 与按钮上下排列).
+ *   退出全屏只需移除 `data-fullscreen="true"`, `display: none !important`
+ *   选择器不再命中, 元素的最终 `display` 自然回到 Tailwind 声明的值.
+ */

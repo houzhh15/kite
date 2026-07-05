@@ -101,19 +101,24 @@ export function Toolbar({ disabled, onOpen }: ToolbarProps): JSX.Element {
     <header
       role="banner"
       data-testid="toolbar"
-      className="flex shrink-0 items-center gap-3 border-b border-fg/20 px-3 py-1.5"
+      className="flex shrink-0 flex-row flex-nowrap items-center gap-3 whitespace-nowrap border-b border-fg/20 px-3 py-1.5"
     >
-      {/* T19: 应用 Logo (替代原 KITE 文字品牌, 由 src/assets/kite_logo.png 提供). */}
+      {/* T19: 应用 Logo (替代原 KITE 文字品牌, 由 src/assets/kite_logo.png 提供).
+          源图为 1254×1254 1:1, 故 height = width. flex-shrink-0 + whitespace-nowrap
+          确保不被右侧按钮挤到下一行 (Toolbar 父容器仍为单行 flex, 由
+          src/styles/fullscreen.css 修复后 display: flex 不会回退为 block). */}
       <img
         src={kiteLogoUrl}
         alt="KITE"
-        width={88}
-        height={28}
+        width={36}
+        height={36}
         draggable={false}
-        className="kite-toolbar__logo h-7 w-auto select-none"
+        className="kite-toolbar__logo h-9 w-9 flex-shrink-0 select-none"
         data-testid="toolbar-logo"
       />
-      <div className="flex flex-1 items-center justify-end gap-2">
+      {/* ml-auto 把按钮组钉在右侧; flex-shrink-0 + whitespace-nowrap + flex-nowrap
+          共同保证按钮组不折行. 与 Logo 严格同一水平行. */}
+      <div className="ml-auto flex shrink-0 flex-nowrap items-center justify-end gap-2 whitespace-nowrap">
         <div
           data-testid="font-size-indicator"
           title={`${t('toolbar.fontSizeLabel')} ${fontMeta.label} (${fontMeta.px}px) · ${lineHeightId}`}
