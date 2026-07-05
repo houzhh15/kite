@@ -72,7 +72,12 @@ export interface UseMarkdownDocApi {
   state: MarkdownState;
   /** 弹出系统文件选择对话框, 选择 .md 后开始加载. */
   open(): Promise<void>;
-  /** 重试最近一次 open 选择的路径. */
+  /** T19/T15 (FR-04): 用绝对路径直接加载文件 (由 FileTree / RecentList / Toolbar 后退/前进 调用).
+   *  - 与 open() 走相同的 runOpenRef 链路 (OPEN_START / OPEN_OK / OPEN_ERR + pushRecent + setLastPath).
+   *  - 额外把路径推到 useDocStore.history, 使 Toolbar 的 ← → 按钮能跨文件导航.
+   *  - 用 lastPathRef 缓存以便 retry() 可复用. */
+  loadFile(path: string): Promise<void>;
+  /** 重试最近一次 open / loadFile 选择的路径. */
   retry(): Promise<void>;
   /** 关闭当前文档, 重置 hook 内部 state + useDocStore. */
   close(): void;
@@ -231,6 +236,26 @@ export function useMarkdownDoc(): UseMarkdownDocApi {
     if (typeof picked !== 'string') return;
     lastPathRef.current = picked;
     await runOpenRef.current(picked);
+    // T19 (R-04 缓解): open() 路径也写入 history, 使 Toolbar ← → 能跨文件导航.
+    // 失败时 runOpenRef 已 pushToast, 不重复写历史.
+    if (useDocStore.getState().state.currentPath === picked) {
+      useDocStore.getState().pushHistory(picked);
+    }
+  }, []);
+
+  /** T19 (FR-04): 已知路径直接加载, 复用 runOpenRef 链路 + 写历史栈.
+   *  FileTree / RecentList / Toolbar back-forward 都走这里.
+   *  不会弹 dialog; 异步副作用与 open() 完全一致 (pushRecent / setLastPath / parse).
+   */
+  const loadFile = useCallback(async (path: string) => {
+    if (typeof path !== 'string' || path.length === 0) return;
+    lastPathRef.current = path;
+    await runOpenRef.current(path);
+    // OPEN_OK 路径走完之后 docStore.state.currentPath 已被设为 path, 此时写历史.
+    // 失败时 runOpenRef 已 pushToast, 不重复写历史.
+    if (useDocStore.getState().state.currentPath === path) {
+      useDocStore.getState().pushHistory(path);
+    }
   }, []);
 
   const retry = useCallback(async () => {
@@ -323,6 +348,7 @@ export function useMarkdownDoc(): UseMarkdownDocApi {
   return {
     state,
     open,
+    loadFile,
     retry,
     close,
     tryRestoreLastPath,

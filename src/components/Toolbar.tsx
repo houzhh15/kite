@@ -31,9 +31,13 @@ import kiteLogoUrl from '../assets/kite_logo.png';
 export interface ToolbarProps {
   disabled: boolean;
   onOpen: () => void;
+  /** T19 (FR-04): Toolbar 后退按钮点击 → 走 useMarkdownDoc.loadFile(history[cursor-1]). */
+  onBack?: () => void;
+  /** T19 (FR-04): Toolbar 前进按钮点击 → 走 useMarkdownDoc.loadFile(history[cursor+1]). */
+  onForward?: () => void;
 }
 
-export function Toolbar({ disabled, onOpen }: ToolbarProps): JSX.Element {
+export function Toolbar({ disabled, onOpen, onBack, onForward }: ToolbarProps): JSX.Element {
   const { t } = useTranslation();
   const [recentOpen, setRecentOpen] = useState(false);
   const [fontPickerOpen, setFontPickerOpen] = useState(false);
@@ -103,6 +107,26 @@ export function Toolbar({ disabled, onOpen }: ToolbarProps): JSX.Element {
       window.removeEventListener('kite:close-recent-drawer', onClose);
     };
   }, []);
+
+  // T15 (FR-04): BackButton.
+  // T19 修复: 之前使用 useDocStore.moveCursor (无副作用同步 Reader), 导致按钮
+  // 即便 canGoBack=true, 点击也不渲染新文档. 现在 Toolbar 接收来自 App 的
+  // onBack 回调 (内部走 useMarkdownDoc.loadFile 让 Reader 重新挂载).
+  const handleBack = (): void => {
+    if (onBack) {
+      onBack();
+    } else {
+      // 没注入时退回到 docStore 旧路径 (仅写 history, 不渲染).
+      void useDocStore.getState().moveCursor(-1);
+    }
+  };
+  const handleForward = (): void => {
+    if (onForward) {
+      onForward();
+    } else {
+      void useDocStore.getState().moveCursor(1);
+    }
+  };
 
   // T19 字号选择器: 点击外部 / Esc 关闭 (与「最近文件」下拉一致模式).
   // 仅在打开时挂全局事件, 关闭即卸载以避免性能/串扰.
@@ -245,7 +269,7 @@ export function Toolbar({ disabled, onOpen }: ToolbarProps): JSX.Element {
           aria-label={canGoBack ? t('toolbar.back') : `${t('toolbar.back')} — ${t('toolbar.backDisabledHint')}`}
           title={canGoBack ? t('toolbar.back') : t('toolbar.backDisabledHint')}
           disabled={!canGoBack}
-          onClick={() => void useDocStore.getState().moveCursor(-1)}
+          onClick={handleBack}
           className="rounded-md border border-fg/30 px-3 py-1.5 text-sm hover:bg-fg/5 disabled:cursor-not-allowed disabled:border-fg/10 disabled:opacity-50"
         >
           ←
@@ -258,7 +282,7 @@ export function Toolbar({ disabled, onOpen }: ToolbarProps): JSX.Element {
           aria-label={canGoForward ? t('toolbar.forward') : `${t('toolbar.forward')} — ${t('toolbar.forwardDisabledHint')}`}
           title={canGoForward ? t('toolbar.forward') : t('toolbar.forwardDisabledHint')}
           disabled={!canGoForward}
-          onClick={() => void useDocStore.getState().moveCursor(1)}
+          onClick={handleForward}
           className="rounded-md border border-fg/30 px-3 py-1.5 text-sm hover:bg-fg/5 disabled:cursor-not-allowed disabled:border-fg/10 disabled:opacity-50"
         >
           →

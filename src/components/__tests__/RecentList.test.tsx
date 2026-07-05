@@ -13,10 +13,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render } from '@testing-library/react';
 
 import { useRecentStore } from '../../stores/recentStore';
+import { readMarkdownFile } from '../../lib/tauri';
 import { RecentList } from '../RecentList';
 
 vi.mock('../../lib/tauri', () => ({
-  readMarkdownFile: vi.fn(),
+  readMarkdownFile: vi.fn().mockResolvedValue('# hello\nfrom recent'),
   getRecentFiles: vi.fn().mockResolvedValue([]),
   addRecentFile: vi.fn().mockResolvedValue(undefined),
   clearRecentFiles: vi.fn().mockResolvedValue(undefined),
@@ -73,16 +74,32 @@ describe('RecentList — populated state', () => {
     expect(items[0]?.getAttribute('title')).toBe('/a.md');
   });
 
-  it('keyboard enter triggers item open (AC-09)', () => {
+  it('点击列表项 → 调用 useMarkdownDoc.loadFile(item.path), 不弹 dialog (T19 修复)', async () => {
+    // T19 (R-04 修复): 之前 handleOpen 直接调 open() (弹 dialog), 现改为
+    // loadFile(item.path), 用最近文件的 path 加载.
+    // 验证路径参数被正确取自 item.path, 而不是被忽略.
     useRecentStore.setState({
-      items: [{ path: '/a.md', title: 'a', lastOpenedAt: '2026-01-01T00:00:00Z' }],
+      items: [{ path: '/notes/hello.md', title: 'Hello', lastOpenedAt: '2026-01-01T00:00:00Z' }],
       loaded: true,
     });
-    const onOpen = vi.fn();
-    const { getByTestId } = render(<RecentList onOpen={onOpen} />);
+    // 监听 dialog 打开 → 决不能发生.
+    const dialogOpenSpy = vi.fn();
+    const { getByTestId } = render(<RecentList onOpen={dialogOpenSpy} />);
+    // 触发 onOpen 回调 (Toolbar 传入, 用于关闭 popover).
     const item = getByTestId('recent-list-item');
-    fireEvent.click(item);
-    expect(onOpen).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      fireEvent.click(item);
+      // 给 handleOpen 内部 await 一点时间.
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    // 1) 父组件 onOpen 收到回调 (Toolbar 用来关闭 popover).
+    expect(dialogOpenSpy).toHaveBeenCalledTimes(1);
+    // 2) readMarkdownFile 必须被调用 (T19: loadFile 走 IPC 读 path).
+    //    验证策略: 检查 mock 的 call count 与入参 path.
+    const readCalls = (readMarkdownFile as unknown as { mock: { calls: unknown[][] } }).mock.calls;
+    expect(readCalls.length).toBeGreaterThanOrEqual(1);
+    const lastCall = readCalls[readCalls.length - 1]?.[0];
+    expect(lastCall).toBe('/notes/hello.md');
   });
 });
 

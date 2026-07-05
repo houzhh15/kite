@@ -34,7 +34,8 @@ export function RecentList({ onOpen }: RecentListProps): JSX.Element {
   const items = useRecentStore((s) => s.items);
   const loaded = useRecentStore((s) => s.loaded);
   const clearRecent = useRecentStore((s) => s.clearRecent);
-  const { open: openFile } = useMarkdownDoc();
+  // T19: 走 useMarkdownDoc.loadFile 直达 (不再 open() 弹 dialog), 兼顾 history 记录.
+  const { open: openFile, loadFile } = useMarkdownDoc();
   const [clearing, setClearing] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
@@ -52,11 +53,13 @@ export function RecentList({ onOpen }: RecentListProps): JSX.Element {
     return () => el.removeEventListener('keydown', onKey);
   }, []);
 
-  const handleOpen = async (_item: RecentItem): Promise<void> => {
+  const handleOpen = async (item: RecentItem): Promise<void> => {
     onOpen?.();
-    // 直接复用 useMarkdownDoc 的链路 (与 dialog 路径一致).
-    // _item 在 T07 起会作为 readMarkdownFile 的入参; T06 阶段 openFile 走 dialog.
-    await openFile();
+    // 关键修复: 把 item.path 交给 useMarkdownDoc.loadFile; 它会复用
+    // runOpenRef 链路 (OPEN_START → OPEN_OK → pushRecent → setLastPath)
+    // 并额外写 useDocStore.history 使 Toolbar ← → 按钮可导航.
+    // 之前 openFile() 总弹 dialog, 用户体验断了.
+    await loadFile(item.path);
   };
 
   const handleClear = async (): Promise<void> => {

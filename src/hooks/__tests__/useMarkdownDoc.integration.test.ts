@@ -63,4 +63,47 @@ describe('useMarkdownDoc integration (mocked IPC)', () => {
     expect(stored.currentPath).toBe(FIXTURE_PATH);
     expect(stored.dirty).toBe(false);
   });
+
+  // T19 (R-04 修复): open() 路径也应写 useDocStore.history, 否则 Toolbar
+  // ← → 永远 disabled. 这里验证 open 之后再 loadFile 第二个文件, history 应有 2 项.
+  it('T19: 连续 open + loadFile → useDocStore.history 累积, cursor 指向当前', async () => {
+    const SECOND_PATH = '/Users/test/sample/big.md';
+    const SECOND_CONTENT = '# Big fixture\n';
+
+    // 扩展 invoke mock 支持两个 fixture. useMarkdownDoc 通过 @tauri-apps/api/core
+    // 的 invoke 走 IPC, 因此 vi.mock('@tauri-apps/api/core') 是真正的拦截点.
+    const { invoke } = await import('@tauri-apps/api/core');
+    const invokeMock = invoke as unknown as ReturnType<typeof vi.fn>;
+    invokeMock.mockImplementation(async (_cmd: string, args: { path: string }) => {
+      if (args?.path === FIXTURE_PATH) return FIXTURE_CONTENT;
+      if (args?.path === SECOND_PATH) return SECOND_CONTENT;
+      throw { code: 'NOT_FOUND', message: 'not found' };
+    });
+
+    // 清空 history 状态.
+    useDocStore.setState({
+      history: [],
+      cursor: -1,
+      state: { currentPath: null, content: '', title: '', dirty: false },
+    });
+
+    const { result } = renderHook(() => useMarkdownDoc());
+
+    // 1) dialog → open FIXTURE_PATH
+    await act(async () => {
+      await result.current.open();
+    });
+    expect(useDocStore.getState().history).toEqual([FIXTURE_PATH]);
+    expect(useDocStore.getState().cursor).toBe(0);
+
+    // 2) 直接 loadFile(第二个文件)
+    await act(async () => {
+      await result.current.loadFile(SECOND_PATH);
+    });
+    expect(useDocStore.getState().history).toEqual([FIXTURE_PATH, SECOND_PATH]);
+    expect(useDocStore.getState().cursor).toBe(1);
+    // canGoBack → true; canGoForward → false (已经在末尾).
+    expect(useDocStore.getState().canGoBack()).toBe(true);
+    expect(useDocStore.getState().canGoForward()).toBe(false);
+  });
 });

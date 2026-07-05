@@ -81,7 +81,7 @@ export default function App(): JSX.Element {
   // 在后续 T16+ 任务. 本期 rootPath 维持 null, FileTree 显示 emptyHint.
   const [treeRootPath] = useState<string | null>(null);
   const treeOpen = useLayoutStore((s) => s.treeOpen);
-  const { state, open, retry, tryRestoreLastPath, restoreScrollAfterOpen } = useMarkdownDoc();
+  const { state, open, retry, loadFile, tryRestoreLastPath, restoreScrollAfterOpen } = useMarkdownDoc();
   const viewer = useImageViewer(); // T08: 订阅 image viewer 单例 store.
   const search = useSearch();
   // T16-P2 (FR-03): 全屏状态机在顶层挂载, 供快捷键 API 调用.
@@ -243,23 +243,31 @@ export default function App(): JSX.Element {
       toggleTree: () => {
         useLayoutStore.getState().toggleTree();
       },
-      // T15 (FR-04): 历史后退.
+      // T15 (FR-04): 历史后退. 先检查 useDocStore 的 canGoBack (history 是单一来源),
+      // 拿到目标路径 → 走 useMarkdownDoc.loadFile 让 Reader 渲染也跟着切换 (R-04).
       historyBack: () => {
-        const canBack = useDocStore.getState().canGoBack();
-        if (!canBack) {
+        const docState = useDocStore.getState();
+        if (!docState.canGoBack()) {
           pushToast({ kind: 'info', message: t('app.historyStart') });
           return;
         }
-        void useDocStore.getState().moveCursor(-1);
+        // 同步把 cursor 移到目标位置, 再异步 load (与 useDocStore.moveCursor 行为一致).
+        const nextCursor = docState.cursor - 1;
+        useDocStore.setState(() => ({ cursor: nextCursor }));
+        const target = useDocStore.getState().history[nextCursor];
+        if (target) void loadFile(target);
       },
-      // T15 (FR-04): 历史前进.
+      // T15 (FR-04): 历史前进. 同上, 但 delta=+1.
       historyForward: () => {
-        const canFwd = useDocStore.getState().canGoForward();
-        if (!canFwd) {
+        const docState = useDocStore.getState();
+        if (!docState.canGoForward()) {
           pushToast({ kind: 'info', message: t('app.historyEnd') });
           return;
         }
-        void useDocStore.getState().moveCursor(1);
+        const nextCursor = docState.cursor + 1;
+        useDocStore.setState(() => ({ cursor: nextCursor }));
+        const target = useDocStore.getState().history[nextCursor];
+        if (target) void loadFile(target);
       },
       // T16-P2 (FR-03): 切换全屏 (Cmd+Ctrl+F / F11).
       toggleFullscreen: () => {
@@ -271,8 +279,8 @@ export default function App(): JSX.Element {
       unregisterGlobalShortcuts();
     };
     // openSearchFn / closeSearchFn / isOpenFn / viewerCurrent / viewerClose 已展开为稳定引用.
-    // open 在 deps 中保证最新 (用户可能在后续重新创建).
-  }, [open, openSearchFn, closeSearchFn, isOpenFn, viewerCurrent, viewerClose, fullscreen]);
+    // open / loadFile 在 deps 中保证最新 (用户可能在后续重新创建).
+  }, [open, loadFile, openSearchFn, closeSearchFn, isOpenFn, viewerCurrent, viewerClose, fullscreen]);
 
   // T11: Toolbar 监听 CustomEvent 切换最近抽屉 (与 Cmd/Ctrl+Shift+P 联动).
   // 这里仅占位 — 真实逻辑在 Toolbar.tsx 内.
@@ -288,7 +296,34 @@ export default function App(): JSX.Element {
       <Toaster />
       <LinkTooltip />
       <DragOverlay />
-      <Toolbar disabled={state.status === 'loading'} onOpen={open} />
+      <Toolbar
+        disabled={state.status === 'loading'}
+        onOpen={open}
+        // T19 (FR-04): 将后/前回调显式注入, 让 Toolbar 走 useMarkdownDoc.loadFile
+        // (而非 useDocStore.moveCursor) 以保证 Reader 跟着切换文档.
+        onBack={() => {
+          const ds = useDocStore.getState();
+          if (!ds.canGoBack()) {
+            pushToast({ kind: 'info', message: t('app.historyStart') });
+            return;
+          }
+          const nextCursor = ds.cursor - 1;
+          useDocStore.setState(() => ({ cursor: nextCursor }));
+          const target = useDocStore.getState().history[nextCursor];
+          if (target) void loadFile(target);
+        }}
+        onForward={() => {
+          const ds = useDocStore.getState();
+          if (!ds.canGoForward()) {
+            pushToast({ kind: 'info', message: t('app.historyEnd') });
+            return;
+          }
+          const nextCursor = ds.cursor + 1;
+          useDocStore.setState(() => ({ cursor: nextCursor }));
+          const target = useDocStore.getState().history[nextCursor];
+          if (target) void loadFile(target);
+        }}
+      />
       {/* T15 (FR-01): 左侧目录树抽屉 (React.lazy), 仅在 treeOpen 时渲染. */}
       {treeOpen && (
         <aside
@@ -299,7 +334,7 @@ export default function App(): JSX.Element {
           <Suspense fallback={<div className="p-4 text-sm text-muted">…</div>}>
             <FileTreeLazy
               rootPath={treeRootPath}
-              onOpenFile={(p) => void useDocStore.getState().loadFile(p)}
+              onOpenFile={(p) => void loadFile(p)}
             />
           </Suspense>
         </aside>
