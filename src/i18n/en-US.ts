@@ -34,9 +34,12 @@ export const enUS = {
     tree: 'Tree',
     back: 'Back',
     forward: 'Forward',
+    backDisabledHint: 'No back history (open 2+ files first)',
+    forwardDisabledHint: 'No forward history',
     settings: 'Settings',
     recent: 'Recent files',
     fontSizeLabel: 'Body font size',
+    fontSizeAriaLabelSuffix: '. Click to choose size.',
   },
   reader: {
     empty: 'No document open',

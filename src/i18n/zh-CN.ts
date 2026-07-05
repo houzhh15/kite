@@ -55,9 +55,12 @@ export const zhCN = {
     tree: '目录树',
     back: '后退',
     forward: '前进',
+    backDisabledHint: '无可后退的历史 (先打开 2 个文件)',
+    forwardDisabledHint: '无可前进的历史',
     settings: '设置',
     recent: '最近文件',
     fontSizeLabel: '正文字号',
+    fontSizeAriaLabelSuffix: '. 点击选择字号.',
   },
   reader: {
     empty: '未打开文档',

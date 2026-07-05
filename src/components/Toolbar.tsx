@@ -174,7 +174,7 @@ export function Toolbar({ disabled, onOpen }: ToolbarProps): JSX.Element {
             //     Esc / 外部点击关闭 (见上方 effect).
             //   - aria-live 区域依然保留 (屏读器朗读字号变化).
             title={`${t('toolbar.fontSizeLabel')} ${fontMeta.label} (${fontMeta.px}px) · ${lineHeightId}`}
-            aria-label={`${t('toolbar.fontSizeLabel')} ${fontMeta.label} (${fontMeta.px}px). 点击选择字号.`}
+            aria-label={`${t('toolbar.fontSizeLabel')} ${fontMeta.label} (${fontMeta.px}px)${t('toolbar.fontSizeAriaLabelSuffix')}`}
             aria-haspopup="menu"
             aria-expanded={fontPickerOpen}
             onClick={() => setFontPickerOpen((v) => !v)}
@@ -233,27 +233,33 @@ export function Toolbar({ disabled, onOpen }: ToolbarProps): JSX.Element {
           className="sr-only"
           data-testid="font-size-announcer"
         />
-        {/* T15 (FR-04): BackButton. */}
+        {/* T15 (FR-04): BackButton. 可达性:
+              - aria-label = 后退 (默认) / 禁用原因 (历史栈为空).
+              - title 同 aria-label, 鼠标 hover 显示浏览器 tooltip.
+              - 视觉禁用: opacity 50% + 边框淡化为 fg/10, 在未打开多文件时让用户
+                明确感知按钮处于 disabled 状态, 而非错误地认为按钮彻底失效.
+              - 一旦打开 ≥2 个文件, cursor ≥1 时 canGoBack 自动恢复可点. */}
         <button
           type="button"
           data-testid="toolbar-back"
-          aria-label={t('toolbar.back')}
-          title={t('toolbar.back')}
+          aria-label={canGoBack ? t('toolbar.back') : `${t('toolbar.back')} — ${t('toolbar.backDisabledHint')}`}
+          title={canGoBack ? t('toolbar.back') : t('toolbar.backDisabledHint')}
           disabled={!canGoBack}
           onClick={() => void useDocStore.getState().moveCursor(-1)}
-          className="rounded-md border border-fg/30 px-3 py-1.5 text-sm hover:bg-fg/5 disabled:cursor-not-allowed disabled:opacity-40"
+          className="rounded-md border border-fg/30 px-3 py-1.5 text-sm hover:bg-fg/5 disabled:cursor-not-allowed disabled:border-fg/10 disabled:opacity-50"
         >
           ←
         </button>
-        {/* T15 (FR-04): ForwardButton. */}
+        {/* T15 (FR-04): ForwardButton. 可达性同上; canGoForward 还需要
+            history[cursor+1] 存在 → 即必须先 back 再 forward (类似浏览器). */}
         <button
           type="button"
           data-testid="toolbar-forward"
-          aria-label={t('toolbar.forward')}
-          title={t('toolbar.forward')}
+          aria-label={canGoForward ? t('toolbar.forward') : `${t('toolbar.forward')} — ${t('toolbar.forwardDisabledHint')}`}
+          title={canGoForward ? t('toolbar.forward') : t('toolbar.forwardDisabledHint')}
           disabled={!canGoForward}
           onClick={() => void useDocStore.getState().moveCursor(1)}
-          className="rounded-md border border-fg/30 px-3 py-1.5 text-sm hover:bg-fg/5 disabled:cursor-not-allowed disabled:opacity-40"
+          className="rounded-md border border-fg/30 px-3 py-1.5 text-sm hover:bg-fg/5 disabled:cursor-not-allowed disabled:border-fg/10 disabled:opacity-50"
         >
           →
         </button>
