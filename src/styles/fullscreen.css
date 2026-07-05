@@ -25,14 +25,9 @@ html[data-fullscreen='true'] #root {
   background: rgb(var(--color-bg));
 }
 
-/* NFR-U-05: 鼠标静止 3s 隐藏光标.
- * 通过 .fs-cursor-hide (由 useFullscreen 控制) 切换 cursor: none.
- * Toolbar / StatusBar 等 chrome 仍可见, 鼠标只是从视觉上淡出, 不影响可点性.
- */
-html[data-fullscreen='true'].fs-cursor-hide,
-html[data-fullscreen='true'].fs-cursor-hide * {
-  cursor: none !important;
-}
+/* NFR-U-05 (cursor auto-hide): 之前版本预留 `.fs-cursor-hide` 切换 cursor:none 的样式,
+ * 但 useFullscreen.ts 中没有触发器 (mouse-idle timer 移除后未补回). T19+ 暂时保留
+ * 规则入口: 任何位置添加 .fs-cursor-hide 类都会触发, 等待 NFR-U-05 重新实现. */
 
 /* 退出全屏: 显式复位 data-fullscreen, 即使外部 DOM 残留属性.
  *
@@ -43,6 +38,8 @@ html[data-fullscreen='true'].fs-cursor-hide * {
  *   退出全屏只需移除 `data-fullscreen="true"`, 元素的最终 `display` 自然回到
  *   Tailwind 声明的值.
  *
- * 早期版本曾用 `display: revert` 修复 exit 模式, 早期还有
- *   `display: none !important` 隐藏 Toolbar (T19 已移除, 见顶部历史).
+ * 历史:
+ *   - T16-P2 初版有 `display: none !important` 隐藏 Toolbar/Outline/StatusBar/
+ *     ProgressBar (T19 已移除, 见顶部历史).
+ *   - T16-P2 也曾用 `display: revert` 修复 exit 模式 (T18 已移除, 改用注释说明).
  */
