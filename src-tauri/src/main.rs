@@ -35,6 +35,28 @@ fn main() {
             if let Err(e) = recent_svc::load_from_store(app.handle()) {
                 eprintln!("[recent_files] hydrate failed: {e}");
             }
+
+            // T20+ (R-07 修复): dev 模式下运行时设置 Dock / Window 图标.
+            // 背景: cargo tauri dev 运行的是裸二进制, macOS Dock 会读链接进二进制的默认
+            // Rust/Tauri 图标, 完全忽略 tauri.conf.json::bundle.icon. cargo tauri build 才会
+            // 把 bundle.icon 装进 KITE.app/Contents/Resources/. 显式调用 set_icon 让 dev 模式
+            // 也立刻显示用户的 kite 图标, 不需要每次打包验证.
+            //
+            // 实现: 用 include_bytes! 把图标嵌入二进制, 运行时通过 tauri::image::Image::from_bytes
+            // 加载. 优势: 与 cargo tauri build 行为一致, 任何 runtime cwd / 安装路径都不会
+            // 找不到图标. 失败时 eprintln 但不 panic — 不阻塞 app 启动 (Windows / Linux 上
+            // set_icon 是 no-op, macOS 上 dock icon 偶尔因缓存刷新慢需重启, 都不影响功能).
+            if let Some(window) = app.get_webview_window("main") {
+                let icon_bytes = include_bytes!("../icons/128x128.png");
+                match tauri::image::Image::from_bytes(icon_bytes) {
+                    Ok(icon) => {
+                        if let Err(e) = window.set_icon(icon) {
+                            eprintln!("[set_icon] failed: {e}");
+                        }
+                    }
+                    Err(e) => eprintln!("[set_icon] decode failed: {e}"),
+                }
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
