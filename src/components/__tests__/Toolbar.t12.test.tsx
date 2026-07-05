@@ -112,6 +112,53 @@ describe('Toolbar — T19 Logo 与按钮同行', () => {
   });
 });
 
+describe('Toolbar — T20+ Logo 主题切换 (R-06 修复)', () => {
+  beforeEach(() => {
+    // 重置为 light 主题, 测试中可切换.
+    usePrefStore.setState({
+      prefs: {
+        theme: 'light',
+        fontSize: 16,
+        lineHeight: 1.6,
+        codeBlockTheme: 'github',
+        fontSizeId: 'md',
+        lineHeightId: 'cozy',
+        codeFontSizeId: 'md',
+        language: 'zh-CN',
+        mermaidEnabled: false,
+        katexEnabled: false,
+      },
+      hydrated: true,
+      loaded: true,
+    });
+  });
+  afterEach(() => vi.restoreAllMocks());
+
+  it('theme=light → logo src 指向 kite_logo.png (亮色变体)', () => {
+    usePrefStore.setState((s) => ({ prefs: { ...s.prefs, theme: 'light' } }));
+    const { getByTestId } = render(<Toolbar disabled={false} onOpen={() => {}} />);
+    const logo = getByTestId('toolbar-logo');
+    expect(logo.getAttribute('src')).toMatch(/kite_logo\.png/);
+    expect(logo.getAttribute('src')).not.toMatch(/dark/);
+  });
+
+  it('theme=dark → logo src 指向 kite_logo_dark.png (深色变体)', () => {
+    usePrefStore.setState((s) => ({ prefs: { ...s.prefs, theme: 'dark' } }));
+    const { getByTestId } = render(<Toolbar disabled={false} onOpen={() => {}} />);
+    const logo = getByTestId('toolbar-logo');
+    expect(logo.getAttribute('src')).toMatch(/kite_logo_dark\.png/);
+  });
+
+  it('theme=system + matchMedia=light → 亮色 logo', () => {
+    // 默认 jsdom matchMedia 返回 false (no match).
+    usePrefStore.setState((s) => ({ prefs: { ...s.prefs, theme: 'system' } }));
+    const { getByTestId } = render(<Toolbar disabled={false} onOpen={() => {}} />);
+    const logo = getByTestId('toolbar-logo');
+    expect(logo.getAttribute('src')).toMatch(/kite_logo\.png/);
+    expect(logo.getAttribute('src')).not.toMatch(/dark/);
+  });
+});
+
 describe('Toolbar — T19 字号选择器 (替代单纯 cycle)', () => {
   beforeEach(() => {
     usePrefStore.setState({

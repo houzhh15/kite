@@ -19,6 +19,7 @@ import { usePrefStore } from '../stores/prefStore';
 import { useDocStore } from '../stores/docStore';
 import { useLayoutStore } from '../stores/layoutStore';
 import { useFullscreen } from '../hooks/useFullscreen';
+import { useTheme } from '../hooks/useTheme';
 import { FullscreenButton } from './FullscreenButton';
 import { ToolbarExportMenu } from './ToolbarExportMenu';
 import {
@@ -27,6 +28,7 @@ import {
   type FontSize,
 } from '../lib/reader-prefs';
 import kiteLogoUrl from '../assets/kite_logo.png';
+import kiteLogoDarkUrl from '../assets/kite_logo_dark.png';
 
 export interface ToolbarProps {
   disabled: boolean;
@@ -61,6 +63,11 @@ export function Toolbar({
   const lineHeightId = usePrefStore((s) => s.prefs.lineHeightId);
   const fontMeta = getFontSizeMeta(fontSizeId);
   const announcerRef = useRef<HTMLSpanElement | null>(null);
+
+  // T20+ (R-06 修复): useTheme().appliedTheme 用于在 dark 模式下切换
+  // Logo 到深色变体 (kite_logo_dark.png), 避免深蓝文字 "kite" 在暗背景上不可读.
+  const { appliedTheme } = useTheme();
+  const logoSrc = appliedTheme === 'dark' ? kiteLogoDarkUrl : kiteLogoUrl;
 
   // T15 (FR-01/FR-04): treeOpen 状态 + canGoBack/Forward.
   const treeOpen = useLayoutStore((s) => s.treeOpen);
@@ -183,13 +190,13 @@ export function Toolbar({
       className="flex shrink-0 flex-row flex-nowrap items-center gap-3 whitespace-nowrap border-b border-fg/20 px-3 py-1.5"
     >
       {/* T19: 应用 Logo (替代原 KITE 文字品牌, 由 src/assets/kite_logo.png 提供).
-          源图尺寸 1055×570 ≈ 1.851:1 (已裁剪上下空白 + 背景统一为 #FAFAFC 与设计
-          token --color-bg 对齐). h-9 (36 px) 让 Logo 在 Toolbar 中视觉更突出,
-          w-auto 按 aspect 自动算宽度. flex-shrink-0 + whitespace-nowrap + flex-nowrap
-          保证不被右侧按钮挤到下一行 (Toolbar 父容器为 display: flex, 见
-          src/styles/fullscreen.css). */}
+          源图尺寸 1055×570 ≈ 1.851:1 (已裁剪上下空白 + 背景透明).
+          h-9 (36 px) 让 Logo 在 Toolbar 中视觉更突出, w-auto 按 aspect 自动算宽度.
+          flex-shrink-0 + whitespace-nowrap + flex-nowrap 保证不被右侧按钮挤到下一行.
+          T20+ (R-06): appliedTheme === 'dark' 时切换到 kite_logo_dark.png (浅蓝主题),
+          保留原图的 kite 蓝色品牌色但字色反转, 在暗背景上仍然可读. */}
       <img
-        src={kiteLogoUrl}
+        src={logoSrc}
         alt="KITE"
         width={1055}
         height={570}
