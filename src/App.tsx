@@ -44,7 +44,7 @@ const FileTreeLazy = lazy(() => import('./components/FileTree').then((m) => ({ d
 import { useMarkdownDoc } from './hooks/useMarkdownDoc';
 import { usePreferences } from './hooks/usePreferences';
 import { useTheme } from './hooks/useTheme';
-import { useFileDrop } from './hooks/useFileDrop';
+import { useFileDrop, createFileDropSource } from './hooks/useFileDrop';
 import { useImageViewer } from './hooks/useImageViewer';
 import { useProgress } from './hooks/useProgress';
 import { useReaderFontSize } from './hooks/useReaderFontSize';
@@ -73,17 +73,22 @@ export default function App(): JSX.Element {
   const { t } = useTranslation(); // T18 (FR-02): 4 个 toast 文案通过 t('app.*') 取值.
   usePreferences(); // T04: 顶层挂载, 启动 hydrate + 订阅 store debounced save.
   useTheme(); // T03 step-10: 单行订阅, 不修改 JSX.
-  useFileDrop(); // T05: 订阅 Tauri 2 拖拽事件, 维护 <body data-drag-active> 视觉态.
-  // T12: 三个订阅型 hook 把档位写入 CSS 变量/根字号 (设计 §3.6.4-6).
-  useReaderFontSize();
-  useReaderLineHeight();
-  useReaderCodeFontSize();
   // T21 (R-05 修复): 目录树根目录 — 不再是硬编码 null 占位.
   // 文件夹按钮 → treeOpen=true 触发 FileTree 渲染空态; 空态里点 "选择文件夹" 触发
   // Tauri directory dialog, 选完后 setTreeRootPath → FileTree 重渲染为目录树.
   const [treeRootPath, setTreeRootPath] = useState<string | null>(null);
   const treeOpen = useLayoutStore((s) => s.treeOpen);
+  // T02: useMarkdownDoc 是文档加载的单一状态机入口. 必须先解构 loadFile,
+  // 才能给 useFileDrop 注入 onFilePicked (R-07 修复, 否则 TDZ ReferenceError).
   const { state, open, retry, loadFile, tryRestoreLastPath, restoreScrollAfterOpen } = useMarkdownDoc();
+  // R-07 修复: 拖拽必须走 useMarkdownDoc.loadFile, 让 reducer state 与 useDocStore 同步刷新.
+  // Reader 渲染来源是 useMarkdownDoc reducer (state.doc.content), 不是 useDocStore —
+  // 之前 useFileDrop 内部直接 setContent, 会导致「docStore 已切换, Reader 还显示旧文件」.
+  useFileDrop(createFileDropSource, { onFilePicked: loadFile });
+  // T12: 三个订阅型 hook 把档位写入 CSS 变量/根字号 (设计 §3.6.4-6).
+  useReaderFontSize();
+  useReaderLineHeight();
+  useReaderCodeFontSize();
   const viewer = useImageViewer(); // T08: 订阅 image viewer 单例 store.
   const search = useSearch();
   // T16-P2 (FR-03): 全屏状态机在顶层挂载, 供快捷键 API 调用.

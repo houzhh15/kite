@@ -1,21 +1,40 @@
 /**
  * useFileDrop — 拖拽打开 Markdown 副作用 hook (F-02 / T05).
+ *
  * 设计依据: docs/design/compiled.md §3.1 + §3.3 + §3.4 + docs/plan/compiled.md Step 2.
- * 责任: 订阅 Tauri 2 拖拽事件 / 维护视觉态 / 编排 drop 业务链路 / 1s 去重 toast.
+ *
+ * 责任范围 (R-07 修复后):
+ *   - 订阅 Tauri 2 拖拽事件, 维护视觉态 (<body data-drag-active>).
+ *   - 把 drop / 错误 (拒识扩展名 / 空 paths) 翻译为业务回调:
+ *       onFilePicked(path): 选中的 markdown 路径 — 由调用方 (App.tsx) 注入,
+ *         走 useMarkdownDoc.loadFile 标准链路 (OPEN_START / OPEN_OK / OPEN_ERR +
+ *         stamp 防护 + pushHistory + setLastPath). 这里**不再**自行调
+ *         readMarkdownFile / setContent / addRecentFile: 因为 useMarkdownDoc
+ *         是文档加载的唯一状态机入口, 拖拽作为另一种触发方式必须复用同一链路,
+ *         否则 Reader 渲染来源 (useMarkdownDoc reducer state) 与 useDocStore
+ *         会出现分歧 — 表现为「拖拽了新文件, 窗口仍然显示旧文件内容」(Reader
+ *         走 reducer, docStore 已经被改).
+ *   - 1s 去重 toast 减少抖动.
+ *
+ * 不再做:
+ *   - readMarkdownFile / setContent / close — 走 onFilePicked 由调用方负责.
+ *   - pushRecent / addRecentFile — 由 useMarkdownDoc.loadFile 自动完成.
  */
 
 import { useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { getCurrentWebview } from '@tauri-apps/api/webview';
 
-import { useDocStore } from '../stores/docStore';
-import { useRecentStore } from '../stores/recentStore';
-import { addRecentFile, readMarkdownFile } from '../lib/tauri';
-import { isTauri } from '../lib/env';
 import { pushToast } from '../lib/toast';
-import { pickMarkdownPath } from '../lib/fileTypes';
-import { basename as fileBasename, extractExt as fileExtractExt, firstUnsupportedExt, formatDropError, isAppErrorCode as isCodeSupported } from '../lib/fileDropHelpers';
-import { describeAcceptedExts } from '../lib/fileTypes';
+import { pickMarkdownPath, describeAcceptedExts } from '../lib/fileTypes';
+import {
+  firstUnsupportedExt,
+  formatDropError,
+  basename as fileBasename,
+  extractExt as fileExtractExt,
+  isAppErrorCode as isCodeSupported,
+} from '../lib/fileDropHelpers';
+import { isTauri } from '../lib/env';
 
 export type FileDropEvent =
   | { type: 'enter'; paths: string[] }
@@ -25,6 +44,17 @@ export type FileDropEvent =
 
 export interface FileDropSource {
   subscribe(handler: (event: FileDropEvent) => void): () => void;
+}
+
+/** drop 后, 把选中的 markdown 路径交给调用方. 调用方应完成读文件 / 状态机 / 写最近文件全链路. */
+export type FilePickedHandler = (path: string) => void | Promise<void>;
+
+export interface UseFileDropOptions {
+  /**
+   * 拖拽命中 markdown 文件后调用的回调. 由调用方 (例如 App.tsx) 注入, 通常
+   * 直接传 `useMarkdownDoc.loadFile`, 让 reducer state 与 useDocStore 双源保持一致.
+   */
+  onFilePicked?: FilePickedHandler;
 }
 
 const DRAG_ACTIVE_FLAG = 'true';
@@ -103,12 +133,25 @@ export function createFileDropSource(): FileDropSource {
   };
 }
 
-/** useFileDrop — 在 App 顶层挂载一次即可. */
-export function useFileDrop(sourceFactory: () => FileDropSource = createFileDropSource): void {
+/**
+ * useFileDrop — 在 App 顶层挂载一次即可.
+ *
+ * @param sourceFactory  注入 FileDropSource 工厂 (测试用); 默认 = createFileDropSource.
+ * @param options.onFilePicked  drop 命中 markdown 时回调; 由调用方完成读文件.
+ */
+export function useFileDrop(
+  sourceFactory: () => FileDropSource = createFileDropSource,
+  options: UseFileDropOptions = {},
+): void {
   const { t } = useTranslation(); // T18 (FR-02): 拖拽错误文案通过 t() 渲染.
   const enterCounterRef = useRef(0);
   const lastToastRef = useRef<{ key: string; ts: number } | null>(null);
   const source = useMemo(sourceFactory, [sourceFactory]);
+  // 把 onFilePicked 稳定下来, 避免 useEffect deps 反复 mount/unmount 拖拽订阅.
+  const onFilePickedRef = useRef<FilePickedHandler | undefined>(options.onFilePicked);
+  useEffect(() => {
+    onFilePickedRef.current = options.onFilePicked;
+  }, [options.onFilePicked]);
 
   useEffect(() => {
     const unlisten = source.subscribe((event) => {
@@ -140,50 +183,54 @@ export function useFileDrop(sourceFactory: () => FileDropSource = createFileDrop
   }, [source, t]);
 
   function handleDrop(paths: string[]): void {
+    const rejectWithToast = (code: string, ext: string, key: string): void => {
+      showDropToast(lastToastRef, key, t(formatDropError(code, { basename: '', ext })));
+    };
     if (!Array.isArray(paths)) {
-      showDropToast(lastToastRef, 'PAYLOAD', t(formatDropError('PAYLOAD', { basename: '', ext: '' })));
+      rejectWithToast('PAYLOAD', '', 'PAYLOAD');
       return;
     }
     const picked = pickMarkdownPath(paths);
     if (!picked) {
       const ext = firstUnsupportedExt(paths);
       if (ext) {
-        showDropToast(
-          lastToastRef,
-          `UNSUPPORTED:${ext}`,
-          t(formatDropError('UNSUPPORTED_EXT', { basename: '', ext }), {
-            ext,
-            accepted: describeAcceptedExts(),
-          }),
-        );
+        const key = `UNSUPPORTED:${ext}`;
+        const msg = t(formatDropError('UNSUPPORTED_EXT', { basename: '', ext }), {
+          ext,
+          accepted: describeAcceptedExts(),
+        });
+        showDropToast(lastToastRef, key, msg);
       } else {
-        showDropToast(lastToastRef, 'EMPTY_PATHS', t(formatDropError('EMPTY_PATHS', { basename: '', ext: '' })));
+        rejectWithToast('EMPTY_PATHS', '', 'EMPTY_PATHS');
       }
       return;
     }
-    void loadFromPath(picked);
-  }
-
-  // AC-04: 同步 close 早于 await readMarkdownFile, 避免 A/B 共存闪烁
-  async function loadFromPath(path: string): Promise<void> {
-    const name = fileBasename(path);
-    useDocStore.getState().close();
-    try {
-      const content = await readMarkdownFile(path);
-      const title = name.replace(/\.(md|markdown|mdx)$/i, '');
-      useDocStore.getState().setContent({ path, title, content });
-      useRecentStore.getState().pushRecent(path, title);
-      addRecentFile(path, title).catch((err) => {
-        console.warn('[useFileDrop] addRecentFile best-effort failed:', err);
-      });
-    } catch (err: unknown) {
-      const code = isCodeSupported(err) ? err.code : 'UNKNOWN';
-      const ctx = { basename: name, ext: fileExtractExt(path) };
-      showDropToast(
-        lastToastRef,
-        `DROP_ERR:${code}:${ctx.ext}`,
-        t(formatDropError(code, ctx), ctx),
+    // R-07 修复: 委托调用方 (App.tsx) 处理 — 通常是 useMarkdownDoc.loadFile.
+    // 这里不再自行 readMarkdownFile / setContent / pushRecent, 因为 Reader 走 reducer state,
+    // 自行写入会出现「docStore 已切换但 reducer 还显示旧文件」的窗口.
+    const onFilePicked = onFilePickedRef.current;
+    if (!onFilePicked) {
+      // App 层未注册回调 — 安静不做事 (开发期 console.warn, 不阻塞 UI).
+      console.warn(
+        '[useFileDrop] dropped',
+        picked,
+        'but no onFilePicked handler is registered; pass options.onFilePicked=loadFile.',
       );
+      return;
+    }
+    try {
+      void Promise.resolve(onFilePicked(picked)).catch((err) => {
+        // 调用方 (loadFile) 一般已经 pushToast 错误; 这里兜底再 toast 一次未知错误, 不重复报错.
+        if (isCodeSupported(err)) return;
+        const name = fileBasename(picked);
+        showDropToast(
+          lastToastRef,
+          `DROP_ERR:UNKNOWN:${fileExtractExt(picked)}`,
+          t(formatDropError('UNKNOWN', { basename: name, ext: fileExtractExt(picked) })),
+        );
+      });
+    } catch (e) {
+      console.warn('[useFileDrop] onFilePicked threw synchronously:', e);
     }
   }
 }
