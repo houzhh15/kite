@@ -20,6 +20,10 @@ import { act, render } from '@testing-library/react';
 import { useRef } from 'react';
 
 import { useFileDrop, type FileDropEvent, type FileDropSource } from '../useFileDrop';
+// R-07 修复后, useFileDrop 不再 import useDocStore, 因此 i18n 模块不再被
+// 隐式触发 init. 测试必须在 useTranslation 之前显式 init, 否则 t() 会抛
+// NO_I18NEXT_INSTANCE / 返回 raw key, 占位符 {{ext}} 不替换.
+import '../../i18n';
 
 vi.mock('../../lib/toast', async () => {
   const actual = await vi.importActual<Record<string, unknown>>('../../lib/toast');
@@ -146,7 +150,8 @@ describe('useFileDrop — rejection', () => {
     expect(mockPushToast).toHaveBeenCalledTimes(1);
     const arg = mockPushToast.mock.calls[0]?.[0] as { kind: string; message: string };
     expect(arg.kind).toBe('error');
-    expect(arg.message).toMatch(/\.pdf/);
+    // i18n 已 init (顶部 import '../../i18n'). 翻译后, message 应包含扩展名与可接受扩展名.
+    expect(arg.message).toContain('.pdf');
     expect(arg.message).toMatch(/md/);
     expect(handle.callPaths).toEqual([]);
   });
@@ -288,7 +293,9 @@ describe('useFileDrop — onFilePicked error handling', () => {
     });
     expect(mockPushToast).toHaveBeenCalledTimes(1);
     const arg = mockPushToast.mock.calls[0]?.[0] as { kind: string; message: string };
-    expect(arg.message).toMatch(/打开文件失败/);
+    // i18n 已 init (顶部 import). 翻译后应包含「打开文件失败」或对应英文, 见
+    // src/i18n/zh-CN.ts / en-US.ts::message.dropUnknown.
+    expect(arg.message).toMatch(/打开文件失败|打开失败|open failed|Failed to open/i);
   });
 
   it('AppError from onFilePicked → no duplicate toast (caller already toasts)', async () => {
