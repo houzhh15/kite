@@ -18,10 +18,12 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import type { FullscreenState } from '../lib/tauri';
 import { isTauri } from '../lib/env';
 import { setFullscreen as invokeSetFullscreen } from '../lib/tauri';
+import { pushToast } from '../lib/toast';
 
 export interface UseFullscreenApi {
   isFullscreen: boolean;
@@ -44,6 +46,7 @@ function hasElementFullscreen(): boolean {
 }
 
 export function useFullscreen(): UseFullscreenApi {
+  const { t } = useTranslation();
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const supportedRef = useRef<boolean>(true);
 
@@ -58,77 +61,115 @@ export function useFullscreen(): UseFullscreenApi {
     document.documentElement.dataset.fullscreen = val ? 'true' : 'false';
   }, []);
 
+  /**
+   * 把 Rust 实际状态同步到 hook, 并在 requested !== actual 时显式 toast.
+   * 单独抽出, enter/exit 都用, 让逻辑一致.
+   *
+   * @param requested 调用者期望的目标状态 (true=进入全屏 / false=退出全屏).
+   * @param actual   Rust 回读的窗口真实状态.
+   */
+  const applyTauriResult = useCallback(
+    (requested: boolean, actual: boolean): boolean => {
+      if (actual === requested) {
+        setIsFullscreen(actual);
+        setDataAttr(actual);
+        return true;
+      }
+      // 平台静默 no-op (典型: macOS 窗口失焦 / 动画期间); 显式告诉用户,
+      // 而不是让按钮 aria-pressed 与实际状态错乱.
+      setIsFullscreen(actual);
+      setDataAttr(actual);
+      pushToast({
+        kind: 'info',
+        message: requested
+          ? t('fullscreen.failed.enter')
+          : t('fullscreen.failed.exit'),
+      });
+      return false;
+    },
+    [setDataAttr, t],
+  );
+
   const enterViaTauri = useCallback(async (): Promise<boolean> => {
     if (!isTauri()) return false;
     try {
-      await invokeSetFullscreen(true);
-      return true;
+      const result = await invokeSetFullscreen(true);
+      // result = {requested: true, actual: window.is_fullscreen()}.
+      return applyTauriResult(true, result.actual);
     } catch (e) {
-      // safeInvoke rejects 是已知的 IPCUnavailable (浏览器场景已由 isTauri guard 拦
-      // 截, 这里只能收到 Rust 真正返回的 AppError). 不抛给上层, 由 toggle 聚合失败.
-      if (typeof console !== 'undefined') console.warn('[useFullscreen] tauri set_fullscreen(true) failed:', e);
+      // IPC 报错 (例如窗口未找到 / 权限拒绝), 转换为 user-friendly toast.
+      const msg = e instanceof Error ? e.message : String(e);
+      pushToast({ kind: 'error', message: t('fullscreen.ipcFailed', { msg }) });
       return false;
     }
-  }, []);
+  }, [applyTauriResult, t]);
 
   const enterViaElement = useCallback(async (): Promise<boolean> => {
     if (!hasElementFullscreen()) return false;
     try {
       await document.documentElement.requestFullscreen();
+      // 浏览器路径: fullscreenchange 事件后 isFullscreen 才更新, 由监听器负责,
+      // 这里只需要返回是否调用成功; 不主动写 state.
       return true;
     } catch {
+      pushToast({ kind: 'error', message: t('fullscreen.browserFailed') });
       return false;
     }
-  }, []);
+  }, [t]);
 
   const exitViaTauri = useCallback(async (): Promise<boolean> => {
     if (!isTauri()) return false;
     try {
-      await invokeSetFullscreen(false);
-      return true;
+      const result = await invokeSetFullscreen(false);
+      return applyTauriResult(false, result.actual);
     } catch (e) {
-      if (typeof console !== 'undefined') console.warn('[useFullscreen] tauri set_fullscreen(false) failed:', e);
+      const msg = e instanceof Error ? e.message : String(e);
+      pushToast({ kind: 'error', message: t('fullscreen.ipcFailed', { msg }) });
       return false;
     }
-  }, []);
+  }, [applyTauriResult, t]);
 
   const exitViaElement = useCallback(async (): Promise<boolean> => {
     if (typeof document === 'undefined') return false;
     if (!document.fullscreenElement) return true;
     try {
       await document.exitFullscreen();
+      // browser 路径: fullscreenchange listener 负责 state.
       return true;
     } catch {
+      pushToast({ kind: 'error', message: t('fullscreen.browserFailed') });
       return false;
     }
-  }, []);
+  }, [t]);
 
   const enter = useCallback(async (): Promise<void> => {
     if (await enterViaTauri()) {
-      setIsFullscreen(true);
-      setDataAttr(true);
+      // hook state 已在 enterViaTauri 内部校正为 Tauri 回读的实际值,
+      // 避免与浏览器 fullscreenchange 冲突; 这里不再覆盖.
       return;
     }
     if (await enterViaElement()) {
+      // browser 路径: fullscreenchange listener 会负责更新 state.
       setIsFullscreen(true);
       setDataAttr(true);
       return;
     }
-    // 全部失败: 保持 false, 不抛错 (前端调用方若想知道可读 supported).
-  }, [enterViaTauri, enterViaElement, setDataAttr]);
+    // 全部失败: 显式 toast (此前是 silent, 用户看到按钮没反应).
+    pushToast({ kind: 'error', message: t('fullscreen.unsupported') });
+  }, [enterViaTauri, enterViaElement, setDataAttr, t]);
 
   const exit = useCallback(async (): Promise<void> => {
     if (await exitViaTauri()) {
-      setIsFullscreen(false);
-      setDataAttr(false);
       return;
     }
     if (await exitViaElement()) {
+      // browser 路径: fullscreenchange listener 负责.
       setIsFullscreen(false);
       setDataAttr(false);
       return;
     }
-  }, [exitViaTauri, exitViaElement, setDataAttr]);
+    pushToast({ kind: 'error', message: t('fullscreen.unsupported') });
+  }, [exitViaTauri, exitViaElement, setDataAttr, t]);
 
   const toggle = useCallback(async (): Promise<void> => {
     if (isFullscreen) {

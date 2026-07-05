@@ -170,6 +170,19 @@ export const zhCN = {
     enter: '全屏',
     exit: '退出全屏',
     toggle: '切换全屏',
+    // T19 (修复): 全屏 / 退出失败时的 toast 文案.
+    // macOS native fullscreen 在窗口失焦时静默 no-op, React state 误判为成功,
+    // 必须显式告知用户.
+    'failed': {
+      enter: '进入全屏失败, 请确保窗口已获焦后重试',
+      exit: '退出全屏失败, 请确保窗口已获焦后重试',
+    },
+    // IPC 抛错 (例如窗口未找到 / 命令未注册) 时.
+    'ipcFailed': '全屏切换 IPC 调用失败: {{msg}}',
+    // 浏览器 fallback (document.requestFullscreen) 抛错时.
+    'browserFailed': '浏览器全屏 API 拒绝此次请求 (可能需要用户手势)',
+    // Tauri + 浏览器都不支持时 (按钮被 disabled, 一般不可达, 兜底).
+    'unsupported': '当前环境不支持全屏切换',
   },
   // T17-P2 (F-21/F-22): toast 与 fallback 文案.
   toast: {

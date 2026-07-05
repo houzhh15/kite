@@ -149,6 +149,13 @@ export const enUS = {
     enter: 'Fullscreen',
     exit: 'Exit Fullscreen',
     toggle: 'Toggle Fullscreen',
+    failed: {
+      enter: 'Could not enter fullscreen, make sure the window is focused and retry',
+      exit: 'Could not exit fullscreen, make sure the window is focused and retry',
+    },
+    ipcFailed: 'Fullscreen IPC call failed: {{msg}}',
+    browserFailed: 'Browser fullscreen API rejected (may need a user gesture)',
+    unsupported: 'Fullscreen toggle is not supported in this environment',
   },
   // T17-P2 (F-21/F-22): toast + fallback copy.
   toast: {

@@ -354,7 +354,13 @@ pub async fn export_html(
 /// set_fullscreen — F-20 (FR-03 / 设计 §3.3.4 / NFR-U-02).
 ///
 /// - Input:  fullscreen (bool) — true 进入全屏, false 退出全屏.
-/// - Output: Ok(()).
+/// - Output: Ok({is_fullscreen}). **返回** 设置后的实际状态, **前端用它把 React state
+///   校正到 ground truth**, 而不是依赖 IPC 不抛错就视为成功. macOS 上
+///   `WebviewWindow::set_fullscreen` 偶尔在窗口失焦/动画期间静默 no-op, 必须
+///   回读 `is_fullscreen()` 才能告诉前端"实际成功没有". 前端 `useFullscreen`
+///   看到这个值就同步 hook state; 若 fullscreen=false 但目标 fullscreen=true,
+///   前端会显式 toast "全屏切换失败, 请确保窗口已获焦后重试".
+///
 /// - Error 约定 (AppError code):
 ///   - IO (E003): 当前窗口不存在 / 底层窗口对象方法调用失败.
 ///
@@ -363,6 +369,7 @@ pub async fn export_html(
 ///   - 调用 Tauri 2 标准 API `WebviewWindow::set_fullscreen(bool)`,
 ///     跨平台一致工作 (macOS: native window.fullScreen / Windows: WM_FULLSCREEN /
 ///     Linux: _NET_WM_STATE_FULLSCREEN).
+///   - 之后 `window.is_fullscreen()` 取真实窗口状态, 作为返回值.
 ///   - 与前端 `FullscreenButton` + `useFullscreen` 共同构成完整 FR-03 闭环 (AC-03-1~5).
 ///
 /// 边界:
@@ -372,7 +379,7 @@ pub async fn export_html(
 pub async fn set_fullscreen(
     app: tauri::AppHandle,
     fullscreen: bool,
-) -> Result<(), AppError> {
+) -> Result<SetFullscreenResult, AppError> {
     let window = app
         .get_webview_window("main")
         .ok_or_else(|| AppError::Io(std::io::Error::new(
@@ -384,7 +391,23 @@ pub async fn set_fullscreen(
         .map_err(|e| AppError::Io(std::io::Error::new(
             std::io::ErrorKind::Other,
             format!("set_fullscreen failed: {e}"),
-        )))
+        )))?;
+    // 回读真实状态 (macOS 上 set_fullscreen 偶尔 no-op 而不抛错, 必须核对).
+    let actual = window.is_fullscreen().unwrap_or(false);
+    Ok(SetFullscreenResult {
+        requested: fullscreen,
+        actual,
+    })
+}
+
+/// set_fullscreen 命令返回值 — 与 src/lib/tauri.ts 的 SetFullscreenResult 类型对齐.
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SetFullscreenResult {
+    /// 前端请求的目标状态 (true = 进入, false = 退出).
+    pub requested: bool,
+    /// 调用后窗口的实际全屏状态. 与 requested 不一致时, 前端必须 toast 提示.
+    pub actual: bool,
 }
 
 // ---- private helpers ----
