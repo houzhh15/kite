@@ -77,9 +77,10 @@ export default function App(): JSX.Element {
   useReaderFontSize();
   useReaderLineHeight();
   useReaderCodeFontSize();
-  // T15 (FR-01): FileTree 根目录 — 留作占位; 真实选择目录 dialog 接入
-  // 在后续 T16+ 任务. 本期 rootPath 维持 null, FileTree 显示 emptyHint.
-  const [treeRootPath] = useState<string | null>(null);
+  // T21 (R-05 修复): 目录树根目录 — 不再是硬编码 null 占位.
+  // 文件夹按钮 → treeOpen=true 触发 FileTree 渲染空态; 空态里点 "选择文件夹" 触发
+  // Tauri directory dialog, 选完后 setTreeRootPath → FileTree 重渲染为目录树.
+  const [treeRootPath, setTreeRootPath] = useState<string | null>(null);
   const treeOpen = useLayoutStore((s) => s.treeOpen);
   const { state, open, retry, loadFile, tryRestoreLastPath, restoreScrollAfterOpen } = useMarkdownDoc();
   const viewer = useImageViewer(); // T08: 订阅 image viewer 单例 store.
@@ -333,33 +334,40 @@ export default function App(): JSX.Element {
           if (target) void loadFile(target);
         }}
       />
-      {/* T15 (FR-01): 左侧目录树抽屉 (React.lazy), 仅在 treeOpen 时渲染. */}
-      {treeOpen && (
-        <aside
-          data-testid="file-tree-drawer"
-          aria-label="File tree"
-          className="fixed left-0 top-[50px] z-30 h-[calc(100vh-50px)] w-[280px] border-r border-fg/20 bg-bg shadow-md"
-        >
-          <Suspense fallback={<div className="p-4 text-sm text-muted">…</div>}>
-            <FileTreeLazy
-              rootPath={treeRootPath}
-              onOpenFile={(p) => void loadFile(p)}
-            />
-          </Suspense>
-        </aside>
-      )}
-      <Reader
-        state={state}
-        onRetry={retry}
-        onOpen={open}
-        onRenderError={() => {
-          // Reader 内部 ErrorBoundary 捕获渲染异常 (例如插件 panic).
-        }}
-        docTitle={docTitle}
-        onCurrentChange={handleCurrentChange}
-        onProgressChange={setProgress}
-        onMounted={handleReaderMounted}
-      />
+      {/* T21 (R-05 修复): 主内容区 — 目录树 + Reader 三栏 flex.
+          - 目录树仅 treeOpen 时渲染, 280px 固定宽, 与 Reader 同一层面并列 (不再是 fixed 浮层).
+          - treeOpen=false → 仅 Reader, 占满整行.
+          - 旧实现用 position:fixed top-50px left-0 覆盖在 Reader 上方, 用户体验: 打开目录树时文档被遮挡 280px.
+            现在改为 inline flex, 挤压 Reader 空间, 不会遮挡. */}
+      <div className="flex min-h-0 flex-1 overflow-hidden">
+        {treeOpen && (
+          <aside
+            data-testid="file-tree-drawer"
+            aria-label="File tree"
+            className="w-[280px] shrink-0 overflow-y-auto border-r border-fg/20 bg-bg"
+          >
+            <Suspense fallback={<div className="p-4 text-sm text-muted">…</div>}>
+              <FileTreeLazy
+                rootPath={treeRootPath}
+                onRootPathChange={setTreeRootPath}
+                onOpenFile={(p) => void loadFile(p)}
+              />
+            </Suspense>
+          </aside>
+        )}
+        <Reader
+          state={state}
+          onRetry={retry}
+          onOpen={open}
+          onRenderError={() => {
+            // Reader 内部 ErrorBoundary 捕获渲染异常 (例如插件 panic).
+          }}
+          docTitle={docTitle}
+          onCurrentChange={handleCurrentChange}
+          onProgressChange={setProgress}
+          onMounted={handleReaderMounted}
+        />
+      </div>
       <StatusBar progress={progress} content={docContent} />
       {viewer.current ? (
         <ImageViewer src={viewer.current.src} alt={viewer.current.alt} onClose={viewer.close} />

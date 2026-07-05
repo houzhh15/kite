@@ -48,6 +48,9 @@ export const enUS = {
   },
   tree: {
     emptyHint: 'Choose a folder to start browsing',
+    pickRoot: 'Choose folder',
+    pickRootTitle: 'Choose Markdown root directory',
+    picking: 'Opening dialog…',
     error: 'Failed to load this directory',
     invalidPath: 'Invalid path or not a directory',
     refresh: 'Refresh directory',

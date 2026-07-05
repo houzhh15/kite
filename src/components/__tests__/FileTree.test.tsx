@@ -24,10 +24,14 @@ describe('FileTree — T15 (FR-01)', () => {
     vi.restoreAllMocks();
   });
 
-  it('renders empty hint when rootPath=null', () => {
+  it('renders empty hint + 选择文件夹 按钮 when rootPath=null', () => {
     render(<FileTree rootPath={null} onOpenFile={() => {}} />);
     const empty = screen.getByTestId('file-tree-empty');
+    // T21 (R-05): 空态除了文案外, 还需提供 "选择文件夹" 按钮, 让用户能真正选中目录.
     expect(empty.textContent).toContain('请选择');
+    const pickBtn = screen.getByTestId('file-tree-pick-root');
+    expect(pickBtn).toBeTruthy();
+    expect(pickBtn.textContent).toBe('选择文件夹');
   });
 
   it('renders root node when rootPath provided', async () => {
@@ -82,6 +86,29 @@ describe('FileTree — T15 (FR-01)', () => {
       const errors = document.querySelectorAll('[data-testid="file-tree-error"]');
       expect(errors.length).toBeGreaterThan(0);
     });
+  });
+
+  it('T21 (R-05) 修复: 空态显示 "选择文件夹" 按钮 (仅验证 UI 不抛错)', async () => {
+    // 动态 import @tauri-apps/plugin-dialog 的真实行为在 jsdom 里未定义,
+    // 这里只验证: 按钮存在, 点击 handlePickRoot 的 try/catch 兜住任何异常,
+    // 不冒泡到 React.
+    const onRootPathChange = vi.fn();
+    render(
+      <Suspense fallback={null}>
+        <FileTree
+          rootPath={null}
+          onRootPathChange={onRootPathChange}
+          onOpenFile={() => {}}
+        />
+      </Suspense>,
+    );
+    const btn = screen.getByTestId('file-tree-pick-root');
+    expect(btn).toBeTruthy();
+    expect(btn.textContent).toBe('选择文件夹');
+    // 点击 → 不抛错 (不论 dialog 在 jsdom 里怎么响应).
+    expect(() => fireEvent.click(btn)).not.toThrow();
+    await new Promise((r) => setTimeout(r, 50));
+    // 验证 FileTree.handlePickRoot 内部 try/catch 工作: 即使 dialog 抛错也不冒泡.
   });
 
   it('leaf click invokes onOpenFile with path', async () => {

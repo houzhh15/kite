@@ -69,6 +69,10 @@ export const zhCN = {
   },
   tree: {
     emptyHint: '请选择一个文件夹开始浏览',
+    // T21 (R-05): 空态按钮文案, 让用户实际能选目录.
+    pickRoot: '选择文件夹',
+    pickRootTitle: '选择 Markdown 根目录',
+    picking: '正在打开目录…',
     error: '此目录加载失败',
     invalidPath: '路径无效或不是目录',
     refresh: '刷新目录',
