@@ -104,16 +104,18 @@ export function Toolbar({ disabled, onOpen }: ToolbarProps): JSX.Element {
       className="flex shrink-0 flex-row flex-nowrap items-center gap-3 whitespace-nowrap border-b border-fg/20 px-3 py-1.5"
     >
       {/* T19: 应用 Logo (替代原 KITE 文字品牌, 由 src/assets/kite_logo.png 提供).
-          源图为 1254×1254 1:1, 故 height = width. flex-shrink-0 + whitespace-nowrap
-          确保不被右侧按钮挤到下一行 (Toolbar 父容器仍为单行 flex, 由
-          src/styles/fullscreen.css 修复后 display: flex 不会回退为 block). */}
+          源图为 1055×586 ≈ 1.80:1 (已裁剪上下空白 + 背景统一为 #FAFAFC 与设计
+          token --color-bg 对齐). Toolbar 高度 ~46 px, logo 高度 = banner 高度 - 12 px,
+          宽度按 aspect 自动, 保留视觉密度. flex-shrink-0 + whitespace-nowrap + flex-nowrap
+          保证不被右侧按钮挤到下一行 (Toolbar 父容器为 display: flex, 见
+          src/styles/fullscreen.css). */}
       <img
         src={kiteLogoUrl}
         alt="KITE"
-        width={36}
-        height={36}
+        width={1055}
+        height={586}
         draggable={false}
-        className="kite-toolbar__logo h-9 w-9 flex-shrink-0 select-none"
+        className="kite-toolbar__logo h-7 w-auto flex-shrink-0 select-none"
         data-testid="toolbar-logo"
       />
       {/* ml-auto 把按钮组钉在右侧; flex-shrink-0 + whitespace-nowrap + flex-nowrap
