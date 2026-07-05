@@ -287,6 +287,12 @@ export function useMarkdownDoc(): UseMarkdownDocApi {
       void useProgressStore.getState().flush(true);
       return;
     }
+    // R-08 修复: 取 IPC 前的 inflightRef 快照作为 stamp. 期间若有任何 loadFile
+    // / runOpen 推进 stamp, 本次恢复就放弃 dispatch, 避免覆盖更新的 OPEN_OK.
+    // 之前 line 304 的 `++inflightRef.current` 被 `void stamp;` 吞掉, 没做检查,
+    // 导致冷启动场景下 cold-poll B 的 IPC 之前/期间, tryRestoreLastPath A 的
+    // 成功路径会无条件 dispatch OPEN_OK(A), 覆盖 B.
+    const stamp = inflightRef.current;
     lastPathRef.current = last;
     let content: string;
     try {
@@ -300,15 +306,20 @@ export function useMarkdownDoc(): UseMarkdownDocApi {
       }
       return;
     }
+    // R-08 修复 (续): IPC 期间若有更新的 loadFile / runOpen 进入 (例如
+    // macOS "打开方式 → KITE" 冷启动时 cold-poll 与 tryRestoreLastPath
+    // 并发), stamp 不再匹配, 放弃本次恢复, 让更新的 OPEN_OK 生效.
+    if (stamp !== inflightRef.current) {
+      // 不写任何 store, 让更新的 OPEN_OK 接管渲染.
+      return;
+    }
     // 成功: 模拟 OPEN_OK 路径.
-    const stamp = ++inflightRef.current;
     const doc: MarkdownDoc = { path: last, title: deriveTitle(last), content };
     dispatch({ type: 'OPEN_OK', doc });
     syncDocStore(doc);
     useRecentStore.getState().pushRecent(doc.path, doc.title);
     useProgressStore.getState().setLastPath(doc.path);
     void useProgressStore.getState().flush(true);
-    void stamp;
   }, [syncDocStore]);
 
   /**
