@@ -155,7 +155,6 @@ export const enUS = {
     },
     ipcFailed: 'Fullscreen IPC call failed: {{msg}}',
     browserFailed: 'Browser fullscreen API rejected (may need a user gesture)',
-    unsupported: 'Fullscreen toggle is not supported in this environment',
   },
   // T17-P2 (F-21/F-22): toast + fallback copy.
   toast: {

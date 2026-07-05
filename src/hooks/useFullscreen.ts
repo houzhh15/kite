@@ -154,9 +154,9 @@ export function useFullscreen(): UseFullscreenApi {
       setDataAttr(true);
       return;
     }
-    // 全部失败: 显式 toast (此前是 silent, 用户看到按钮没反应).
-    pushToast({ kind: 'error', message: t('fullscreen.unsupported') });
-  }, [enterViaTauri, enterViaElement, setDataAttr, t]);
+    // 全部失败: enterVia* 内部已经 emit 了 toast (IPC 错误 / 静默 no-op),
+    // 不要再追加 'unsupported', 避免用户在屏幕上看到两条接近的提示.
+  }, [enterViaTauri, enterViaElement, setDataAttr]);
 
   const exit = useCallback(async (): Promise<void> => {
     if (await exitViaTauri()) {
@@ -168,8 +168,8 @@ export function useFullscreen(): UseFullscreenApi {
       setDataAttr(false);
       return;
     }
-    pushToast({ kind: 'error', message: t('fullscreen.unsupported') });
-  }, [exitViaTauri, exitViaElement, setDataAttr, t]);
+    // 同上: 不重复 toast.
+  }, [exitViaTauri, exitViaElement, setDataAttr]);
 
   const toggle = useCallback(async (): Promise<void> => {
     if (isFullscreen) {

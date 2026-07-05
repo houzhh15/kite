@@ -181,8 +181,6 @@ export const zhCN = {
     'ipcFailed': '全屏切换 IPC 调用失败: {{msg}}',
     // 浏览器 fallback (document.requestFullscreen) 抛错时.
     'browserFailed': '浏览器全屏 API 拒绝此次请求 (可能需要用户手势)',
-    // Tauri + 浏览器都不支持时 (按钮被 disabled, 一般不可达, 兜底).
-    'unsupported': '当前环境不支持全屏切换',
   },
   // T17-P2 (F-21/F-22): toast 与 fallback 文案.
   toast: {

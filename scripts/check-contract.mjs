@@ -102,6 +102,23 @@ if (onlyRust.length > 0 || onlyTs.length > 0) {
   if (onlyTs.length > 0) errors.push(`[contract-drift] tauri.ts only: ${onlyTs.join(', ')}`);
 }
 
+// ---- C'. invoke_handler! 完整性: commands.rs 里每个 pub fn (#[tauri::command])
+//       必须在 src-tauri/src/main.rs 的 invoke_handler! 列表中. 否则 Tauri
+//       找不到命令, JS 端会看到 "Command X not found" 错误 (用户真实的报错).
+const mainFile = resolve(ROOT, 'src-tauri', 'src', 'main.rs');
+const mainText = await readFile(mainFile, 'utf8');
+const registered = new Set();
+for (const m of mainText.matchAll(/commands::([a-z_][a-z0-9_]*)/g)) {
+  registered.add(m[1]);
+}
+const notRegistered = [...rustNames].filter((n) => !registered.has(n));
+if (notRegistered.length > 0) {
+  errors.push(
+    `[invoke-handler-missing] commands.rs 声明但未在 main.rs 的 invoke_handler! 注册: ${notRegistered.join(', ')}. ` +
+      `Tauri 找不到它们, JS 端会收到 "Command ${notRegistered[0]} not found".`,
+  );
+}
+
 // ---- D. 双源常量一致性: MAX_RECENT (Rust + TS) ----
 // Rust 端: src-tauri/src/services/recent_files.rs 中 `pub const MAX_RECENT_ITEMS: usize = N;`
 // TS   端: src/stores/recentStore.ts 中 `export const MAX_RECENT = N;` (或 `MAX_ITEMS = N`).

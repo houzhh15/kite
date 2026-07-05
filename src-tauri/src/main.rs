@@ -45,10 +45,15 @@ fn main() {
             commands::get_recent_files,
             commands::add_recent_file,
             commands::clear_recent_files,
+            commands::open_external_url,
             commands::resolve_image_path,
             commands::load_progress,
             commands::save_progress,
             commands::list_dir,
+            // T16-P2 (FR-01 / FR-03): 必须在这里注册, 否则 Tauri 找不到命令.
+            // 用户曾经看到的 "Command set_fullscreen not found" 正是由于遗漏注册.
+            commands::export_html,
+            commands::set_fullscreen,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
