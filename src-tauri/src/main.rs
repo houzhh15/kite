@@ -11,6 +11,13 @@
 // T16-P2 增量:
 //   - 在 invoke_handler 中追加 export_html (FR-01) + set_fullscreen (FR-03).
 //
+// macOS 文件打开 (md/markdown) 增量:
+//   - 启动时把 std::env::args() 中第一个 .md 路径作为 "启动文件", 在 setup 钩子里
+//     cache 到 tauri::State<PendingOpen>. 由 frontend 启动后通过 listen("kite://open-file")
+//     主动 invoke 拉取 (GET_OPEN_FILE), 拉完即清, 避免二次加载.
+//   - .run() 闭包接管 RunEvent::Opened { urls } (macOS 应用已运行时被 Finder 重新
+//     打开), 同样 cache + emit("kite://open-file"), 让前端实时加载.
+//
 // 注释:
 // - 因为 main.rs 是独立二进制 (Cargo.toml `[[bin]]`), 通过 kite_lib::commands
 //   引用 lib 模块, 不要绕过 kite_lib (避免双份代码).
@@ -19,16 +26,30 @@
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+use std::path::PathBuf;
+
 use kite_lib::commands;
+use kite_lib::pending_open::{is_markdown_path, PendingOpen};
 use kite_lib::services::recent_files as recent_svc;
-use tauri::Manager;
+use tauri::{Emitter, Manager, RunEvent};
 
 fn main() {
+    // 冷启动 argv: argv[0] = 二进制自身, argv[1] = 路径 (macOS Finder 双击时传入).
+    // 注意: 多个文件多窗口的 case macOS 不会传, 我们只关心单文件.
+    let pending = PendingOpen::default();
+    for arg in std::env::args().skip(1).take(1) {
+        if is_markdown_path(&arg) {
+            pending.set(PathBuf::from(arg));
+            break;
+        }
+    }
+
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_store::Builder::default().build())
+        .manage(pending)
         .setup(|app| {
             // T06: 注入 RecentState 并 hydrate.
             app.manage(recent_svc::init_state());
@@ -76,7 +97,35 @@ fn main() {
             // 用户曾经看到的 "Command set_fullscreen not found" 正是由于遗漏注册.
             commands::export_html,
             commands::set_fullscreen,
+            // macOS 文件打开: 前端启动后主动拉一次.
+            commands::get_pending_open_file,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app_handle, event| {
+            // macOS 仅: 应用已运行时, Finder 再次 "打开方式 → KITE" 会派发 Opened.
+            // 这里把 URL 缓存 + 向前端 emit, 由前端 loadFile(path) 接管.
+            if let RunEvent::Opened { urls } = &event {
+                for url in urls {
+                    // file:///path/to/foo.md → /path/to/foo.md
+                    let path_opt = if url.scheme() == "file" {
+                        url.to_file_path().ok()
+                    } else {
+                        None
+                    };
+                    let Some(path) = path_opt else { continue };
+                    if is_markdown_path(path.to_string_lossy().as_ref()) {
+                        if let Some(state) = app_handle.try_state::<PendingOpen>() {
+                            state.set(path.clone());
+                        }
+                        // 广播给前端; 前端 listen("kite://open-file") 会触发 loadFile.
+                        if let Err(e) =
+                            app_handle.emit("kite://open-file", path.to_string_lossy().to_string())
+                        {
+                            eprintln!("[file-open] emit failed: {e}");
+                        }
+                    }
+                }
+            }
+        });
 }

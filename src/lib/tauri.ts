@@ -437,6 +437,25 @@ export function exportHtml(args: ExportHtmlArgs): Promise<void> {
   });
 }
 
+/**
+ * getPendingOpenFile — macOS "open with KITE" 启动路径拉取.
+ *
+ * 来源: 在 macOS 上用户用 Finder "打开方式 → KITE" 打开 .md 文件时,
+ * Rust 侧 (main.rs + pending_open.rs) 会把路径先 cache 进 PendingOpen 状态,
+ * 这条命令让前端 mount 后主动 pull 一次. 返回 string (文件路径) 或 null.
+ *
+ * 单次消费: Rust 内部 Mutex<Option<PathBuf>> 的 take() 保证读后即清,
+ * 防止二次加载.
+ *
+ * 注意:
+ * - 这是 macOS 专属路径; Windows / Linux 上永远返回 null, 不影响启动流程.
+ * - 浏览器场景 (非 Tauri 环境): safeInvoke 会 reject 一个 IPCUnavailableError,
+ *   顶层 .catch 静默 — 不要让它把启动 UI 喷红.
+ */
+export function getPendingOpenFile(): Promise<string | null> {
+  return safeInvoke<string | null>('get_pending_open_file');
+}
+
 /** 默认导出聚合对象 (方便消费者 `import { tauri } from '@/lib/tauri'`). */
 export const tauri = {
   readMarkdownFile,
@@ -450,6 +469,7 @@ export const tauri = {
   setWindowTitle,
   loadProgress,
   saveProgress,
+  getPendingOpenFile,
 };
 
 export default tauri;

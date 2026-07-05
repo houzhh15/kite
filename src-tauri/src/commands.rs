@@ -439,3 +439,19 @@ fn parse_prefs_language(s: Option<&str>) -> crate::services::preferences::Langua
         _ => Language::ZhCn,
     }
 }
+// ----- macOS 文件打开命令 -----
+//
+// get_pending_open_file: 前端启动后拉一次.
+// - 返回 Option<String>: Some(path) 表示有待打开文件, None 表示无.
+// - 读后即清: 内部 Mutex<Option<PathBuf>> 的 take(), 防止二次加载.
+// - 错误约定: 永远不返回 Err, 没有 path 也只是 None (避免无文件启动时被 toast 喷).
+//
+// 反序列化: 返回 Option<String>, serde 自动处理 null.
+// Tauri invoke<Option<String>> 在前端直接拿到 string|null, 与 lib/tauri.ts
+// 类型契约一致 (let pendingOpenFile: string | null = await getPendingOpenFile()).
+#[tauri::command]
+pub fn get_pending_open_file(
+    state: tauri::State<'_, crate::pending_open::PendingOpen>,
+) -> Option<String> {
+    state.take().map(|p| p.to_string_lossy().to_string())
+}

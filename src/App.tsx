@@ -63,10 +63,11 @@ import { useRecentStore } from './stores/recentStore';
 import { useLayoutStore } from './stores/layoutStore';
 import { useImageViewer as useImageViewerHook } from './hooks/useImageViewer';
 import { useSearch } from './hooks/useSearch';
-import { loadProgress, tauri as tauriApi } from './lib/tauri';
+import { loadProgress, tauri as tauriApi, getPendingOpenFile } from './lib/tauri';
 import { imageCache } from './lib/imageCache';
 import { setWindowTitle } from './lib/window';
 import { pushToast } from './lib/toast';
+import { listen as tauriListen } from '@tauri-apps/api/event';
 
 export default function App(): JSX.Element {
   const { t } = useTranslation(); // T18 (FR-02): 4 个 toast 文案通过 t('app.*') 取值.
@@ -134,6 +135,48 @@ export default function App(): JSX.Element {
     restoreAttemptedRef.current = true;
     void tryRestoreLastPath();
   }, [progressHydrated, tryRestoreLastPath]);
+  // macOS "open-file" 集成 — 从 Finder 双击 .md 时由 Rust 侧把路径送到前端.
+  //   - 冷启动 (cold start): argv 已经被 Rust 侧 cache 进 PendingOpen.
+  //     这里 mount 时主动 pull 一次, Rust 内部 take() 保证读后即清.
+  //   - 热启动 (warm): app 已在跑, Rust 派发 RunEvent::Opened 后
+  //     emit("kite://open-file"). 这里 listen 这个事件持续生效.
+  // 两条路径汇合到 loadFile(path), 与 FileTree / RecentList 走同一份代码
+  // (runOpen / 写最近文件 / 写历史栈 全自动).
+  useEffect(() => {
+    let unlisten: (() => void) | null = null;
+    const onOpened = (path: string): void => {
+      if (typeof path === 'string' && path.length > 0) {
+        void loadFile(path);
+      }
+    };
+
+    void (async () => {
+      // 1) 冷启动 pull; 失败 (非 Tauri / 无挂起文件) 一律静默 —
+      //    dev / web 场景下这是预期行为, 不应该弹 toast.
+      try {
+        const path = await getPendingOpenFile();
+        if (typeof path === 'string' && path.length > 0) {
+          onOpened(path);
+        }
+      } catch (err) {
+        console.debug('[open-file] getPendingOpenFile:', err);
+      }
+
+      // 2) 热启动 listen; 持续生效直到组件卸载.
+      try {
+        unlisten = await tauriListen<string>('kite://open-file', (e) => {
+          onOpened(e.payload);
+        });
+      } catch (err) {
+        console.debug('[open-file] listen:', err);
+      }
+    })();
+
+    return () => {
+      if (unlisten) unlisten();
+    };
+    // loadFile 是 useMarkdownDoc 返回的稳定 useCallback, 这里只装一次.
+  }, [loadFile]);
 
   // T11: Reader 挂载完成后, 一次性调 restoreScrollAfterOpen.
   const restoreScrollOnceRef = useRef(false);

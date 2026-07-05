@@ -33,6 +33,15 @@
     "shortDescription": "KITE Markdown Reader",
     "longDescription": "KITE is a local Markdown reader for Tauri 2 with strict CSP, single IPC egress, and a clean three-layer architecture.",
     "category": "Productivity",
+    "fileAssociations": [
+      {
+        "ext": ["md", "markdown", "mdown", "mkd", "mdx"],
+        "name": "Markdown Document",
+        "description": "Markdown Document",
+        "role": "Viewer",
+        "mimeType": "text/markdown"
+      }
+    ],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
