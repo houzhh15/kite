@@ -299,6 +299,15 @@ export default function App(): JSX.Element {
       <Toolbar
         disabled={state.status === 'loading'}
         onOpen={open}
+        // T20 (R-04 关键修复): RecentList 列表项点击 → 必须走 App.tsx 内
+        // 同一份 useMarkdownDoc() 的 loadFile, 这样 OPEN_OK dispatch 才
+        // 会进入 App.tsx 绑定的 Reader 渲染路径. 之前版本 RecentList 内部
+        // 自己 useMarkdownDoc() 拿到一个独立的 hook 实例, 调 loadFile
+        // 只更新 RecentList 自己的 reducer, Reader 完全看不到, content/outline
+        // 永远保持上一份文件. 这次改为 prop 注入, 共享 App.tsx 实例.
+        onLoadFile={(p) => {
+          void loadFile(p);
+        }}
         // T19 (FR-04): 将后/前回调显式注入, 让 Toolbar 走 useMarkdownDoc.loadFile
         // (而非 useDocStore.moveCursor) 以保证 Reader 跟着切换文档.
         onBack={() => {

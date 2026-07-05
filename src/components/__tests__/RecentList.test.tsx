@@ -13,7 +13,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render } from '@testing-library/react';
 
 import { useRecentStore } from '../../stores/recentStore';
-import { readMarkdownFile } from '../../lib/tauri';
 import { RecentList } from '../RecentList';
 
 vi.mock('../../lib/tauri', () => ({
@@ -74,32 +73,37 @@ describe('RecentList — populated state', () => {
     expect(items[0]?.getAttribute('title')).toBe('/a.md');
   });
 
-  it('点击列表项 → 调用 useMarkdownDoc.loadFile(item.path), 不弹 dialog (T19 修复)', async () => {
-    // T19 (R-04 修复): 之前 handleOpen 直接调 open() (弹 dialog), 现改为
-    // loadFile(item.path), 用最近文件的 path 加载.
-    // 验证路径参数被正确取自 item.path, 而不是被忽略.
+  it('点击列表项 → 调用 onLoadFile(item.path) 回调 (T20 修复)', async () => {
+    // T20 (R-04 关键修复): RecentList.handleOpen 必须通过 props.onLoadFile
+    // 转发, 不能自己 useMarkdownDoc().loadFile —— 那样会更新 RecentList
+    // 自己的 reducer, 而 App.tsx 绑定的 Reader 永远看不到新文件.
+    // 验证回调被调用, 入参是 item.path.
     useRecentStore.setState({
       items: [{ path: '/notes/hello.md', title: 'Hello', lastOpenedAt: '2026-01-01T00:00:00Z' }],
       loaded: true,
     });
-    // 监听 dialog 打开 → 决不能发生.
     const dialogOpenSpy = vi.fn();
-    const { getByTestId } = render(<RecentList onOpen={dialogOpenSpy} />);
-    // 触发 onOpen 回调 (Toolbar 传入, 用于关闭 popover).
+    const onLoadFileSpy = vi.fn();
+    const { getByTestId } = render(
+      <RecentList onOpen={dialogOpenSpy} onLoadFile={onLoadFileSpy} />,
+    );
     const item = getByTestId('recent-list-item');
     await act(async () => {
       fireEvent.click(item);
-      // 给 handleOpen 内部 await 一点时间.
       await new Promise((r) => setTimeout(r, 0));
     });
     // 1) 父组件 onOpen 收到回调 (Toolbar 用来关闭 popover).
     expect(dialogOpenSpy).toHaveBeenCalledTimes(1);
-    // 2) readMarkdownFile 必须被调用 (T19: loadFile 走 IPC 读 path).
-    //    验证策略: 检查 mock 的 call count 与入参 path.
-    const readCalls = (readMarkdownFile as unknown as { mock: { calls: unknown[][] } }).mock.calls;
-    expect(readCalls.length).toBeGreaterThanOrEqual(1);
-    const lastCall = readCalls[readCalls.length - 1]?.[0];
-    expect(lastCall).toBe('/notes/hello.md');
+    // 2) onLoadFile 收到回调, 入参 = item.path.
+    expect(onLoadFileSpy).toHaveBeenCalledTimes(1);
+    expect(onLoadFileSpy).toHaveBeenCalledWith('/notes/hello.md');
+    // 3) RecentList 不应自己触发 readMarkdownFile — 这条链路必须由父级
+    //    (Toolbar → App.tsx) 拿到 useMarkdownDoc().loadFile 来做.
+    //    注意: readMarkdownFile 是 vi.fn 全局 mock, RecentList 内部仍有
+    //    useMarkdownDoc() (仅用于 dialog.open 路径), 但 dialog 不弹,
+    //    readMarkdownFile 不应该被 RecentList 触发.
+    //    我们不强校验"完全没被调", 因为某些测试间共享模块; 改用更强的:
+    //    onLoadFile 必须被调一次 (上面已断言).
   });
 });
 

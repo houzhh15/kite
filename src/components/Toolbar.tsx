@@ -35,9 +35,22 @@ export interface ToolbarProps {
   onBack?: () => void;
   /** T19 (FR-04): Toolbar 前进按钮点击 → 走 useMarkdownDoc.loadFile(history[cursor+1]). */
   onForward?: () => void;
+  /**
+   * T20 (R-04 关键修复): RecentList 列表项点击 → 转发到此处传入的 `loadFile`.
+   * 必须是 App.tsx 内同一份 `useMarkdownDoc()` 拿到的 `loadFile`, 因为
+   * `useMarkdownDoc` 的 reducer state 是局部 React state, 不同组件调用
+   * `useMarkdownDoc()` 拿到的是不同实例. 只有 App.tsx 的实例绑定了 Reader.
+   */
+  onLoadFile?: (path: string) => void;
 }
 
-export function Toolbar({ disabled, onOpen, onBack, onForward }: ToolbarProps): JSX.Element {
+export function Toolbar({
+  disabled,
+  onOpen,
+  onBack,
+  onForward,
+  onLoadFile,
+}: ToolbarProps): JSX.Element {
   const { t } = useTranslation();
   const [recentOpen, setRecentOpen] = useState(false);
   const [fontPickerOpen, setFontPickerOpen] = useState(false);
@@ -316,7 +329,12 @@ export function Toolbar({ disabled, onOpen, onBack, onForward }: ToolbarProps): 
           </button>
           {recentOpen && (
             <div className="absolute right-0 top-full z-40 mt-2">
-              <RecentList onOpen={() => setRecentOpen(false)} />
+              <RecentList
+                onOpen={() => setRecentOpen(false)}
+                // T20: 转发 App.tsx 的同一份 loadFile, 避免在 RecentList
+                // 内独立 useMarkdownDoc() 拿到不同的 hook 实例.
+                onLoadFile={onLoadFile}
+              />
             </div>
           )}
         </div>
