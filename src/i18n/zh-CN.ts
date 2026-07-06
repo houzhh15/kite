@@ -28,6 +28,8 @@
  *   - image       T18 图片处理
  *   - app         T18 顶层 toast / 进度解析失败
  *   - skipLink    T18 跳过链接
+ *   - externalEditor T24 外部编辑器
+ *   - recentDir   T25 (F-27) 最近目录
  *
  * 纪律:
  *   - 纯数据; 不依赖 React / 不依赖 store / 不调 IPC.
@@ -77,6 +79,12 @@ export const zhCN = {
     invalidPath: '路径无效或不是目录',
     refresh: '刷新目录',
     close: '关闭目录树',
+    // T25 (F-27): 「重新选择文件夹」入口 + 二次确认文案.
+    reselect: '重新选择文件夹',
+    reselectConfirmTitle: '重新选择文件夹？',
+    reselectConfirmMsg: '将返回选择文件夹页面，当前打开的文档不受影响。',
+    historySection: '或从历史选择',
+    historyEmpty: '暂无历史文件夹',
   },
   settings: {
     title: '设置',
@@ -232,6 +240,26 @@ export const zhCN = {
     clearedToast: '已清空最近文件',
     clearFailed: '清空失败，请重试',
   },
+  // T25 (F-27): 最近目录列表 (与 F-03 独立命名空间).
+  recentDir: {
+    title: '最近文件夹',
+    open: '打开',
+    delete: '删除',
+    clear: '清空',
+    clearConfirm: '清空文件夹历史？',
+    deleteConfirm: '从历史移除此文件夹？',
+    clearedToast: '已清空',
+    clearFailedToast: '清空失败',
+    deleteFailedToast: '删除失败',
+    recordFailedToast: '记录失败',
+    relative: {
+      justNow: '刚刚',
+      minutesAgo: '{{n}} 分钟前',
+      hoursAgo: '{{n}} 小时前',
+      daysAgo: '{{n}} 天前',
+      weeksAgo: '{{n}} 周前',
+    },
+  },
   codeBlock: {
     copy: '复制代码',
     copySuccess: '已复制',
@@ -273,6 +301,35 @@ export const zhCN = {
       toggleTree: '切换目录树抽屉',
       historyBack: '后退 (历史)',
       historyForward: '前进 (历史)',
+      // T24 (F-26): 在外部编辑器中打开当前文档 (Cmd/Ctrl+E).
+      openExternalEditor: '在外部编辑器中打开当前文档',
+    },
+  },
+  // T24 (F-26): 外部编辑器 (F-26 §P2) — 按钮 / 菜单 / 设置分组 / 错误文案.
+  externalEditor: {
+    buttonLabel: '外部编辑器',
+    buttonLabelDisabled: '请先打开文档',
+    menuLabel: '在外部编辑器中打开',
+    settings: {
+      groupTitle: '外部编辑器',
+      system: '系统默认',
+      code: 'VS Code',
+      cursor: 'Cursor',
+      subl: 'Sublime Text',
+      mate: 'TextMate',
+      notepadPlusPlus: 'Notepad++ (仅 Windows)',
+      typora: 'Typora',
+      custom: '自定义命令',
+      customCmdPlaceholder: '例如: cursor --new-window {{path}}',
+      customCmdLabel: '自定义命令模板',
+    },
+    error: {
+      notFound: '文件不存在或已被移动: {{path}}',
+      permissionDenied: '路径越界，仅支持当前文档目录下的 Markdown 文件',
+      invalidExtension: '仅支持 Markdown 文件 (.md / .markdown / .mdx)',
+      invalidPath: '无效路径: {{message}}',
+      spawnFailed: '无法启动编辑器: {{message}}。请检查系统 PATH 或在设置中切换编辑器',
+      generic: '打开外部编辑器失败: {{message}}',
     },
   },
   theme: {
@@ -354,6 +411,7 @@ export const i18nKeys = {
   status: zhCN.status,
   statusBar: zhCN.statusBar,
   recent: zhCN.recent,
+  recentDir: zhCN.recentDir,
   codeBlock: zhCN.codeBlock,
   search: zhCN.search,
   shortcuts: zhCN.shortcuts,
@@ -362,6 +420,8 @@ export const i18nKeys = {
   image: zhCN.image,
   app: zhCN.app,
   skipLink: zhCN.skipLink,
+  // T24 (F-26): 外部编辑器.
+  externalEditor: zhCN.externalEditor,
 } as const;
 
 export type I18nKeys = typeof i18nKeys;

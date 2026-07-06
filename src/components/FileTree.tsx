@@ -26,6 +26,8 @@ import { useEffect, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { listDir, isAppError, type DirEntry } from '../lib/tauri';
+import { RecentDirList } from './RecentDirList';
+import { useRecentDirsStore } from '../stores/recentDirsStore';
 
 export interface FileTreeProps {
   /** 用户授权的根目录绝对路径. null 表示尚未选择, 显示空态 (含"选择文件夹"按钮). */
@@ -35,6 +37,11 @@ export interface FileTreeProps {
    * 父级 (App.tsx) 把它写到自己的 `treeRootPath` state, FileTree 自动重渲染为目录树.
    */
   onRootPathChange?: (path: string) => void;
+  /**
+   * T25 (F-27): 用户点击 FileTree header 「重新选择文件夹」时触发, 父级 (App.tsx)
+   * 弹二次确认后调 setTreeRootPath(null). 不联动 docStore.
+   */
+  onReselectRoot?: () => void;
   /** 叶子点击回调 (传 Path). */
   onOpenFile: (path: string) => void;
 }
@@ -54,6 +61,7 @@ const initialChildState: ChildState = {
 export function FileTree({
   rootPath,
   onRootPathChange,
+  onReselectRoot,
   onOpenFile,
 }: FileTreeProps): JSX.Element {
   const { t } = useTranslation();
@@ -62,6 +70,9 @@ export function FileTree({
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   /** 节点子项状态表 Map<path, ChildState>. */
   const [childMap, setChildMap] = useState<Map<string, ChildState>>(new Map());
+  // T25 (F-27): 订阅最近目录 store, 仅在空态下渲染列表.
+  const recentDirsLoaded = useRecentDirsStore((s) => s.loaded);
+  const recentDirsCount = useRecentDirsStore((s) => s.items.length);
 
   // T21 (R-05): 选目录入口 —— 动态 import @tauri-apps/plugin-dialog 弹出原生
   // 目录选择器 (macOS Finder / Windows Explorer / Linux GTK 三种 UI 一致).
@@ -88,6 +99,39 @@ export function FileTree({
       setPicking(false);
     }
   }, [picking, onRootPathChange, t]);
+
+  // T25 (F-27): 重新选择文件夹入口 —— 透传到父级 (App.tsx) 处理二次确认.
+  // 仅在选中文件夹时 (rootPath != null) 才出现该按钮.
+  const handleReselect = useCallback((): void => {
+    onReselectRoot?.();
+  }, [onReselectRoot]);
+
+  // T25+ 增量: 「刷新目录」入口 —— 重新拉取 rootPath + 所有当前展开的子目录.
+  //
+  // 背景: 之前「刷新目录」是 <span> 纯文字, 不可点击, 真实可点的「重新选择」
+  //       按钮是 SVG 图标; UX 上视觉和实际行为错配, 用户不知道图标点下去
+  //       是「重选」不是「刷新」. 修正:
+  //         1. 把 <span> 改成 <button onClick={handleRefresh}>, 视觉上是真按钮.
+  //         2. 旧 icon-only 重选按钮改成 <button>{t('tree.reselect')}</button>, 文字.
+  //
+  // handleRefresh 行为: 强行清空 childMap 中所有缓存, 重新走 fetchChildren.
+  //   - rootPath: 即便没展开, 也重拉, 让下次展开时拿到最新.
+  //   - expanded 内的子目录: 用户能看到, 必须重拉; 否则用户以为刷新了但没动.
+  //   - expanded 之外: 暂不重拉 (用户看不到, 等到下次展开 toggleExpand 自己拉).
+  //
+  // 副作用: expanded state 不动, 用户在屏幕上看到的内容位置不变, 只会更新.
+  const handleRefresh = useCallback((): void => {
+    if (!rootPath) return;
+    // 清空整个 childMap — 保证后续 setChildMap 不会保留旧的 'ok' 条目.
+    setChildMap(new Map());
+    // 永远重拉根, 一次不漏.
+    void fetchChildren(rootPath, setChildMap);
+    // 遍历当前展开的子目录, 也重拉.
+    for (const p of expanded) {
+      if (p === rootPath) continue;
+      void fetchChildren(p, setChildMap);
+    }
+  }, [rootPath, expanded]);
 
   // 当 rootPath 变化, 重置展开状态 (在新根目录里之前的展开无意义).
   useEffect(() => {
@@ -127,6 +171,15 @@ export function FileTree({
         >
           {picking ? t('tree.picking') : t('tree.pickRoot')}
         </button>
+        {/* T25 (F-27): 空态嵌入最近目录列表.
+            条件: store 已加载完成 + 至少 1 条历史. 整块由 RecentDirList 内部隐藏空态. */}
+        {recentDirsLoaded && recentDirsCount >= 1 && onRootPathChange ? (
+          <RecentDirList
+            onSelect={(p) => {
+              onRootPathChange(p);
+            }}
+          />
+        ) : null}
       </div>
     );
   }
@@ -135,7 +188,33 @@ export function FileTree({
     <div data-testid="file-tree" className="flex h-full flex-col">
       <div className="flex shrink-0 items-center justify-between border-b border-border px-3 py-1.5 text-xs">
         <span className="truncate font-medium" title={rootPath}>{baseName(rootPath)}</span>
-        <span className="ml-2 text-muted">{t('tree.refresh')}</span>
+        <div className="ml-2 flex items-center gap-1">
+          {/* T25+ 增量: 「刷新目录」按钮 — 重新拉取 rootPath + 展开中的子目录.
+              之前是 <span> 纯文字不可点, 现改为 <button> 与「重选」并列. */}
+          <button
+            type="button"
+            data-testid="file-tree-refresh"
+            aria-label={t('tree.refresh')}
+            title={t('tree.refresh')}
+            onClick={handleRefresh}
+            className="inline-flex h-6 items-center rounded px-2 text-muted hover:bg-fg/10 hover:text-fg focus:outline-none focus:ring-2 focus:ring-fg/40"
+          >
+            {t('tree.refresh')}
+          </button>
+          {/* T25 (F-27): 重新选择文件夹按钮 — 仅 rootPath != null 时显示.
+              之前是 icon-only SVG 按钮 (「文件夹+箭头」, 意义不明), 改为文字按钮
+              与「刷新」并排, 文案用 i18n key tree.reselect. */}
+          <button
+            type="button"
+            data-testid="file-tree-reselect"
+            aria-label={t('tree.reselect')}
+            title={t('tree.reselect')}
+            onClick={handleReselect}
+            className="inline-flex h-6 items-center rounded px-2 text-muted hover:bg-fg/10 hover:text-fg focus:outline-none focus:ring-2 focus:ring-fg/40"
+          >
+            {t('tree.reselect')}
+          </button>
+        </div>
       </div>
       <ul role="tree" className="flex-1 overflow-auto px-1 py-1 text-sm">
         <TreeNode

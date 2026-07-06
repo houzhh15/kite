@@ -13,6 +13,7 @@ import { Suspense } from 'react';
 
 import { FileTree } from '../FileTree';
 import * as tauri from '../../lib/tauri';
+import { useRecentDirsStore } from '../../stores/recentDirsStore';
 import i18n from '../../i18n';
 
 describe('FileTree — T15 (FR-01)', () => {
@@ -32,6 +33,72 @@ describe('FileTree — T15 (FR-01)', () => {
     const pickBtn = screen.getByTestId('file-tree-pick-root');
     expect(pickBtn).toBeTruthy();
     expect(pickBtn.textContent).toBe('选择文件夹');
+  });
+
+  it('T25 (F-27): 空态嵌入 RecentDirList (条件 items.length >= 1)', () => {
+    // 让 recentDirsStore 有 1 条记录.
+    useRecentDirsStore.setState({
+      items: [{ path: '/Users/me/notes', lastOpenedAt: '2026-01-01T00:00:00Z', displayName: 'notes' }],
+      loaded: true,
+      maxItems: 8,
+    });
+    render(
+      <FileTree
+        rootPath={null}
+        onRootPathChange={() => {}}
+        onOpenFile={() => {}}
+      />,
+    );
+    expect(screen.getByTestId('recent-dir-list')).toBeTruthy();
+  });
+
+  it('T25 (F-27): header 显示「重新选择文件夹」按钮 + 点击触发 onReselectRoot', async () => {
+    const onReselect = vi.fn();
+    const listDirSpy = vi.spyOn(tauri, 'listDir').mockResolvedValue([]);
+    render(
+      <Suspense fallback={null}>
+        <FileTree
+          rootPath="/root"
+          onReselectRoot={onReselect}
+          onOpenFile={() => {}}
+        />
+      </Suspense>,
+    );
+    const btn = screen.getByTestId('file-tree-reselect');
+    expect(btn).toBeTruthy();
+    expect(btn.getAttribute('aria-label')).toBe('重新选择文件夹');
+    // T25+ 增量: 改文字按钮, 必须显示「重新选择文件夹」文案 (不再是 SVG 图标).
+    expect(btn.textContent).toBe('重新选择文件夹');
+    fireEvent.click(btn);
+    expect(onReselect).toHaveBeenCalledTimes(1);
+    expect(listDirSpy).not.toHaveBeenCalled();
+  });
+
+  it('T25+ 增量: header 显示「刷新目录」按钮 + 点击重新拉取 listDir', async () => {
+    const listDirSpy = vi.spyOn(tauri, 'listDir').mockResolvedValue([
+      { path: '/root/a.md', name: 'a.md', isDir: false },
+    ]);
+    render(
+      <Suspense fallback={null}>
+        <FileTree rootPath="/root" onOpenFile={() => {}} />
+      </Suspense>,
+    );
+    // 展开根 → 第一次 listDir('/root') 触发.
+    fireEvent.click(screen.getByTestId('file-tree-dir').querySelector('button')!);
+    await waitFor(() => expect(listDirSpy).toHaveBeenCalledWith('/root'));
+    expect(listDirSpy).toHaveBeenCalledTimes(1);
+
+    // 找到「刷新目录」按钮并点击.
+    const refreshBtn = screen.getByTestId('file-tree-refresh');
+    expect(refreshBtn).toBeTruthy();
+    expect(refreshBtn.getAttribute('aria-label')).toBe('刷新目录');
+    expect(refreshBtn.textContent).toBe('刷新目录');
+    fireEvent.click(refreshBtn);
+
+    // 刷新后 listDir('/root') 应至少再被调一次 (根目录无条件重拉).
+    await waitFor(() => expect(listDirSpy).toHaveBeenCalledTimes(2));
+    // 第二次调用仍然是 '/root'.
+    expect(listDirSpy).toHaveBeenNthCalledWith(2, '/root');
   });
 
   it('renders root node when rootPath provided', async () => {

@@ -55,6 +55,12 @@ export const enUS = {
     invalidPath: 'Invalid path or not a directory',
     refresh: 'Refresh directory',
     close: 'Close tree',
+    // T25 (F-27): "Reselect folder" entry + confirmation copy.
+    reselect: 'Reselect folder',
+    reselectConfirmTitle: 'Reselect folder?',
+    reselectConfirmMsg: 'Returns to the folder picker. The current document is not affected.',
+    historySection: 'Or pick from history',
+    historyEmpty: 'No recent folders',
   },
   settings: {
     title: 'Settings',
@@ -205,6 +211,26 @@ export const enUS = {
     clearedToast: 'Recent files cleared',
     clearFailed: 'Clear failed, please retry',
   },
+  // T25 (F-27): recent directories list (independent namespace from F-03).
+  recentDir: {
+    title: 'Recent folders',
+    open: 'Open',
+    delete: 'Delete',
+    clear: 'Clear',
+    clearConfirm: 'Clear folder history?',
+    deleteConfirm: 'Remove this folder from history?',
+    clearedToast: 'Cleared',
+    clearFailedToast: 'Failed to clear',
+    deleteFailedToast: 'Failed to delete',
+    recordFailedToast: 'Failed to record',
+    relative: {
+      justNow: 'just now',
+      minutesAgo: '{{n}} min ago',
+      hoursAgo: '{{n}} hours ago',
+      daysAgo: '{{n}} days ago',
+      weeksAgo: '{{n}} weeks ago',
+    },
+  },
   codeBlock: {
     copy: 'Copy code',
     copySuccess: 'Copied',
@@ -246,6 +272,35 @@ export const enUS = {
       toggleTree: 'Toggle file tree drawer',
       historyBack: 'Back (history)',
       historyForward: 'Forward (history)',
+      // T24 (F-26): open current document in external editor (Cmd/Ctrl+E).
+      openExternalEditor: 'Open current document in external editor',
+    },
+  },
+  // T24 (F-26): external editor (F-26 §P2) — button / menu / settings group / error copy.
+  externalEditor: {
+    buttonLabel: 'External editor',
+    buttonLabelDisabled: 'Open a document first',
+    menuLabel: 'Open in external editor',
+    settings: {
+      groupTitle: 'External editor',
+      system: 'System default',
+      code: 'VS Code',
+      cursor: 'Cursor',
+      subl: 'Sublime Text',
+      mate: 'TextMate',
+      notepadPlusPlus: 'Notepad++ (Windows only)',
+      typora: 'Typora',
+      custom: 'Custom command',
+      customCmdPlaceholder: 'e.g. cursor --new-window {{path}}',
+      customCmdLabel: 'Custom command template',
+    },
+    error: {
+      notFound: 'File not found or moved: {{path}}',
+      permissionDenied: 'Path out of bounds; only Markdown files in the document directory are allowed',
+      invalidExtension: 'Only Markdown files are supported (.md / .markdown / .mdx)',
+      invalidPath: 'Invalid path: {{message}}',
+      spawnFailed: 'Cannot start editor: {{message}}. Check system PATH or change the editor in Settings',
+      generic: 'Failed to open in external editor: {{message}}',
     },
   },
   theme: {
