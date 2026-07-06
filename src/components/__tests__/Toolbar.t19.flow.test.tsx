@@ -89,6 +89,8 @@ beforeEach(() => {
       language: 'zh-CN',
       mermaidEnabled: false,
       katexEnabled: false,
+        externalEditor: 'system',
+        externalEditorCustomCmd: '',
     },
     hydrated: true,
     loaded: true,

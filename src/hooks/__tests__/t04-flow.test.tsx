@@ -50,6 +50,8 @@ describe('T04 flow integration (主题 / 字号 / 行高三项联动)', () => {
         language: 'zh-CN',
         mermaidEnabled: false,
         katexEnabled: false,
+        externalEditor: 'system',
+        externalEditorCustomCmd: '',
       },
       hydrated: false,
       loaded: false,

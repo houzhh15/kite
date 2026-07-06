@@ -60,6 +60,8 @@ impl Default for Language {
 ///   - font_size: 12..=24, 越界 → 16
 ///   - line_height: 仅 1.4 / 1.6 / 1.8, 其它 → 1.6
 ///   - language: T15 (FR-05): 仅 zh-CN / en-US, 其它 → ZhCn
+///   - external_editor: T24 (F-26): 8 档 union, 其它 → "system"
+///   - external_editor_custom_cmd: T24 (F-26): 任意 string; 长度截断由前端 prefStore 保证
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Preferences {
@@ -69,10 +71,20 @@ pub struct Preferences {
     /// T15 (FR-05): UI 语言. 缺省 zh-CN.
     #[serde(default = "default_language")]
     pub language: Language,
+    /// T24 (F-26): 外部编辑器预设. 缺省 "system".
+    #[serde(default = "default_external_editor")]
+    pub external_editor: String,
+    /// T24 (F-26): 自定义编辑器命令模板. 缺省 "".
+    #[serde(default)]
+    pub external_editor_custom_cmd: String,
 }
 
 fn default_language() -> Language {
     Language::ZhCn
+}
+
+fn default_external_editor() -> String {
+    "system".to_string()
 }
 
 impl Default for Preferences {
@@ -82,6 +94,8 @@ impl Default for Preferences {
             font_size: 16,
             line_height: 1.6,
             language: Language::ZhCn,
+            external_editor: "system".to_string(),
+            external_editor_custom_cmd: String::new(),
         }
     }
 }
@@ -95,6 +109,10 @@ struct RawPreferences {
     line_height: Option<f64>,
     /// T15 (FR-05)
     language: Option<String>,
+    /// T24 (F-26)
+    external_editor: Option<String>,
+    /// T24 (F-26)
+    external_editor_custom_cmd: Option<String>,
 }
 
 /// T15 (FR-05): 语言字符串 → Language; 非法回退 ZhCn (AC-05-2).
@@ -111,6 +129,17 @@ pub fn language_to_str(l: Language) -> &'static str {
     match l {
         Language::ZhCn => "zh-CN",
         Language::EnUs => "en-US",
+    }
+}
+
+/// T24 (F-26): 8 档外部编辑器预设白名单. 非法值回退 "system".
+/// 与 src/lib/tauri.ts::ExternalEditor 一一对应.
+fn parse_external_editor(s: &str) -> String {
+    match s {
+        "system" | "code" | "cursor" | "subl" | "mate" | "notepad++" | "typora" | "custom" => {
+            s.to_string()
+        }
+        _ => "system".to_string(),
     }
 }
 
@@ -144,6 +173,13 @@ pub fn load(app: &AppHandle) -> Result<Preferences, crate::error::AppError> {
     }
     if let Some(l) = raw.language.as_deref() {
         prefs.language = parse_language(l);
+    }
+    // T24 (F-26): 缺字段保留 default ("system" / ""), 非法值回退 "system".
+    if let Some(e) = raw.external_editor.as_deref() {
+        prefs.external_editor = parse_external_editor(e);
+    }
+    if let Some(c) = raw.external_editor_custom_cmd.as_deref() {
+        prefs.external_editor_custom_cmd = c.to_string();
     }
     Ok(prefs)
 }
@@ -255,6 +291,8 @@ mod tests {
             font_size: 20,
             line_height: 1.8,
             language: Language::EnUs,
+            external_editor: "system".to_string(),
+            external_editor_custom_cmd: String::new(),
         };
         let v = serde_json::to_value(&p).unwrap();
         assert_eq!(v["theme"], "dark");
@@ -322,5 +360,72 @@ mod tests {
         let bad = serde_json::json!("not an object");
         let result: Result<RawPreferences, _> = serde_json::from_value(bad);
         assert!(result.is_err());
+    }
+
+    // ---- T24 (F-26) external_editor* 字段 ----
+
+    #[test]
+    fn external_editor_defaults_to_system() {
+        let p = Preferences::default();
+        assert_eq!(p.external_editor, "system");
+        assert_eq!(p.external_editor_custom_cmd, "");
+    }
+
+    #[test]
+    fn parse_external_editor_accepts_known_values() {
+        for v in [
+            "system",
+            "code",
+            "cursor",
+            "subl",
+            "mate",
+            "notepad++",
+            "typora",
+            "custom",
+        ] {
+            assert_eq!(parse_external_editor(v), v, "should accept {v}");
+        }
+    }
+
+    #[test]
+    fn parse_external_editor_falls_back_for_unknown() {
+        // 拼写错误 / 越界值 → 回退 'system'.
+        assert_eq!(parse_external_editor("notepad"), "system");
+        assert_eq!(parse_external_editor(""), "system");
+        assert_eq!(parse_external_editor("VSCODE"), "system"); // case-sensitive
+    }
+
+    #[test]
+    fn preferences_serializes_external_editor_camel_case() {
+        let p = Preferences {
+            theme: ThemeMode::Dark,
+            font_size: 16,
+            line_height: 1.6,
+            language: Language::ZhCn,
+            external_editor: "code".to_string(),
+            external_editor_custom_cmd: "code --reuse-window {{path}}".to_string(),
+        };
+        let v = serde_json::to_value(&p).unwrap();
+        assert_eq!(v["externalEditor"], "code");
+        assert_eq!(v["externalEditorCustomCmd"], "code --reuse-window {{path}}");
+        assert!(v.get("external_editor").is_none());
+        assert!(v.get("external_editor_custom_cmd").is_none());
+    }
+
+    #[test]
+    fn raw_preferences_accepts_missing_external_editor_fields() {
+        // 旧 JSON 不含 T24 字段 → RawPreferences 反序列化 OK, 缺字段 = None.
+        let raw: RawPreferences = serde_json::from_value(serde_json::json!({})).unwrap();
+        assert!(raw.external_editor.is_none());
+        assert!(raw.external_editor_custom_cmd.is_none());
+    }
+
+    #[test]
+    fn raw_preferences_handles_invalid_external_editor_without_panic() {
+        // 非法值在 RawPreferences 反序列化阶段被接受 (string),
+        // sanitize 阶段 (parse_external_editor) 兜底.
+        let raw: RawPreferences =
+            serde_json::from_value(serde_json::json!({"externalEditor": "garbage"})).unwrap();
+        assert_eq!(raw.external_editor.as_deref(), Some("garbage"));
     }
 }

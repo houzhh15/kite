@@ -29,6 +29,8 @@ const FULL_PREFS = {
   language: 'zh-CN' as const,
   mermaidEnabled: false as const,
   katexEnabled: false as const,
+  externalEditor: 'system' as const,
+  externalEditorCustomCmd: '',
 };
 
 describe('Settings (T04 + T12)', () => {

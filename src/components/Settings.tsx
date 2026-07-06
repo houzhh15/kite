@@ -20,7 +20,7 @@
 import { useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { usePrefStore, type Language } from '../stores/prefStore';
+import { usePrefStore, type ExternalEditor, type Language } from '../stores/prefStore';
 import { ThemeSwitcher } from './ThemeSwitcher';
 import { useDialogFocusTrap } from '../hooks/useDialogFocusTrap';
 import {
@@ -33,6 +33,18 @@ import {
   type LineHeight as LineHeightId,
   type CodeFontSize,
 } from '../lib/reader-prefs';
+
+/** T24 (F-26): 8 档外部编辑器预设, 顺序与 i18n label 一致. */
+const EXTERNAL_EDITOR_OPTIONS: readonly ExternalEditor[] = [
+  'system',
+  'code',
+  'cursor',
+  'subl',
+  'mate',
+  'notepad++',
+  'typora',
+  'custom',
+] as const;
 
 export interface SettingsProps {
   /** 是否打开; false 时返回 null. */
@@ -322,6 +334,101 @@ export function Settings(props: SettingsProps): JSX.Element | null {
               />
             </button>
           </div>
+        </fieldset>
+      </section>
+
+      {/* T24 (F-26): 外部编辑器分组 — radiogroup 8 档 + 仅 custom 启用的 input.
+        data-testid=external-editor-section 与既有 settings-* 一致 (e2e 可定位).
+        选 radiogroup → setExternalEditor; 输 input → setExternalEditorCustomCmd
+        (后者会自动截断到 256 字符, 与 Rust 端 serde 透传对齐). */}
+      <section
+        className="mb-4"
+        data-section="external-editor"
+        data-testid="external-editor-section"
+      >
+        <fieldset>
+          <legend className="mb-2 text-sm text-muted">
+            {t('externalEditor.settings.groupTitle')}
+          </legend>
+          <div
+            role="radiogroup"
+            aria-label={t('externalEditor.settings.groupTitle')}
+            data-testid="external-editor-radiogroup"
+            className="flex flex-wrap gap-2"
+          >
+            {EXTERNAL_EDITOR_OPTIONS.map((id) => {
+              const checked = usePrefStore.getState().prefs.externalEditor === id;
+              // i18n key 命名: externalEditor.settings.<id>
+              // notepad++ 的 i18n key 是 notepadPlusPlus (保留 camelCase).
+              const i18nKey = `externalEditor.settings.${
+                id === 'notepad++' ? 'notepadPlusPlus' : id
+              }`;
+              return (
+                <label
+                  key={id}
+                  className={cx(
+                    'flex cursor-pointer items-center gap-2 rounded-md border px-3 py-1.5 text-sm',
+                    checked
+                      ? 'border-accent bg-accent/10 font-semibold text-accent'
+                      : 'border-border hover:bg-fg/5',
+                  )}
+                >
+                  <input
+                    type="radio"
+                    name="externalEditor"
+                    value={id}
+                    checked={checked}
+                    onChange={() => usePrefStore.getState().setExternalEditor(id)}
+                    data-testid={`external-editor-${id === 'notepad++' ? 'notepadpp' : id}`}
+                    className="h-3 w-3 accent-accent"
+                  />
+                  <span>{t(i18nKey)}</span>
+                </label>
+              );
+            })}
+          </div>
+          <div className="mt-2">
+            <label
+              htmlFor="external-editor-custom-cmd"
+              className="mb-1 block text-xs text-muted"
+            >
+              {t('externalEditor.settings.customCmdLabel')}
+            </label>
+            <input
+              id="external-editor-custom-cmd"
+              type="text"
+              data-testid="external-editor-custom-cmd"
+              disabled={usePrefStore.getState().prefs.externalEditor !== 'custom'}
+              placeholder={t('externalEditor.settings.customCmdPlaceholder')}
+              aria-label={t('externalEditor.settings.customCmdLabel')}
+              value={usePrefStore.getState().prefs.externalEditorCustomCmd}
+              onChange={(e) =>
+                usePrefStore.getState().setExternalEditorCustomCmd(e.target.value)
+              }
+              maxLength={256}
+              className="w-full rounded-md border border-border bg-bg px-2 py-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-50"
+            />
+          </div>
+        </fieldset>
+      </section>
+
+      {/* T25 (F-27): 文件夹历史分组占位.
+          本期不暴露 UI 开关, 仅预留配置位 (prefs.recentDir.privacyAllowHome,
+          默认 true → 全持久化). 后续任务 (FR-X 后续 P2) 在此渲染
+          「不记录隐私目录 (Home/Desktop/Documents) 切换」开关.
+          TODO[T25-FOLLOWUP] 在本 fieldset 内渲染 toggle 控件,
+          走 usePrefStore.getState().prefs.recentDir.privacyAllowHome (待字段接入). */}
+      <section
+        className="mb-4"
+        data-section="recent-dirs-privacy"
+        data-testid="recent-dirs-privacy-section"
+        hidden
+        aria-hidden="true"
+      >
+        <fieldset>
+          <legend className="mb-2 text-sm text-muted">
+            {t('tree.historySection') /* 「或从历史选择」 placeholder; 待 T25-FOLLOWUP 替换. */}
+          </legend>
         </fieldset>
       </section>
 

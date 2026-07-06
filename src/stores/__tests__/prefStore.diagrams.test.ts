@@ -25,6 +25,8 @@ const BASE_PREFS = {
   language: 'zh-CN' as const,
   mermaidEnabled: false,
   katexEnabled: false,
+  externalEditor: 'system' as const,
+  externalEditorCustomCmd: '',
 };
 
 describe('prefStore mermaid/katex (T17-P2)', () => {

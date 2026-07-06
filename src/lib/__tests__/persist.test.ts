@@ -88,6 +88,8 @@ describe('loadAndHydrate — 启动加载与容错', () => {
         language: 'zh-CN',
         mermaidEnabled: false,
         katexEnabled: false,
+        externalEditor: 'system',
+        externalEditorCustomCmd: '',
       },
       hydrated: false,
       loaded: false,

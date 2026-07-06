@@ -18,7 +18,7 @@
 import { create } from 'zustand';
 
 import i18n from '../i18n';
-import type { Preferences as RustPreferences } from '../lib/tauri';
+import type { ExternalEditor as TauriExternalEditor, Preferences as RustPreferences } from '../lib/tauri';
 import type { Theme } from '../lib/theme-types';
 import {
   FONT_SIZES,
@@ -43,6 +43,17 @@ export type LineHeight = 1.4 | 1.6 | 1.8;
 /** T15 (FR-05): 支持的语言. 与 src/i18n/index.ts 的 SupportedLng 同步. */
 export type Language = 'zh-CN' | 'en-US';
 
+/** T24 (F-26): 外部编辑器命令模板最大长度 (防御恶意超长字符串). */
+export const EXTERNAL_EDITOR_CMD_MAX_LENGTH = 256;
+
+/**
+ * T24 (F-26): 外部编辑器预设 union.
+ *
+ * 直接 re-export src/lib/tauri.ts::ExternalEditor, 避免业务组件同时引入两个
+ * type 路径.
+ */
+export type ExternalEditor = TauriExternalEditor;
+
 /** Prefs — 内存态, 单一数据源. */
 export interface Prefs {
   theme: Theme;
@@ -61,6 +72,10 @@ export interface Prefs {
   mermaidEnabled: boolean;
   /** T17-P2 (F-22): KaTeX 公式渲染开关. 默认 false. */
   katexEnabled: boolean;
+  /** T24 (F-26): 外部编辑器预设. 默认 'system'. */
+  externalEditor: ExternalEditor;
+  /** T24 (F-26): 自定义编辑器命令模板. 默认 '' (≤256 字符). */
+  externalEditorCustomCmd: string;
 }
 
 export interface PrefState {
@@ -102,6 +117,10 @@ export interface PrefStore extends PrefState {
   setMermaidEnabled(v: boolean): void;
   /** T17-P2 (F-22): KaTeX 公式渲染开关. clamp boolean 后写入内存态; 持久化由 usePreferences debounce 自动触发. */
   setKatexEnabled(v: boolean): void;
+  /** T24 (F-26): 外部编辑器预设 setter. 非法值 console.warn + 忽略 (AC-06-3). */
+  setExternalEditor(editor: ExternalEditor): void;
+  /** T24 (F-26): 自定义命令模板 setter. 长度 >256 截断 + console.warn (AC-06-4). */
+  setExternalEditorCustomCmd(cmd: string): void;
 }
 
 const defaults: Prefs = {
@@ -115,6 +134,8 @@ const defaults: Prefs = {
   language: 'zh-CN',
   mermaidEnabled: false,
   katexEnabled: false,
+  externalEditor: 'system',
+  externalEditorCustomCmd: '',
 };
 
 /** 校验 Theme 三档 union. */
@@ -125,6 +146,20 @@ function isTheme(value: unknown): value is Theme {
 /** T15 (FR-05): 校验 Language union. */
 function isLanguage(value: unknown): value is Language {
   return value === 'zh-CN' || value === 'en-US';
+}
+
+/** T24 (F-26): 校验 ExternalEditor 8 档 union. */
+function isExternalEditor(value: unknown): value is ExternalEditor {
+  return (
+    value === 'system' ||
+    value === 'code' ||
+    value === 'cursor' ||
+    value === 'subl' ||
+    value === 'mate' ||
+    value === 'notepad++' ||
+    value === 'typora' ||
+    value === 'custom'
+  );
 }
 
 /** clamp 12..24 整数; 非法 (NaN) → 16. */
@@ -292,6 +327,31 @@ export const usePrefStore = create<PrefStore>((set, get) => ({
     set((s) => ({ prefs: { ...s.prefs, katexEnabled: v } }));
   },
 
+  // T24 (F-26): 外部编辑器预设 setter. 非法值 console.warn + 忽略 (AC-06-3).
+  setExternalEditor(editor) {
+    if (!isExternalEditor(editor)) {
+      console.warn(`[prefStore] invalid externalEditor: ${String(editor)}`);
+      return;
+    }
+    set((s) => ({ prefs: { ...s.prefs, externalEditor: editor } }));
+  },
+
+  // T24 (F-26): 自定义命令模板 setter. 长度 >256 截断 + console.warn (AC-06-4).
+  setExternalEditorCustomCmd(cmd) {
+    if (typeof cmd !== 'string') {
+      console.warn(`[prefStore] invalid externalEditorCustomCmd type: ${String(cmd)}`);
+      return;
+    }
+    let next = cmd;
+    if (next.length > EXTERNAL_EDITOR_CMD_MAX_LENGTH) {
+      console.warn(
+        `[prefStore] externalEditorCustomCmd truncated to ${EXTERNAL_EDITOR_CMD_MAX_LENGTH} chars`,
+      );
+      next = next.slice(0, EXTERNAL_EDITOR_CMD_MAX_LENGTH);
+    }
+    set((s) => ({ prefs: { ...s.prefs, externalEditorCustomCmd: next } }));
+  },
+
   // T04 新增: 一次性合并 partial + 设 hydrated=true.
   // 缺失字段保持当前值; 字段 clamp/校验与 setter 等价 (防脏数据).
   // T15 (FR-05): language 字段若 patch 提供但非法, 视为缺省值 'zh-CN' (AC-05-2).
@@ -326,6 +386,24 @@ export const usePrefStore = create<PrefStore>((set, get) => ({
       if ('language' in patch) {
         nextLanguage = isLanguage(patch.language) ? patch.language : 'zh-CN';
       }
+      // T24 (F-26): 同款语义 — 缺字段保留当前; 非法值回退 'system'.
+      const rawExt = (patch as { externalEditor?: unknown }).externalEditor;
+      const nextExternalEditor =
+        'externalEditor' in patch && isExternalEditor(rawExt)
+          ? rawExt
+          : 'externalEditor' in patch
+            ? 'system'
+            : s.prefs.externalEditor;
+      let nextCustomCmd = s.prefs.externalEditorCustomCmd;
+      if ('externalEditorCustomCmd' in patch) {
+        const rawCmd = (patch as { externalEditorCustomCmd?: unknown }).externalEditorCustomCmd;
+        if (typeof rawCmd === 'string') {
+          nextCustomCmd =
+            rawCmd.length > EXTERNAL_EDITOR_CMD_MAX_LENGTH
+              ? rawCmd.slice(0, EXTERNAL_EDITOR_CMD_MAX_LENGTH)
+              : rawCmd;
+        }
+      }
       return {
         prefs: {
           theme: isTheme(patch.theme) ? patch.theme : s.prefs.theme,
@@ -347,6 +425,8 @@ export const usePrefStore = create<PrefStore>((set, get) => ({
             sanitizedKatexEnabled !== undefined
               ? sanitizedKatexEnabled
               : s.prefs.katexEnabled,
+          externalEditor: nextExternalEditor,
+          externalEditorCustomCmd: nextCustomCmd,
         },
         hydrated: true,
       };

@@ -45,6 +45,8 @@ describe('usePreferences (T04)', () => {
         language: 'zh-CN',
         mermaidEnabled: false,
         katexEnabled: false,
+        externalEditor: 'system',
+        externalEditorCustomCmd: '',
       },
       hydrated: false,
       loaded: false,

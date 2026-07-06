@@ -151,6 +151,47 @@ if (tsMax !== null && tsMax !== 10) {
   errors.push(`[max-recent-value] TS MAX_RECENT=${tsMax} must be 10 (FR-01 硬约束)`);
 }
 
+// ---- E. T25 (F-27) 双源常量: MAX_RECENT_DIRS (Rust + TS) ----
+// Rust 端: src-tauri/src/services/recent_dirs.rs 中 `pub const MAX_RECENT_DIRS: usize = N;`
+// TS   端: src/stores/recentDirsStore.ts 中 `export const MAX_RECENT_DIRS = N;`
+// 硬约束: N 必须 == 8 (FR-02), 与 F-03 的 10 解耦.
+const RECENT_DIRS_RUST = resolve(ROOT, 'src-tauri', 'src', 'services', 'recent_dirs.rs');
+const RECENT_DIRS_TS = resolve(ROOT, 'src', 'stores', 'recentDirsStore.ts');
+
+const rustRecentDirsText = await readFile(RECENT_DIRS_RUST, 'utf8');
+const rustRecentDirsMatch = rustRecentDirsText.match(
+  /pub\s+const\s+MAX_RECENT_DIRS\s*:\s*usize\s*=\s*(\d+)/,
+);
+const rustMaxDirs = rustRecentDirsMatch ? Number(rustRecentDirsMatch[1]) : null;
+
+const tsRecentDirsText = await readFile(RECENT_DIRS_TS, 'utf8');
+const tsRecentDirsMatch = tsRecentDirsText.match(
+  /export\s+const\s+MAX_RECENT_DIRS\s*=\s*(\d+)/,
+);
+const tsMaxDirs = tsRecentDirsMatch ? Number(tsRecentDirsMatch[1]) : null;
+
+if (rustMaxDirs === null) {
+  errors.push('[max-recent-dirs-missing] Rust MAX_RECENT_DIRS not found in recent_dirs.rs');
+}
+if (tsMaxDirs === null) {
+  errors.push('[max-recent-dirs-missing] TS MAX_RECENT_DIRS not found in recentDirsStore.ts');
+}
+if (rustMaxDirs !== null && tsMaxDirs !== null && rustMaxDirs !== tsMaxDirs) {
+  errors.push(
+    `[max-recent-dirs-mismatch] Rust=${rustMaxDirs} vs TS=${tsMaxDirs}; they must be equal`,
+  );
+}
+if (rustMaxDirs !== null && rustMaxDirs !== 8) {
+  errors.push(
+    `[max-recent-dirs-value] Rust MAX_RECENT_DIRS=${rustMaxDirs} must be 8 (FR-02 硬约束)`,
+  );
+}
+if (tsMaxDirs !== null && tsMaxDirs !== 8) {
+  errors.push(
+    `[max-recent-dirs-value] TS MAX_RECENT_DIRS=${tsMaxDirs} must be 8 (FR-02 硬约束)`,
+  );
+}
+
 if (errors.length > 0) {
   console.error('check-contract FAILED:');
   for (const e of errors) console.error('  -', e);
@@ -158,5 +199,5 @@ if (errors.length > 0) {
 }
 
 console.log(
-  `check-contract OK — ${rustNames.size} Rust commands ↔ ${tsNames.size} TS methods, no direct fs/path/invoke in src/**, MAX_RECENT=${rustMax ?? tsMax}.`,
+  `check-contract OK — ${rustNames.size} Rust commands ↔ ${tsNames.size} TS methods, no direct fs/path/invoke in src/**, MAX_RECENT=${rustMax ?? tsMax}, MAX_RECENT_DIRS=${rustMaxDirs ?? tsMaxDirs}.`,
 );
