@@ -359,7 +359,11 @@ function OutlineInner({
           aria-controls="kite-outline-list"
           data-testid="outline-toggle"
           onClick={toggle}
-          className="rounded p-1 text-sm hover:bg-fg/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          // T26+ (R-12 修复) 增量: h-6 + px-1 (去掉 vertical p-1), 高度锁到 24px
+          // 与 FileTree header 按钮严格一致, 让两栏的 border-b 分隔线在视觉上
+          // 100% 对齐 (之前的 p-1 + text-sm line-height 拼出 28px, 高 4px,
+          // 用户看到的现象是中栏分隔线偏低).
+          className="inline-flex h-6 shrink-0 items-center justify-center rounded px-1 text-sm hover:bg-fg/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
         >
           {collapsed ? '▶' : '◀'}
         </button>

@@ -274,7 +274,7 @@ export function FileTree({
     <aside
       data-testid="file-tree-drawer"
       aria-label={t('common.open')} /* fallback: i18n key 由调用方覆盖 */
-      className="kite-filetree relative shrink-0 overflow-hidden border-r border-fg/20 bg-bg"
+      className="kite-filetree relative flex h-full shrink-0 flex-col overflow-hidden border-r border-fg/20 bg-bg"
       style={{ width: wrapWidth, transition: isDragging ? 'none' : 'width 120ms ease' }}
     >
       {!rootPath ? (
