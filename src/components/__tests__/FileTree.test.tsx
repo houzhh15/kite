@@ -52,7 +52,7 @@ describe('FileTree — T15 (FR-01)', () => {
     expect(screen.getByTestId('recent-dir-list')).toBeTruthy();
   });
 
-  it('T25 (F-27): header 显示「重新选择文件夹」按钮 + 点击触发 onReselectRoot', async () => {
+  it('T25 (F-27): header 显示「返回」按钮 + 点击触发 onReselectRoot', async () => {
     const onReselect = vi.fn();
     const listDirSpy = vi.spyOn(tauri, 'listDir').mockResolvedValue([]);
     render(
@@ -66,9 +66,9 @@ describe('FileTree — T15 (FR-01)', () => {
     );
     const btn = screen.getByTestId('file-tree-reselect');
     expect(btn).toBeTruthy();
-    expect(btn.getAttribute('aria-label')).toBe('重新选择文件夹');
-    // T25+ 增量: 改文字按钮, 必须显示「重新选择文件夹」文案 (不再是 SVG 图标).
-    expect(btn.textContent).toBe('重新选择文件夹');
+    expect(btn.getAttribute('aria-label')).toBe('返回');
+    // T25+ 增量: 改文字按钮, 必须显示「返回」文案 (不再是 SVG 图标).
+    expect(btn.textContent).toBe('返回');
     fireEvent.click(btn);
     expect(onReselect).toHaveBeenCalledTimes(1);
     expect(listDirSpy).not.toHaveBeenCalled();

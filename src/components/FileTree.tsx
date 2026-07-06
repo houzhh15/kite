@@ -189,8 +189,7 @@ export function FileTree({
       <div className="flex shrink-0 items-center justify-between border-b border-border px-3 py-1.5 text-xs">
         <span className="truncate font-medium" title={rootPath}>{baseName(rootPath)}</span>
         <div className="ml-2 flex items-center gap-1">
-          {/* T25+ 增量: 「刷新目录」按钮 — 重新拉取 rootPath + 展开中的子目录.
-              之前是 <span> 纯文字不可点, 现改为 <button> 与「重选」并列. */}
+          {/* T25+ 增量: 重新拉取 rootPath + 展开中的子目录. */}
           <button
             type="button"
             data-testid="file-tree-refresh"

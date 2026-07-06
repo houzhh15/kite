@@ -79,8 +79,11 @@ export const zhCN = {
     invalidPath: '路径无效或不是目录',
     refresh: '刷新目录',
     close: '关闭目录树',
-    // T25 (F-27): 「重新选择文件夹」入口 + 二次确认文案.
-    reselect: '重新选择文件夹',
+    // T25 (F-27): 「返回」入口 + 二次确认文案.
+    // reselect 仅用于 header 按钮 (缩短到两个字, 跟「刷新」并排视觉等权);
+    // reselectConfirmTitle / reselectConfirmMsg 仍用「重新选择文件夹」措辞, 因为
+    // 弹窗需要明确告知用户行为后果, 不缩略. (注: 弹窗消息已用「返回」, 一致性已经存在)
+    reselect: '返回',
     reselectConfirmTitle: '重新选择文件夹？',
     reselectConfirmMsg: '将返回选择文件夹页面，当前打开的文档不受影响。',
     historySection: '或从历史选择',

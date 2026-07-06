@@ -55,8 +55,12 @@ export const enUS = {
     invalidPath: 'Invalid path or not a directory',
     refresh: 'Refresh directory',
     close: 'Close tree',
-    // T25 (F-27): "Reselect folder" entry + confirmation copy.
-    reselect: 'Reselect folder',
+    // T25 (F-27): "Return" entry + confirmation copy.
+    // reselect is the header button label (shortened to one word for visual parity
+    // with "Refresh" button next to it). Confirm dialog title / message keep
+    // "Reselect folder" wording because the dialog needs to be explicit about
+    // the action's consequence — no shortening.
+    reselect: 'Return',
     reselectConfirmTitle: 'Reselect folder?',
     reselectConfirmMsg: 'Returns to the folder picker. The current document is not affected.',
     historySection: 'Or pick from history',
