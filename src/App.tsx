@@ -68,6 +68,7 @@ import { useLayoutStore } from './stores/layoutStore';
 import { useImageViewer as useImageViewerHook } from './hooks/useImageViewer';
 import { useSearch } from './hooks/useSearch';
 import { loadProgress, tauri as tauriApi, getPendingOpenFile } from './lib/tauri';
+import { resolveStartup } from './lib/resolveStartup';
 import { imageCache } from './lib/imageCache';
 import { setWindowTitle } from './lib/window';
 import { openInExternalEditor } from './lib/openInExternalEditor';
@@ -143,12 +144,34 @@ export default function App(): JSX.Element {
   // T11: progressStore.hydrated=true 后, 一次性调 tryRestoreLastPath (FR-10).
   const progressHydrated = useProgressStore((s) => s.hydrated);
   const restoreAttemptedRef = useRef(false);
+  // T26+ (R-12 修复) 增量: restore 之前先 peek PendingOpen.
+  //   原因: 用户从 Finder 双击 .md 启动 KITE, 冷启动 argv 已 cache 进 PendingOpen.
+  //   但 progressStore.hydrated 通常比 getPendingOpenFile IPC resolve 更快, 导致
+  //   tryRestoreLastPath 用 progress 里的「上次关闭时的文档」覆盖 macOS argv
+  //   指定的「用户当前想开的文件」.
+  //   修法: 两个 effect (这个 + 下方 open-file) 竞争 PendingOpen.take(); 拿到
+  //   Some 的直接 loadFile + skip restore; 拿到 None 的 no-op, 由对方接管.
   useEffect(() => {
     if (!progressHydrated) return;
     if (restoreAttemptedRef.current) return;
-    restoreAttemptedRef.current = true;
-    void tryRestoreLastPath();
-  }, [progressHydrated, tryRestoreLastPath]);
+    void (async () => {
+      let pending: string | null = null;
+      try {
+        pending = await getPendingOpenFile();
+      } catch {
+        // ignore
+      }
+      restoreAttemptedRef.current = true;
+      const decision = resolveStartup({ pending, progressLoaded: true });
+      // 拿到 argv → 抢先 loadFile; 另一个 effect 拿到 None 时会 no-op.
+      // 拿到 None → 走 progress restore.
+      if (decision.action === "open") {
+        void loadFile(decision.path);
+        return;
+      }
+      void tryRestoreLastPath();
+    })();
+  }, [progressHydrated, tryRestoreLastPath, loadFile]);
   // macOS "open-file" 集成 — 从 Finder 双击 .md 时由 Rust 侧把路径送到前端.
   //   - 冷启动 (cold start): argv 已经被 Rust 侧 cache 进 PendingOpen.
   //     这里 mount 时主动 pull 一次, Rust 内部 take() 保证读后即清.
@@ -167,11 +190,15 @@ export default function App(): JSX.Element {
     void (async () => {
       // 1) 冷启动 pull; 失败 (非 Tauri / 无挂起文件) 一律静默 —
       //    dev / web 场景下这是预期行为, 不应该弹 toast.
+      //    T26+ (R-12 修复) 增量: 与 restore effect 竞争 PendingOpen.take().
+      //    如果 restore effect 先抢到了 (拿到 Some 并 skip restore), 我们这里
+      //    拿到 None — 此时 macOS argv 已由 restore 链路处理, 不再 loadFile.
       try {
         const path = await getPendingOpenFile();
         if (typeof path === 'string' && path.length > 0) {
           onOpened(path);
         }
+        // 拿到 None → restore effect 抢先 loadFile 了, 这里 no-op.
       } catch (err) {
         console.debug('[open-file] getPendingOpenFile:', err);
       }
