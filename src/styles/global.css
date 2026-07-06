@@ -73,10 +73,19 @@ body {
 .prose-kite {
   line-height: 1.7;
   color: rgb(var(--color-fg) / 0.9);
-  /* 内容内边距: 上下 16px (T26+ 减半 — 之前 2rem / 32px, 与 h1 margin-top
-     1.4em 叠加, 文档首屏顶留白 70+px, 太奢侈; 减半到 1rem 视觉更紧凑),
-     左右 24px 不变. */
-  padding: 1rem 1.5rem;
+  /* 内容内边距: 上下 8px (T26+ 进一步压缩 — 之前 1rem / 16px, 与 :first-child
+     margin-top: 0 配合, 文档首屏顶留白从 ~37px 减到 ~8px), 左右 24px 不变. */
+  padding: 0.5rem 1.5rem;
+}
+
+/* T26+ 增量: 第一个直接子元素的 margin-top 归零.
+   背景: .prose-kite h1-h4 margin-top: 0.7em (~21px @ h1 字号) 在中间段落
+   之间是合理的分隔节奏, 但文档以 h1 起头时, 第一个 h1 不需要再向上推开
+   容器顶 — 那部分留白由容器 padding 负责.
+   用 :first-child (而不是 :first-of-type) 同时覆盖首段 <p> / 首张 <img> / 首张
+   <table> 等情况, 一个规则收口. 中间 h2/h3 仍走 0.7em 间距, 阅读节奏不变. */
+.prose-kite > :first-child {
+  margin-top: 0;
 }
 /* .prose-kite 块级元素 (table / pre / figure / img / hr / .kite-*) 默认撑满 article,
  * 避免 prose 主题的 max-width 截断.
