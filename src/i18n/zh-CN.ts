@@ -86,6 +86,8 @@ export const zhCN = {
     reselect: '返回',
     reselectConfirmTitle: '重新选择文件夹？',
     reselectConfirmMsg: '将返回选择文件夹页面，当前打开的文档不受影响。',
+    // T26+ (R-12 修复): 拖拽手柄 aria-label, 与 outline.resizeLabel 风格一致.
+    resizeLabel: '拖动调整目录树宽度',
     historySection: '或从历史选择',
     historyEmpty: '暂无历史文件夹',
   },

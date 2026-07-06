@@ -60,12 +60,14 @@ import { useDocStore } from './stores/docStore';
 import { cycleTheme, usePrefStore } from './stores/prefStore';
 import { useProgressStore } from './stores/progressStore';
 import { useRecentStore } from './stores/recentStore';
+import { useRecentDirsStore } from './stores/recentDirsStore';
 import { useLayoutStore } from './stores/layoutStore';
 import { useImageViewer as useImageViewerHook } from './hooks/useImageViewer';
 import { useSearch } from './hooks/useSearch';
 import { loadProgress, tauri as tauriApi, getPendingOpenFile } from './lib/tauri';
 import { imageCache } from './lib/imageCache';
 import { setWindowTitle } from './lib/window';
+import { openInExternalEditor } from './lib/openInExternalEditor';
 import { pushToast } from './lib/toast';
 import { listen as tauriListen } from '@tauri-apps/api/event';
 
@@ -322,6 +324,12 @@ export default function App(): JSX.Element {
       toggleFullscreen: () => {
         void fullscreen.toggle();
       },
+      // T24 (F-26): 在外部编辑器中打开当前文档 (Cmd/Ctrl+E).
+      // 派发 CustomEvent 让 App.tsx 内统一事件 handler 处理 (与 Toolbar 按钮共用一份).
+      openExternalEditor: () => {
+        if (typeof window === 'undefined') return;
+        window.dispatchEvent(new CustomEvent('kite:open-external-editor'));
+      },
     };
     registerGlobalShortcuts(api);
     return () => {
@@ -334,10 +342,57 @@ export default function App(): JSX.Element {
   // T11: Toolbar 监听 CustomEvent 切换最近抽屉 (与 Cmd/Ctrl+Shift+P 联动).
   // 这里仅占位 — 真实逻辑在 Toolbar.tsx 内.
 
+  // T24 (F-26): 监听 CustomEvent 'kite:open-external-editor' (由 Toolbar 按钮
+  //   或快捷键 api 派发). 读 useMarkdownDoc.state.doc.path → 调 lib/openInExternalEditor.
+  //   status !== 'ok' 或 doc 为空 → 推 info toast 后返回 (AC-02-3 静默分支).
+  useEffect(() => {
+    const handler = (): void => {
+      if (state.status !== 'ok' || !state.doc?.path) {
+        pushToast({ kind: 'info', message: t('externalEditor.buttonLabelDisabled') });
+        return;
+      }
+      void openInExternalEditor(state.doc.path).catch((err) => {
+        // IPCUnavailableError 由 lib 内部 console.debug, 这里不重复.
+        if (!(err instanceof Error && err.name === 'IPCUnavailableError')) {
+          console.warn('[App] openInExternalEditor failed:', err);
+        }
+      });
+    };
+    window.addEventListener('kite:open-external-editor', handler);
+    return () => {
+      window.removeEventListener('kite:open-external-editor', handler);
+    };
+  }, [state, t]);
+
   // SSR / build 时 tauriApi 会被 tree-shake; 这里显式引用以保留类型.
   void tauriApi;
   void useImageViewerHook;
   void useRecentStore;
+
+  // T25 (F-27): 启动期 hydrate 最近目录列表. 不阻塞首屏 (NFR-S-01);
+  // 失败仅 console.warn, 不抛错, 与 recentStore.load 行为一致.
+  useEffect(() => {
+    void useRecentDirsStore.getState().load();
+  }, []);
+
+  // T25 (F-27): handleRootPathChange 包装层 — 选完目录时, 写入最近目录历史.
+  // 写入策略: 来自 dialog 显式选择的 path (必然合法) 才 push; 来自 RecentDirList
+  // 点击的 path 走 setTreeRootPath(p) 但**不**调 push (避免重复置顶).
+  // 设计 §2.2.1 / §2.2.2.
+  const handleRootPathChange = (path: string): void => {
+    setTreeRootPath(path);
+    useRecentDirsStore.getState().push(path);
+  };
+
+  // T25 (F-27): handleReselectRoot 包装层 — 弹二次确认, 确认后清空 treeRootPath.
+  // 不联动 docStore.history / docStore.currentPath (与重选目录解耦).
+  const handleReselectRoot = (): void => {
+    const ok = window.confirm(
+      `${t('tree.reselectConfirmTitle')}\n\n${t('tree.reselectConfirmMsg')}`,
+    );
+    if (!ok) return;
+    setTreeRootPath(null);
+  };
 
   return (
     <div className="flex h-screen w-screen flex-col bg-bg text-fg">
@@ -383,25 +438,28 @@ export default function App(): JSX.Element {
         }}
       />
       {/* T21 (R-05 修复): 主内容区 — 目录树 + Reader 三栏 flex.
-          - 目录树仅 treeOpen 时渲染, 280px 固定宽, 与 Reader 同一层面并列 (不再是 fixed 浮层).
+          - 目录树仅 treeOpen 时渲染, 宽度由 FileTree 内部自管理 (T26 R-12 修复:
+            拖拽手柄 + localStorage 持久化), 初始 280px.
           - treeOpen=false → 仅 Reader, 占满整行.
           - 旧实现用 position:fixed top-50px left-0 覆盖在 Reader 上方, 用户体验: 打开目录树时文档被遮挡 280px.
-            现在改为 inline flex, 挤压 Reader 空间, 不会遮挡. */}
+            现在改为 inline flex, 挤压 Reader 空间, 不会遮挡.
+          - T26 增量: aside wrapper 从 App.tsx 下放到 FileTree, 因此这里只渲染
+            <FileTree /> + Suspense fallback; fallback 用同样的 280px 占位,
+            避免加载期间 Reader 闪跳 (placeholder 与正常态尺寸一致). */}
       <div className="flex min-h-0 flex-1 overflow-hidden">
         {treeOpen && (
-          <aside
-            data-testid="file-tree-drawer"
-            aria-label="File tree"
-            className="w-[280px] shrink-0 overflow-y-auto border-r border-fg/20 bg-bg"
+          <Suspense
+            fallback={
+              <div className="w-[280px] shrink-0 border-r border-fg/20 bg-bg p-4 text-sm text-muted">…</div>
+            }
           >
-            <Suspense fallback={<div className="p-4 text-sm text-muted">…</div>}>
-              <FileTreeLazy
-                rootPath={treeRootPath}
-                onRootPathChange={setTreeRootPath}
-                onOpenFile={(p) => void loadFile(p)}
-              />
-            </Suspense>
-          </aside>
+            <FileTreeLazy
+              rootPath={treeRootPath}
+              onRootPathChange={handleRootPathChange}
+              onReselectRoot={handleReselectRoot}
+              onOpenFile={(p) => void loadFile(p)}
+            />
+          </Suspense>
         )}
         <Reader
           state={state}

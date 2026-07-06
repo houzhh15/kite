@@ -63,6 +63,8 @@ export const enUS = {
     reselect: 'Return',
     reselectConfirmTitle: 'Reselect folder?',
     reselectConfirmMsg: 'Returns to the folder picker. The current document is not affected.',
+    // T26+ (R-12 修复): 拖拽手柄 aria-label, 与 outline.resizeLabel 风格一致.
+    resizeLabel: 'Drag to resize file tree width',
     historySection: 'Or pick from history',
     historyEmpty: 'No recent folders',
   },

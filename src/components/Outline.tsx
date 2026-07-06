@@ -342,7 +342,7 @@ function OutlineInner({
       className={`kite-outline relative shrink-0 overflow-hidden border-r border-fg/15 bg-bg text-fg ${className ?? ''}`.trim()}
       style={{ width: wrapWidth, transition: isDragging ? 'none' : 'width 120ms ease' }}
     >
-      <header className="kite-outline__header flex items-center justify-between gap-1 px-3 py-2">
+      <header className="kite-outline__header flex items-center justify-between gap-1 border-b border-fg/15 px-3 py-2">
         {!collapsed && (
           <span
             data-testid="outline-title"

@@ -12,6 +12,15 @@
  *     把 path 写回父级 (App.tsx), 触发 FileTree 重渲染为完整目录树.
  *   - 不持久化展开 state (会话内有效).
  *
+ * T26 (R-12 修复) 增量:
+ *   - FileTree 现在拥有自己的 <aside> wrapper (原先在 App.tsx), 自管理宽度.
+ *     右侧拖拽手柄: 调整宽度, 持久化到 localStorage (`kite.filetree.width`,
+ *     200..600 px), 模式与 Outline.tsx 完全一致 (F-12 跨面板 UX 一致性).
+ *   - header 字号 / 间距 / divider 与 Outline 头部对齐 (text-sm / py-2 /
+ *     border-b border-fg/15), 不再是 text-xs / py-1.5 / border-border.
+ *   - header 按钮加 whitespace-nowrap + shrink-0, 防止窄列时中文 2 字按钮
+ *     拆成两行 (e.g. "刷新目 / 录"); 当列宽不足时, 路径 truncate 让位.
+ *
  * 设计依据: docs/design/compiled.md §3.1 / 需求 FR-01.
  *
  * 纪律:
@@ -22,7 +31,7 @@
  *     返回天然截断, 必要时再优化.
  */
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef, type PointerEvent as ReactPointerEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { listDir, isAppError, type DirEntry } from '../lib/tauri';
@@ -58,6 +67,34 @@ const initialChildState: ChildState = {
   entries: [],
 };
 
+// ----- T26 (R-12) 拖拽宽度常量 (与 Outline.tsx 同款模式) -----
+const MIN_FILETREE_WIDTH = 200;  // 比 Outline 的 160 略高: FileTree 多了「刷新」「返回」两个 2 字按钮, 容纳空间更大.
+const MAX_FILETREE_WIDTH = 600;
+const DEFAULT_FILETREE_WIDTH = 280;
+const FILETREE_WIDTH_STORAGE_KEY = 'kite.filetree.width';
+
+function readStoredWidth(): number | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.localStorage.getItem(FILETREE_WIDTH_STORAGE_KEY);
+    if (!raw) return null;
+    const n = Number.parseInt(raw, 10);
+    if (!Number.isFinite(n)) return null;
+    return Math.min(MAX_FILETREE_WIDTH, Math.max(MIN_FILETREE_WIDTH, n));
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredWidth(width: number): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(FILETREE_WIDTH_STORAGE_KEY, String(Math.round(width)));
+  } catch {
+    // ignore — UI 偏好持久化失败不应阻塞交互
+  }
+}
+
 export function FileTree({
   rootPath,
   onRootPathChange,
@@ -73,6 +110,83 @@ export function FileTree({
   // T25 (F-27): 订阅最近目录 store, 仅在空态下渲染列表.
   const recentDirsLoaded = useRecentDirsStore((s) => s.loaded);
   const recentDirsCount = useRecentDirsStore((s) => s.items.length);
+
+  // ----- T26 (R-12): 面板宽度 (持久化到 localStorage) -----
+  // 模式: 与 Outline.tsx 1:1 一致, 减少阅读与维护成本. 拖动结束后 writeStoredWidth.
+  const [width, setWidth] = useState<number>(() => {
+    const stored = readStoredWidth();
+    return stored ?? DEFAULT_FILETREE_WIDTH;
+  });
+  const [isDragging, setIsDragging] = useState(false);
+  const dragOriginRef = useRef<{ startX: number; startWidth: number } | null>(null);
+
+  const onResizePointerDown = useCallback(
+    (e: ReactPointerEvent<HTMLDivElement>) => {
+      if (e.button !== 0) return; // 仅响应主指针按钮.
+      e.preventDefault();
+      dragOriginRef.current = { startX: e.clientX, startWidth: width };
+      const target = e.currentTarget;
+      try {
+        target.setPointerCapture(e.pointerId);
+      } catch {
+        // ignore
+      }
+    },
+    [width],
+  );
+
+  const onResizePointerMove = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
+    const origin = dragOriginRef.current;
+    if (!origin) return;
+    // 用户向右拖 → 面板变宽 → delta = +; 边界钳制在 [MIN, MAX] 之内.
+    const delta = e.clientX - origin.startX;
+    const next = Math.min(
+      MAX_FILETREE_WIDTH,
+      Math.max(MIN_FILETREE_WIDTH, origin.startWidth + delta),
+    );
+    setWidth(next);
+  }, []);
+
+  const onResizePointerUp = useCallback(
+    (e: ReactPointerEvent<HTMLDivElement>) => {
+      const origin = dragOriginRef.current;
+      dragOriginRef.current = null;
+      setIsDragging(false);
+      try {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      } catch {
+        // ignore
+      }
+      if (origin) {
+        // 用 setWidth 后的最新值 (state 更新异步, 这里直接读 width 闭包最新值即可).
+        writeStoredWidth(width);
+      }
+    },
+    [width],
+  );
+
+  const onResizePointerCancel = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
+    dragOriginRef.current = null;
+    setIsDragging(false);
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  // 拖动期间设置 body cursor + 禁止文本选择, 避免选中文件列表 / 闪烁.
+  useEffect(() => {
+    if (!isDragging) return undefined;
+    const prevCursor = document.body.style.cursor;
+    const prevUserSelect = document.body.style.userSelect;
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    return () => {
+      document.body.style.cursor = prevCursor;
+      document.body.style.userSelect = prevUserSelect;
+    };
+  }, [isDragging]);
 
   // T21 (R-05): 选目录入口 —— 动态 import @tauri-apps/plugin-dialog 弹出原生
   // 目录选择器 (macOS Finder / Windows Explorer / Linux GTK 三种 UI 一致).
@@ -153,83 +267,129 @@ export function FileTree({
     });
   }, []);
 
-  if (!rootPath) {
-    return (
-      <div
-        data-testid="file-tree-empty"
-        className="flex h-full flex-col items-center justify-center gap-3 px-4 text-sm text-muted"
-      >
-        <p className="text-center">{t('tree.emptyHint')}</p>
-        <button
-          type="button"
-          data-testid="file-tree-pick-root"
-          disabled={picking}
-          onClick={() => {
-            void handlePickRoot();
-          }}
-          className="rounded-md border border-fg/30 px-3 py-1.5 text-xs hover:bg-fg/5 disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          {picking ? t('tree.picking') : t('tree.pickRoot')}
-        </button>
-        {/* T25 (F-27): 空态嵌入最近目录列表.
-            条件: store 已加载完成 + 至少 1 条历史. 整块由 RecentDirList 内部隐藏空态. */}
-        {recentDirsLoaded && recentDirsCount >= 1 && onRootPathChange ? (
-          <RecentDirList
-            onSelect={(p) => {
-              onRootPathChange(p);
-            }}
-          />
-        ) : null}
-      </div>
-    );
-  }
+  const wrapWidth = `${width}px`;
 
+  // ----- 渲染: 公共 aside wrapper (T26 之前在 App.tsx, 现在挪进 FileTree 自管理) -----
   return (
-    <div data-testid="file-tree" className="flex h-full flex-col">
-      <div className="flex shrink-0 items-center justify-between border-b border-border px-3 py-1.5 text-xs">
-        <span className="truncate font-medium" title={rootPath}>{baseName(rootPath)}</span>
-        <div className="ml-2 flex items-center gap-1">
-          {/* T25+ 增量: 重新拉取 rootPath + 展开中的子目录. */}
+    <aside
+      data-testid="file-tree-drawer"
+      aria-label={t('common.open')} /* fallback: i18n key 由调用方覆盖 */
+      className="kite-filetree relative shrink-0 overflow-hidden border-r border-fg/20 bg-bg"
+      style={{ width: wrapWidth, transition: isDragging ? 'none' : 'width 120ms ease' }}
+    >
+      {!rootPath ? (
+        <div
+          data-testid="file-tree-empty"
+          className="flex h-full flex-col items-center justify-center gap-3 px-4 text-sm text-muted"
+        >
+          <p className="text-center">{t('tree.emptyHint')}</p>
           <button
             type="button"
-            data-testid="file-tree-refresh"
-            aria-label={t('tree.refresh')}
-            title={t('tree.refresh')}
-            onClick={handleRefresh}
-            className="inline-flex h-6 items-center rounded px-2 text-muted hover:bg-fg/10 hover:text-fg focus:outline-none focus:ring-2 focus:ring-fg/40"
+            data-testid="file-tree-pick-root"
+            disabled={picking}
+            onClick={() => {
+              void handlePickRoot();
+            }}
+            className="rounded-md border border-fg/30 px-3 py-1.5 text-xs hover:bg-fg/5 disabled:cursor-not-allowed disabled:opacity-40"
           >
-            {t('tree.refresh')}
+            {picking ? t('tree.picking') : t('tree.pickRoot')}
           </button>
-          {/* T25 (F-27): 重新选择文件夹按钮 — 仅 rootPath != null 时显示.
-              之前是 icon-only SVG 按钮 (「文件夹+箭头」, 意义不明), 改为文字按钮
-              与「刷新」并排, 文案用 i18n key tree.reselect. */}
-          <button
-            type="button"
-            data-testid="file-tree-reselect"
-            aria-label={t('tree.reselect')}
-            title={t('tree.reselect')}
-            onClick={handleReselect}
-            className="inline-flex h-6 items-center rounded px-2 text-muted hover:bg-fg/10 hover:text-fg focus:outline-none focus:ring-2 focus:ring-fg/40"
-          >
-            {t('tree.reselect')}
-          </button>
+          {recentDirsLoaded && recentDirsCount >= 1 && onRootPathChange ? (
+            <RecentDirList
+              onSelect={(p) => {
+                onRootPathChange(p);
+              }}
+            />
+          ) : null}
         </div>
-      </div>
-      <ul role="tree" className="flex-1 overflow-auto px-1 py-1 text-sm">
-        <TreeNode
-          path={rootPath}
-          name={baseName(rootPath)}
-          isDir={true}
-          depth={0}
-          expanded={expanded}
-          childMap={childMap}
-          onToggle={toggleExpand}
-          onFileClick={onOpenFile}
-        />
-      </ul>
-    </div>
+      ) : (
+        <>
+          {/* T26 (R-12 修复) 增量: 头部样式与 Outline 头部对齐.
+                - text-sm (14px) — 与 Outline 标题一致 (之前是 text-xs / 12px, 偏小)
+                - py-2 (8px) — 与 Outline 头部一致 (之前是 py-1.5 / 6px, 偏紧)
+                - border-b border-fg/15 — 与 Outline 头部同款分隔线; 之前 border-border
+                  太深, 视觉权重不均. 旁路 right border (border-fg/20) 由 <aside> 提供.
+                - 路径用 flex-1 + min-w-0 + truncate, 在列变窄时让位给按钮 (后者 shrink-0). */}
+          <header
+            data-testid="file-tree-header"
+            className="flex shrink-0 items-center justify-between gap-1 border-b border-fg/15 px-3 py-2"
+          >
+            <span
+              data-testid="file-tree-path"
+              className="min-w-0 flex-1 truncate px-1 text-sm font-medium opacity-80"
+              title={rootPath}
+            >
+              {baseName(rootPath)}
+            </span>
+            <div className="flex shrink-0 items-center gap-1">
+              <button
+                type="button"
+                data-testid="file-tree-refresh"
+                aria-label={t('tree.refresh')}
+                title={t('tree.refresh')}
+                onClick={handleRefresh}
+                className="inline-flex h-6 shrink-0 items-center whitespace-nowrap rounded px-2 text-sm text-muted hover:bg-fg/10 hover:text-fg focus:outline-none focus:ring-2 focus:ring-fg/40"
+              >
+                {t('tree.refresh')}
+              </button>
+              <button
+                type="button"
+                data-testid="file-tree-reselect"
+                aria-label={t('tree.reselect')}
+                title={t('tree.reselect')}
+                onClick={handleReselect}
+                className="inline-flex h-6 shrink-0 items-center whitespace-nowrap rounded px-2 text-sm text-muted hover:bg-fg/10 hover:text-fg focus:outline-none focus:ring-2 focus:ring-fg/40"
+              >
+                {t('tree.reselect')}
+              </button>
+            </div>
+          </header>
+          <ul role="tree" className="flex-1 overflow-auto px-1 py-1 text-sm">
+            <TreeNode
+              path={rootPath}
+              name={baseName(rootPath)}
+              isDir={true}
+              depth={0}
+              expanded={expanded}
+              childMap={childMap}
+              onToggle={toggleExpand}
+              onFileClick={onOpenFile}
+            />
+          </ul>
+        </>
+      )}
+
+      {/* T26 (R-12) 增量: 右侧拖拽手柄.
+            模式与 Outline.tsx 的 outline-resize-handle 1:1 一致:
+              - absolute right-0 + h-full + w-1, 鼠标悬浮在面板最右侧 4px 区域
+              - cursor-col-resize, hover/focus 时浅蓝背景提示
+              - 拖动期间 body cursor 切到 col-resize (上面 useEffect)
+              - 拖动结束后 writeStoredWidth, 刷新 / 重启后保留 */}
+      <div
+        role="separator"
+        aria-orientation="vertical"
+        aria-label={t('tree.resizeLabel')}
+        aria-valuemin={MIN_FILETREE_WIDTH}
+        aria-valuemax={MAX_FILETREE_WIDTH}
+        aria-valuenow={Math.round(width)}
+        data-testid="file-tree-resize-handle"
+        onPointerDown={(e) => {
+          if (e.button !== 0) return;
+          setIsDragging(true);
+          onResizePointerDown(e);
+        }}
+        onPointerMove={onResizePointerMove}
+        onPointerUp={(e) => {
+          setIsDragging(false);
+          onResizePointerUp(e);
+        }}
+        onPointerCancel={onResizePointerCancel}
+        className="kite-filetree__resize absolute right-0 top-0 z-10 h-full w-1 cursor-col-resize select-none touch-none hover:bg-accent/40 focus:bg-accent/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+      />
+    </aside>
   );
 }
+
 
 interface TreeNodeProps {
   path: string;

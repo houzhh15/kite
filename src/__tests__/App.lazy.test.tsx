@@ -95,7 +95,15 @@ vi.mock('../components/FileTree', () => {
 });
 
 function FakeTreeUI(): JSX.Element {
-  return <div data-testid="file-tree">FILETREE</div>;
+  // T26 (R-12 修复) 增量: <aside data-testid="file-tree-drawer"> 已在重构中从
+  // App.tsx 下放到 FileTree 内部 (FileTree 自管理宽度, 与 Outline.tsx 一致);
+  // mock 必须真实地渲染 aside 才能反映这个契约, 否则 UT-L-3/UT-L-4/UT-L-6
+  // 拿不到 file-tree-drawer 节点而误报失败.
+  return (
+    <aside data-testid="file-tree-drawer" aria-label="File tree">
+      <div data-testid="file-tree">FILETREE</div>
+    </aside>
+  );
 }
 
 // === Imports =================================================================
