@@ -58,6 +58,7 @@ export function Toolbar({
   onBack,
   onForward,
   onLoadFile,
+  onReload,
 }: ToolbarProps): JSX.Element {
   const { t } = useTranslation();
   const [recentOpen, setRecentOpen] = useState(false);
@@ -374,6 +375,9 @@ export function Toolbar({
             'kite:open-recent-drawer' / 'kite:close-recent-drawer' 模式一致.
             enabled 判定: 与 ToolbarExportMenu 一致 — docContent 非空即视为已加载. */}
         <ExternalEditorButton docLoaded={!exportDisabled} />
+        {/* T26 (R-12 修复): 重新加载按钮 — Cmd/Ctrl+R 同款, 由 useFileChangeReload
+            提供 reload, focus / 手动按钮 / 快捷键三条入口都汇到同一份 IPC. */}
+        <ReloadButton docLoaded={!exportDisabled} onReload={() => onReload?.()} />
         {/* T16-P2 (FR-03 / NFR-U-02): 全屏按钮. */}
         <FullscreenButton
           state={{
@@ -389,9 +393,14 @@ export function Toolbar({
 }
 
 /**
-// T26 (R-12 修复) 增量: ReloadButton — 同 ExternalEditorButton 形态, 但 click 直接
-// 调 App.tsx 注入的 reload (由 useFileChangeReload 提供), 不发 CustomEvent.
-// enabled 判定与 ExternalEditorButton 一致: docLoaded && currentPath !== null.
+ * ReloadButton — T26 (R-12 修复) 重新加载当前文档.
+ *
+ * 同 ExternalEditorButton 形态, 但 click 直接调 App.tsx 注入的 reload
+ * (由 useFileChangeReload 提供), 不发 CustomEvent.
+ *
+ * enabled 判定与 ExternalEditorButton 一致: docLoaded && currentPath !== null.
+ * reload 后由 hook 自动 getFileFresh 同步 mtime, 避免下一次 focus 重复刷新.
+ */
 function ReloadButton({
   docLoaded,
   onReload,
@@ -423,6 +432,7 @@ function ReloadButton({
   );
 }
 
+/**
  * ExternalEditorButton — T24 (F-26) 在外部编辑器中打开按钮.
  *
  * 设计依据: docs/design/compiled.md §3.6 + 需求 FR-01 / NFR-US-01.
