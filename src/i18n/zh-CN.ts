@@ -308,6 +308,8 @@ export const zhCN = {
       historyForward: '前进 (历史)',
       // T24 (F-26): 在外部编辑器中打开当前文档 (Cmd/Ctrl+E).
       openExternalEditor: '在外部编辑器中打开当前文档',
+      // T26 (R-12 修复) 增量: 重新加载当前文档.
+      reload: '刷新当前文档',
     },
   },
   // T24 (F-26): 外部编辑器 (F-26 §P2) — 按钮 / 菜单 / 设置分组 / 错误文案.
@@ -362,6 +364,10 @@ export const zhCN = {
     historyEnd: '已在历史终点',
     progressCorrupted: 'progress data parse failed',
     progressReset: '进度数据已重置',
+    // T26 (R-12 修复) 增量: 外部编辑器改回后刷新.
+    reload: '刷新',
+    reloadHint: '刷新当前文档 (Cmd/Ctrl+R)',
+    reloadFailed: '刷新失败: {{message}}',
   },
   skipLink: {
     label: '跳到主内容',

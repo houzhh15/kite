@@ -30,6 +30,7 @@ use std::path::PathBuf;
 
 use kite_lib::commands;
 use kite_lib::pending_open::{is_markdown_path, PendingOpen};
+use kite_lib::services::recent_dirs as recent_dirs_svc;
 use kite_lib::services::recent_files as recent_svc;
 // macOS / iOS / Android 专属: RunEvent::Opened 变体在这些平台才存在;
 // Emitter 在 on_opened 内部 emit 时使用. 都用 #[cfg] 隔离, 避免非这些平台
@@ -60,6 +61,13 @@ fn main() {
             app.manage(recent_svc::init_state());
             if let Err(e) = recent_svc::load_from_store(app.handle()) {
                 eprintln!("[recent_files] hydrate failed: {e}");
+            }
+
+            // T25 (F-27): 注入 RecentDirsState 并 hydrate.
+            // 独立 JSON 文件 app_data_dir/recent_dirs.json, 不与 F-03 共享.
+            app.manage(recent_dirs_svc::init_state());
+            if let Err(e) = recent_dirs_svc::load_from_store(app.handle()) {
+                eprintln!("[recent_dirs] hydrate failed: {e}");
             }
 
             // T20+ (R-07 修复): dev 模式下运行时设置 Dock / Window 图标.
@@ -104,6 +112,16 @@ fn main() {
             commands::set_fullscreen,
             // macOS 文件打开: 前端启动后主动拉一次.
             commands::get_pending_open_file,
+            // T24 (F-26): 在外部编辑器中打开当前文档.
+            commands::open_in_external_editor,
+            // T25 (F-27): 4 个最近目录 IPC 命令, 必须显式注册
+            // (否则 Tauri 找不到, JS 端会收到 "Command X not found").
+            commands::get_recent_dirs,
+            commands::add_recent_dir,
+            commands::remove_recent_dir,
+            commands::clear_recent_dirs,
+            // T26 (R-12 修复): 外部编辑器改回后刷新. focus 事件 + 手动按钮均走此.
+            commands::get_file_fresh,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

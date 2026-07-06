@@ -70,6 +70,13 @@ pub struct Preferences {
     pub line_height: f32,
     /// T15 (FR-05): 语言 ('zh-CN' | 'en-US'). 缺省 'zh-CN'.
     pub language: String,
+    /// T24 (F-26): 外部编辑器预设 ('system' | 'code' | 'cursor' | 'subl' |
+    ///   'mate' | 'notepad++' | 'typora' | 'custom'). 缺省 'system';
+    ///   非枚举值在 services::preferences::load 内回退 'system'.
+    pub external_editor: String,
+    /// T24 (F-26): 自定义编辑器命令模板. 缺省 '' (≤256 字符).
+    /// 长度截断由前端 prefStore.setExternalEditorCustomCmd 保证, Rust 仅做透传.
+    pub external_editor_custom_cmd: String,
 }
 
 // ---------- 1. read_markdown_file ----------
@@ -148,6 +155,9 @@ pub async fn load_preferences(app: tauri::AppHandle) -> Result<Preferences, AppE
         font_size: p.font_size,
         line_height: p.line_height,
         language: crate::services::preferences::language_to_str(p.language).to_string(),
+        // T24 (F-26): 透传外部编辑器字段 (非枚举值已由 services 层兜底).
+        external_editor: p.external_editor,
+        external_editor_custom_cmd: p.external_editor_custom_cmd,
     })
 }
 
@@ -164,6 +174,9 @@ pub async fn save_preferences(app: tauri::AppHandle, prefs: Preferences) -> Resu
         font_size: prefs.font_size,
         line_height: prefs.line_height,
         language: parse_prefs_language(Some(prefs.language.as_str())),
+        // T24 (F-26): 透传外部编辑器字段.
+        external_editor: prefs.external_editor,
+        external_editor_custom_cmd: prefs.external_editor_custom_cmd,
     };
     crate::services::preferences::save(&app, &p)
 }
@@ -349,7 +362,38 @@ pub async fn export_html(
     crate::services::exporter::export_html(content, PathBuf::from(target_path))
 }
 
-// ---------- 14. set_fullscreen (T16-P2 — FR-03) ----------
+// ---------- 14. open_in_external_editor (T24 — F-26) ----------
+
+/// open_in_external_editor — F-26 (T24 / 设计 §3.3 / FR-04).
+///
+/// 在外部 Markdown 编辑器中打开当前已加载的文档. Rust 端做路径校验 (空 / 扩展名
+/// 白名单 / 路径穿越 / 存在性 / is_file) 与命令拼装 (system / 7 预设 / custom 模板
+/// {{path}} 占位符), 跨平台 spawn. 设计原则 (NFR-SEC-02): argv 数组, 不走 shell.
+///
+/// - Input:
+///   - path (String, 当前文档绝对路径, 已通过 read_markdown_file 校验).
+///   - editor (Option<String>): 8 档预设 ('system' | 'code' | 'cursor' | 'subl'
+///     | 'mate' | 'notepad++' | 'typora' | 'custom'). 缺省 / null / 空串 → Rust
+///     从 preferences.external_editor 读取.
+/// - Output: Ok(()), 系统默认 Markdown 编辑器已被唤起.
+/// - Error 约定 (AppError code):
+///   - INVALID_PATH: 路径为空 / 扩展名不在白名单 / 不是 regular file / custom 模板语法错.
+///   - PERMISSION_DENIED: 路径含 `..` 段.
+///   - NOT_FOUND: 路径不存在 (文件被外部删除等).
+///   - UNKNOWN: spawn 失败 / 平台不支持的 preset (如 notepad++ on macOS).
+///   - IO: 底层 fs::metadata 失败.
+///
+/// 实现: 委托 services::external_editor::open_editor; commands 层不引入额外 IO/校验.
+#[tauri::command]
+pub async fn open_in_external_editor(
+    app: tauri::AppHandle,
+    path: String,
+    editor: Option<String>,
+) -> Result<(), AppError> {
+    crate::services::external_editor::open_editor(&app, path, editor).await
+}
+
+// ---------- 15. set_fullscreen (T16-P2 — FR-03) ----------
 
 /// set_fullscreen — F-20 (FR-03 / 设计 §3.3.4 / NFR-U-02).
 ///
@@ -439,6 +483,7 @@ fn parse_prefs_language(s: Option<&str>) -> crate::services::preferences::Langua
         _ => Language::ZhCn,
     }
 }
+
 // ----- macOS 文件打开命令 -----
 //
 // get_pending_open_file: 前端启动后拉一次.
@@ -454,4 +499,92 @@ pub fn get_pending_open_file(
     state: tauri::State<'_, crate::pending_open::PendingOpen>,
 ) -> Option<String> {
     state.take().map(|p| p.to_string_lossy().to_string())
+}
+
+// ---------- 15b. get_file_fresh (T26 — R-12 修复) ----------
+//
+// get_file_fresh — 外部编辑器改回后刷新 (focus / 手动).
+//
+// - Input:  path (绝对文件路径, .md 扩展名).
+// - Output: Ok(FileFreshPayload { mtime: u64, content: String }).
+//   mtime 是自 UNIX 纪元起的秒数; 前端对比 lastLoadedMtime 决定是否 dispatch OPEN_OK.
+//   content 直接带回 (与 read_markdown_file 同源, 字符解码失败 → AppError::Encoding
+//   已被底层 read_to_string 退化为 AppError::Io).
+// - 错误约定: 复用 external_editor::validate_path 五重防线, 错误码与
+//   open_in_external_editor / read_markdown_file 完全一致, 前端 toast 文案
+//   命中同一份 i18n 错误码分支, 不增加新翻译键.
+//
+// 包装层: 委托 services::file_fresh::read_file_fresh; 同步 IO, 不需要 async.
+#[tauri::command]
+pub fn get_file_fresh(path: String) -> Result<crate::services::file_fresh::FileFreshPayload, AppError> {
+    crate::services::file_fresh::read_file_fresh(&path)
+}
+
+// ---------- 16. get_recent_dirs (T25 — F-27) ----------
+//
+// get_recent_dirs — F-27 (T25 / FR-02 / 设计 §3.3).
+//
+// - Input:  无.
+// - Output: Ok(Vec<RecentDir>), 数组长度 0..8, 按 lastOpenedAt 倒序.
+// - Error 约定: 当前实现永不失败 (服务层从内存快照返回).
+//   [对应 AC-02-1 / AC-02-5]
+//
+// 包装层: 委托 services::recent_dirs::get_recent_dirs; commands 层不引入额外 IO.
+#[tauri::command]
+pub async fn get_recent_dirs(
+    state: tauri::State<'_, crate::services::recent_dirs::RecentDirsState>,
+) -> Result<Vec<crate::services::recent_dirs::RecentDir>, AppError> {
+    Ok(crate::services::recent_dirs::get_recent_dirs(&state))
+}
+
+// ---------- 17. add_recent_dir (T25 — F-27) ----------
+//
+// add_recent_dir — F-27 (T25 / FR-02 / 设计 §3.3).
+//
+// - Input:  path (String, 来自 dialog 显式选择).
+// - Output: Ok(()), 内存 + 磁盘均同步更新.
+// - Error 约定:
+//     - INVALID_PATH: 空 / `..` 段 / Windows 设备名 / UNC 路径.
+//     - IO: 持久化失败.
+//   [对应 AC-02-2 / AC-03-1 / AC-03-2 / AC-03-3 / AC-03-4 / AC-03-5]
+//
+// 包装层: 委托 services::recent_dirs::add_recent_dir.
+#[tauri::command]
+pub async fn add_recent_dir(
+    state: tauri::State<'_, crate::services::recent_dirs::RecentDirsState>,
+    app: tauri::AppHandle,
+    path: String,
+) -> Result<(), AppError> {
+    crate::services::recent_dirs::add_recent_dir(&state, &app, path)
+}
+
+// ---------- 18. remove_recent_dir (T25 — F-27) ----------
+//
+// remove_recent_dir — F-27 (T25 / FR-02 / 设计 §3.3).
+//
+// - Input:  path (String).
+// - Output: Ok(()), 内存移除 + 持久化; 幂等 (不存在的 path → Ok).
+// - Error 约定: INVALID_PATH | IO  [对应 AC-03-6 / AC-04-7]
+#[tauri::command]
+pub async fn remove_recent_dir(
+    state: tauri::State<'_, crate::services::recent_dirs::RecentDirsState>,
+    app: tauri::AppHandle,
+    path: String,
+) -> Result<(), AppError> {
+    crate::services::recent_dirs::remove_recent_dir(&state, &app, path)
+}
+
+// ---------- 19. clear_recent_dirs (T25 — F-27) ----------
+//
+// clear_recent_dirs — F-27 (T25 / FR-02 / 设计 §3.3).
+//
+// - Input:  无.
+// - Output: Ok(()), 内存 + 磁盘 (文件置为 {version:1, items:[]}).
+// - Error 约定: IO  [对应 AC-03-7 / AC-04-8]
+#[tauri::command]
+pub async fn clear_recent_dirs(
+    state: tauri::State<'_, crate::services::recent_dirs::RecentDirsState>,
+    app: tauri::AppHandle,
+) -> Result<(), AppError> {
+    crate::services::recent_dirs::clear_recent_dirs(&state, &app)
 }

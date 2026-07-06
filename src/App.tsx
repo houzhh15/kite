@@ -51,6 +51,9 @@ import { useReaderFontSize } from './hooks/useReaderFontSize';
 import { useReaderLineHeight } from './hooks/useReaderLineHeight';
 import { useReaderCodeFontSize } from './hooks/useReaderCodeFontSize';
 import { useFullscreen } from './hooks/useFullscreen';
+// T26 (R-12 修复): 外部编辑器改回后刷新. focus / visibilitychange 触发, 也提供 reload() 给
+// Toolbar 按钮 + Cmd/Ctrl+R 快捷键.
+import { useFileChangeReload } from './hooks/useFileChangeReload';
 import {
   registerGlobalShortcuts,
   unregisterGlobalShortcuts,
@@ -95,6 +98,10 @@ export default function App(): JSX.Element {
   const search = useSearch();
   // T16-P2 (FR-03): 全屏状态机在顶层挂载, 供快捷键 API 调用.
   const fullscreen = useFullscreen();
+  // T26 (R-12 修复): 外部编辑器改回后刷新. 挂在 useMarkdownDoc.loadFile 之后, 让 hook
+  // 内部用同一份 loadFile 回调. focus / visibilitychange 自动检查, 也提供 reload()
+  // 给 Toolbar 按钮和 Cmd/Ctrl+R 快捷键.
+  const { reload: reloadCurrent } = useFileChangeReload(loadFile, state.status);
   const scrollContainerRef = useRef<HTMLElement | null>(null);
 
   // T06: F-16 窗口标题联动.
@@ -330,6 +337,11 @@ export default function App(): JSX.Element {
         if (typeof window === 'undefined') return;
         window.dispatchEvent(new CustomEvent('kite:open-external-editor'));
       },
+      // T26 (R-12 修复): 重新加载当前文档 (Cmd/Ctrl+R / Toolbar 按钮).
+      // useFileChangeReload 内部忽略 mtime 短路, 强制 loadFile; 完成后自动同步 mtime.
+      reload: () => {
+        reloadCurrent();
+      },
     };
     registerGlobalShortcuts(api);
     return () => {
@@ -337,7 +349,7 @@ export default function App(): JSX.Element {
     };
     // openSearchFn / closeSearchFn / isOpenFn / viewerCurrent / viewerClose 已展开为稳定引用.
     // open / loadFile 在 deps 中保证最新 (用户可能在后续重新创建).
-  }, [open, loadFile, openSearchFn, closeSearchFn, isOpenFn, viewerCurrent, viewerClose, fullscreen]);
+  }, [open, loadFile, openSearchFn, closeSearchFn, isOpenFn, viewerCurrent, viewerClose, fullscreen, reloadCurrent]);
 
   // T11: Toolbar 监听 CustomEvent 切换最近抽屉 (与 Cmd/Ctrl+Shift+P 联动).
   // 这里仅占位 — 真实逻辑在 Toolbar.tsx 内.
@@ -436,6 +448,8 @@ export default function App(): JSX.Element {
           const target = useDocStore.getState().history[nextCursor];
           if (target) void loadFile(target);
         }}
+        // T26 (R-12 修复): 重新加载按钮 (Toolbar 内按钮 + Cmd/Ctrl+R 都走 reloadCurrent).
+        onReload={reloadCurrent}
       />
       {/* T21 (R-05 修复): 主内容区 — 目录树 + Reader 三栏 flex.
           - 目录树仅 treeOpen 时渲染, 宽度由 FileTree 内部自管理 (T26 R-12 修复:

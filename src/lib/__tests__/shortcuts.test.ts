@@ -72,8 +72,8 @@ describe('getShortcutLabel (T11 step-6)', () => {
 });
 
 describe('SHORTCUTS 注册表完整性', () => {
-  it('共 13 条 (T11 10 + T15 3)', () => {
-    expect(SHORTCUTS.length).toBe(13);
+  it('共 15 条 (T11 10 + T15 3 + T24 1 + T26 1)', () => {
+    expect(SHORTCUTS.length).toBe(15);
   });
 
   it('id 唯一', () => {
@@ -81,7 +81,7 @@ describe('SHORTCUTS 注册表完整性', () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  it('id 集合与设计 §3.3.1 + T15 一致', () => {
+  it('id 集合与设计 §3.3.1 + T15 + T24 一致', () => {
     const ids = SHORTCUTS.map((s) => s.id).sort();
     expect(ids).toEqual(
       [
@@ -91,7 +91,9 @@ describe('SHORTCUTS 注册表完整性', () => {
         'historyBack',
         'historyForward',
         'open',
+        'openExternalEditor',
         'recentDrawer',
+        'reload',
         'scrollBottom',
         'scrollTop',
         'toggleTree',

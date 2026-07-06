@@ -31,6 +31,10 @@ function makeApi() {
     historyForward: () => {},
     // T16-P2 (FR-03): 全屏切换 placeholder.
     toggleFullscreen: () => {},
+    // T24 (F-26): 在外部编辑器中打开 placeholder.
+    openExternalEditor: () => {},
+    // T26 (R-12 修复): 重新加载 placeholder.
+    reload: () => {},
   };
 }
 
@@ -54,6 +58,8 @@ describe('useKeyboard — T12 radio 焦点守卫', () => {
         language: 'zh-CN',
         mermaidEnabled: false,
         katexEnabled: false,
+        externalEditor: 'system',
+        externalEditorCustomCmd: '',
       },
       hydrated: true,
       loaded: true,
@@ -84,6 +90,8 @@ describe('useKeyboard — T12 radio 焦点守卫', () => {
         language: 'zh-CN',
         mermaidEnabled: false,
         katexEnabled: false,
+        externalEditor: 'system',
+        externalEditorCustomCmd: '',
       },
       hydrated: true,
       loaded: true,
@@ -114,6 +122,8 @@ describe('useKeyboard — T12 radio 焦点守卫', () => {
         language: 'zh-CN',
         mermaidEnabled: false,
         katexEnabled: false,
+        externalEditor: 'system',
+        externalEditorCustomCmd: '',
       },
       hydrated: true,
       loaded: true,

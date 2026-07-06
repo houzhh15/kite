@@ -44,6 +44,12 @@ export interface ToolbarProps {
    * `useMarkdownDoc()` 拿到的是不同实例. 只有 App.tsx 的实例绑定了 Reader.
    */
   onLoadFile?: (path: string) => void;
+  /**
+   * T26 (R-12 修复): 重新加载当前文档 (用于外部编辑器改回后).
+   * 必须是 App.tsx 内同一份 useFileChangeReload() 拿到的 reload, 避免每个 Toolbar
+   * 实例独立持一个 reload 闸 (闸已在 hook 内部维护).
+   */
+  onReload?: () => void;
 }
 
 export function Toolbar({
@@ -361,6 +367,13 @@ export function Toolbar({
         </button>
         {/* T16-P2 (FR-01 / FR-02): 导出下拉 (FR-04 入口可见性). */}
         <ToolbarExportMenu disabled={exportDisabled} />
+        {/* T24 (F-26): 在外部编辑器中打开按钮 — 文档已加载时启用, 否则 disabled.
+            与 FullscreenButton 同形态, 通过 CustomEvent 'kite:open-external-editor'
+            派发, 由 App.tsx 在 useEffect 内监听 → 读 useDocStore.currentPath → 调 IPC.
+            这样的解耦让 Toolbar 不需要持有 store 之外的依赖, 与既有
+            'kite:open-recent-drawer' / 'kite:close-recent-drawer' 模式一致.
+            enabled 判定: 与 ToolbarExportMenu 一致 — docContent 非空即视为已加载. */}
+        <ExternalEditorButton docLoaded={!exportDisabled} />
         {/* T16-P2 (FR-03 / NFR-U-02): 全屏按钮. */}
         <FullscreenButton
           state={{
@@ -372,6 +385,84 @@ export function Toolbar({
         />
       </div>
     </header>
+  );
+}
+
+/**
+// T26 (R-12 修复) 增量: ReloadButton — 同 ExternalEditorButton 形态, 但 click 直接
+// 调 App.tsx 注入的 reload (由 useFileChangeReload 提供), 不发 CustomEvent.
+// enabled 判定与 ExternalEditorButton 一致: docLoaded && currentPath !== null.
+function ReloadButton({
+  docLoaded,
+  onReload,
+}: {
+  docLoaded: boolean;
+  onReload: () => void;
+}): JSX.Element {
+  const { t } = useTranslation();
+  const currentPath = useDocStore((s) => s.state.currentPath);
+  const enabled = docLoaded && currentPath !== null;
+  const ariaLabel = t('app.reloadHint');
+  return (
+    <button
+      type="button"
+      data-testid="toolbar-reload"
+      aria-label={ariaLabel}
+      aria-disabled={!enabled}
+      disabled={!enabled}
+      title={ariaLabel}
+      onClick={onReload}
+      className={
+        'rounded-md border border-fg/30 px-3 py-1.5 text-sm hover:bg-fg/5 ' +
+        'focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ' +
+        'disabled:cursor-not-allowed disabled:opacity-40'
+      }
+    >
+      {t('app.reload')}
+    </button>
+  );
+}
+
+ * ExternalEditorButton — T24 (F-26) 在外部编辑器中打开按钮.
+ *
+ * 设计依据: docs/design/compiled.md §3.6 + 需求 FR-01 / NFR-US-01.
+ *
+ * 责任:
+ *   - 渲染一个原生 <button>; 受控状态来自 useDocStore.state.currentPath +
+ *     props.docLoaded (App.tsx 注入, 反映 useMarkdownDoc.state.status === 'ok').
+ *   - enabled = docLoaded && currentPath !== null.
+ *   - 点击 → window.dispatchEvent('kite:open-external-editor') (App.tsx 在 useEffect 内监听).
+ *   - 可达性: aria-label / aria-disabled / disabled / title 全套.
+ *
+ * 纪律: 不持有 store 之外的依赖; 不直接调 IPC; 仅做事件派发.
+ */
+function ExternalEditorButton({ docLoaded }: { docLoaded: boolean }): JSX.Element {
+  const { t } = useTranslation();
+  const currentPath = useDocStore((s) => s.state.currentPath);
+  const enabled = docLoaded && currentPath !== null;
+  const ariaLabel = enabled
+    ? t('externalEditor.buttonLabel')
+    : t('externalEditor.buttonLabelDisabled');
+  return (
+    <button
+      type="button"
+      data-testid="toolbar-external-editor"
+      aria-label={ariaLabel}
+      aria-disabled={!enabled}
+      disabled={!enabled}
+      title={ariaLabel}
+      onClick={() => {
+        if (typeof window === 'undefined') return;
+        window.dispatchEvent(new CustomEvent('kite:open-external-editor'));
+      }}
+      className={
+        'rounded-md border border-fg/30 px-3 py-1.5 text-sm hover:bg-fg/5 ' +
+        'focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ' +
+        'disabled:cursor-not-allowed disabled:opacity-40'
+      }
+    >
+      {t('externalEditor.buttonLabel')}
+    </button>
   );
 }
 

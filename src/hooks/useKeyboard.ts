@@ -65,6 +65,12 @@ export interface KeyboardShortcutApi {
   historyForward: () => void;
   /** T16-P2 (FR-03): 切换全屏 (macOS Cmd+Ctrl+F / Win/Linux F11). */
   toggleFullscreen: () => void;
+  /** T24 (F-26): 在外部编辑器中打开当前文档 (Cmd/Ctrl+E). */
+  openExternalEditor: () => void;
+  /** T26 (R-12 修复): 重新加载当前文档 (Cmd/Ctrl+R), 用于外部编辑器改回后.
+   *  实现: App.tsx 提供 reload() = useFileChangeReload().reload().
+   *  hook 内部忽略 mtime 短路, 强制 loadFile; loadFile 完成后自动同步 mtime. */
+  reload: () => void;
 }
 
 /**
@@ -177,6 +183,12 @@ function invokeGlobalAction(id: ShortcutId, api: KeyboardShortcutApi): void {
       return;
     case 'toggleFullscreen':
       api.toggleFullscreen();
+      return;
+    case 'openExternalEditor':
+      api.openExternalEditor();
+      return;
+    case 'reload':
+      api.reload();
       return;
     default: {
       // exhaustiveness: never.

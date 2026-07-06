@@ -58,6 +58,25 @@ export interface RecentItem {
   lastOpenedAt: string;
 }
 
+/**
+ * T25 (F-27) — 最近目录条目.
+ *
+ * 字段与 src-tauri/src/services/recent_dirs.rs::RecentDir 严格一一对应
+ * (serde rename_all = "camelCase").
+ *
+ *   - path: 目录绝对路径 (来自 dialog 显式选择, 已被 Rust 端 validate_path 校验).
+ *   - lastOpenedAt: ISO8601 UTC 时间戳.
+ *   - displayName: Rust 端取 basename 写入, 前端只读.
+ */
+export interface RecentDir {
+  /** 目录绝对路径. */
+  path: string;
+  /** ISO8601 时间戳, 例 "2026-07-06T10:00:00Z". */
+  lastOpenedAt: string;
+  /** 目录 basename (Rust 端标准化). */
+  displayName: string;
+}
+
 /** Preferences — 用户偏好. */
 export interface Preferences {
   /** 'light' | 'dark' | 'system'. T03 step-03: 由 string 收紧为三档 union,
@@ -75,7 +94,36 @@ export interface Preferences {
   mermaidEnabled?: boolean;
   /** T17-P2 (F-22): KaTeX 公式渲染开关. 缺省/非法回退 false. */
   katexEnabled?: boolean;
+  /** T24 (F-26): 外部编辑器预设 (缺省 'system'). */
+  externalEditor?: ExternalEditor;
+  /** T24 (F-26): 自定义编辑器命令模板 (≤256 字符). */
+  externalEditorCustomCmd?: string;
 }
+
+/**
+ * T24 (F-26) — 外部编辑器预设 union.
+ *
+ * 与 src/i18n 字典 `externalEditor.settings.<id>` 标签对应; 8 档:
+ *   - system    : 系统默认 Markdown 编辑器 (跨平台 spawn).
+ *   - code      : VSCode (`code {{path}}`).
+ *   - cursor    : Cursor (`cursor {{path}}`).
+ *   - subl      : Sublime Text (`subl {{path}}`).
+ *   - mate      : TextMate (`mate {{path}}`).
+ *   - notepad++ : Notepad++ (仅 Windows).
+ *   - typora    : Typora (`typora {{path}}`).
+ *   - custom    : 自定义 (externalEditorCustomCmd 模板).
+ *
+ * Rust 端对未知字符串兜底 'system' (设计 §3.1.3); 前端 setter 非法值 console.warn + 忽略.
+ */
+export type ExternalEditor =
+  | 'system'
+  | 'code'
+  | 'cursor'
+  | 'subl'
+  | 'mate'
+  | 'notepad++'
+  | 'typora'
+  | 'custom';
 
 /**
  * ProgressEntry — 单文档阅读进度 (T11, 设计 §3.2.2 / §3.6.10).
@@ -234,6 +282,30 @@ export function savePreferences(prefs: Preferences): Promise<void> {
  */
 export function openExternalUrl(url: string): Promise<void> {
   return safeInvoke<void>('open_external_url', { url });
+}
+
+/**
+ * openInExternalEditor — T24 (F-26) 在外部编辑器中打开当前文档.
+ *
+ * 通过 Rust 命令 `open_in_external_editor(path, editor)` 唤起系统 Markdown 编辑器.
+ * Rust 端对 path 做五重校验 (空 / 扩展名白名单 / `..` 段 / 存在 / is_file) 与
+ * editor 命令拼装 (system / 7 预设 / custom 模板 {{path}} 占位符), 跨平台 spawn.
+ *
+ * 契约:
+ *   - path 为当前已加载 Markdown 绝对路径 (来自 useDocStore.state.currentPath,
+ *     已经过 read_markdown_file 校验).
+ *   - editor 缺省时 Rust 从 preferences.externalEditor 读取.
+ *   - 成功 → resolve(void); 失败 → reject(AppError), code ∈
+ *     {NOT_FOUND, PERMISSION_DENIED, INVALID_PATH, UNKNOWN, IO}.
+ *
+ * @param path 文件绝对路径.
+ * @param editor 目标编辑器预设; 缺省时 Rust 从 preferences 读.
+ */
+export function openInExternalEditor(
+  path: string,
+  editor?: ExternalEditor,
+): Promise<void> {
+  return safeInvoke<void>('open_in_external_editor', { path, editor });
 }
 
 /**
@@ -456,6 +528,93 @@ export function getPendingOpenFile(): Promise<string | null> {
   return safeInvoke<string | null>('get_pending_open_file');
 }
 
+/* -------------------------------------------------------------------------- */
+/* T25 (F-27) — 最近目录 IPC 包装                                              */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * getRecentDirs — F-27 (T25 / FR-02 / AC-02-1 / AC-02-5).
+ *
+ * 取最近目录列表 (按 lastOpenedAt 倒序, 长度 0..8).
+ * - 文件不存在 → `[]`
+ * - 文件损坏 → `[]` (Rust 端静默兜底)
+ * - 当前实现永不 reject.
+ */
+export function getRecentDirs(): Promise<RecentDir[]> {
+  return safeInvoke<RecentDir[]>('get_recent_dirs');
+}
+
+/**
+ * addRecentDir — F-27 (T25 / FR-02 / AC-02-2 / AC-03-1~5).
+ *
+ * 推入一条最近目录 (去重 + 置顶 + 截断到 8 条, 由 Rust 侧保证).
+ *
+ * 错误约定:
+ *   - reject(AppError), code='INVALID_PATH' (空 / `..` 段 / Windows 设备名 / UNC).
+ *   - reject(AppError), code='IO' (持久化失败).
+ *
+ * 注意: 仅当 path 来自用户通过 dialog 显式选择时才调用 (NFR-S-01);
+ * 来自 RecentDirList 点击的 path **不** 应再调此方法 (避免重复写入).
+ */
+export function addRecentDir(path: string): Promise<void> {
+  return safeInvoke<void>('add_recent_dir', { path });
+}
+
+/**
+ * removeRecentDir — F-27 (T25 / FR-02 / AC-03-6 / AC-04-7).
+ *
+ * 从历史中移除一条目录.
+ * - 不存在的 path → 幂等 Ok.
+ * - 错误: INVALID_PATH | IO.
+ */
+export function removeRecentDir(path: string): Promise<void> {
+  return safeInvoke<void>('remove_recent_dir', { path });
+}
+
+/**
+ * clearRecentDirs — F-27 (T25 / FR-02 / AC-03-7 / AC-04-8).
+ *
+ * 清空所有最近目录. 幂等; 错误 → AppError::Io.
+ */
+export function clearRecentDirs(): Promise<void> {
+  return safeInvoke<void>('clear_recent_dirs');
+}
+
+/**
+ * FileFreshPayload — T26 (R-12 修复) 外部编辑器改回刷新 IPC 返回.
+ *
+ * 后端 `commands::get_file_fresh(path)` 一次性带回 mtime + content;
+ * 前端用 mtime 决定是否需要重新 dispatch OPEN_OK, 避免无谓的
+ * 重 render + 滚动位置 / outline / progress 重置.
+ *
+ * 字段顺序与 camelCase 序列化与 src-tauri/src/services/file_fresh.rs 严格对齐
+ * (Rust 侧 #[serde(rename_all = "camelCase")]).
+ */
+export interface FileFreshPayload {
+  /** 自 UNIX 纪元起的秒数 (u64). 0 不会出现 (Rust 侧 mtime 不可读时直接报错). */
+  mtime: number;
+  /** 完整 UTF-8 内容. */
+  content: string;
+}
+
+/**
+ * getFileFresh — T26 (R-12 修复) IPC 包装.
+ *
+ * 安全语义:
+ *   - safeInvoke 包装, 浏览器环境 reject IPCUnavailableError, 调用方 .catch 静默.
+ *   - 错误码 (NOT_FOUND / IO / INVALID_PATH / PERMISSION_DENIED / UNKNOWN) 与
+ *     readMarkdownFile / openInExternalEditor 完全一致, 复用同一份 i18n
+ *     错误码分支 (msg.* 映射), 不引入新翻译键.
+ *
+ * 用途:
+ *   - useFileChangeReload 在 window.focus / visibilitychange 时拉一次,
+ *     对比 lastLoadedMtime, 仅在磁盘比内存新时才 dispatch OPEN_OK.
+ *   - Toolbar 手动刷新按钮 (Cmd/Ctrl+R / 按钮点击) 走同一份 IPC.
+ */
+export function getFileFresh(path: string): Promise<FileFreshPayload> {
+  return safeInvoke<FileFreshPayload>('get_file_fresh', { path });
+}
+
 /** 默认导出聚合对象 (方便消费者 `import { tauri } from '@/lib/tauri'`). */
 export const tauri = {
   readMarkdownFile,
@@ -465,11 +624,18 @@ export const tauri = {
   loadPreferences,
   savePreferences,
   openExternalUrl,
+  openInExternalEditor,
   resolveImagePath,
   setWindowTitle,
   loadProgress,
   saveProgress,
   getPendingOpenFile,
+  // T25 (F-27): 最近目录 4 个 IPC wrapper.
+  getRecentDirs,
+  addRecentDir,
+  removeRecentDir,
+  clearRecentDirs,
+  getFileFresh,
 };
 
 export default tauri;

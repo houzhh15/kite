@@ -280,6 +280,8 @@ export const enUS = {
       historyForward: 'Forward (history)',
       // T24 (F-26): open current document in external editor (Cmd/Ctrl+E).
       openExternalEditor: 'Open current document in external editor',
+      // T26 (R-12 修复) 增量: 重新加载当前文档.
+      reload: 'Reload current document',
     },
   },
   // T24 (F-26): external editor (F-26 §P2) — button / menu / settings group / error copy.
@@ -334,6 +336,10 @@ export const enUS = {
     historyEnd: 'Already at history end',
     progressCorrupted: 'progress data parse failed',
     progressReset: 'Progress data has been reset',
+    // T26 (R-12 修复) 增量: 外部编辑器改回后刷新.
+    reload: 'Refresh',
+    reloadHint: 'Reload current document (Cmd/Ctrl+R)',
+    reloadFailed: 'Reload failed: {{message}}',
   },
   skipLink: {
     label: 'Skip to main content',

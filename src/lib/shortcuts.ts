@@ -35,7 +35,11 @@ export type ShortcutId =
   | 'historyBack'
   | 'historyForward'
   // T16-P2 (FR-03) — 全屏切换快捷键.
-  | 'toggleFullscreen';
+  | 'toggleFullscreen'
+  // T24 (F-26) — 在外部编辑器中打开当前文档.
+  | 'openExternalEditor'
+  // T26 (R-12 修复) — 重新加载当前文档.
+  | 'reload';
 
 /** 修饰键归一化: macOS ⌘ / Win & Linux Ctrl. */
 export type ShortcutModifier = 'mod';
@@ -206,6 +210,27 @@ export const SHORTCUTS: ShortcutDef[] = [
     allowInForm: true,
     label: { mac: '⌘]', other: 'Ctrl+]' },
     i18nKey: 'shortcuts.rows.historyForward',
+  },
+  // ---- T24 (F-26) 在外部编辑器中打开当前文档 ----
+  {
+    id: 'openExternalEditor',
+    key: 'e',
+    modifier: 'mod',
+    preventDefault: true,
+    label: { mac: '⌘E', other: 'Ctrl+E' },
+    i18nKey: 'shortcuts.rows.openExternalEditor',
+  },
+  // ---- T26 (R-12 修复) 重新加载当前文档 ----
+  // 必须 preventDefault: 否则 Tauri Webview 默认 Cmd+R 会触发整页 reload,
+  // 把 webview 状态全部丢弃 (滚动位置 / search 输入 / 抽屉 open 状态全丢).
+  // AC-01: 用户保存外部编辑后, 切回 Kite 用 Cmd+R 强制刷一次.
+  {
+    id: 'reload',
+    key: 'r',
+    modifier: 'mod',
+    preventDefault: true,
+    label: { mac: '⌘R', other: 'Ctrl+R' },
+    i18nKey: 'shortcuts.rows.reload',
   },
 ];
 

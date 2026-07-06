@@ -12,6 +12,11 @@ pub mod markdown_file;
 pub mod preferences;
 pub mod progress;
 pub mod recent_files;
+pub mod recent_dirs;
 pub mod external;
+pub mod external_editor;
 pub mod fs_reader;
 pub mod exporter;
+// T26 (R-12 修复): 外部编辑器改回后刷新. read_file_fresh(path) → {mtime, content}.
+// 复用 external_editor::validate_path 路径校验; 不引入 notify 监听.
+pub mod file_fresh;

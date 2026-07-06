@@ -31,6 +31,10 @@ function makeApi(): {
   historyBack: ReturnType<typeof vi.fn>;
   historyForward: ReturnType<typeof vi.fn>;
   toggleFullscreen: ReturnType<typeof vi.fn>;
+  // T26 (R-12 修复) — reload mock.
+  reload: ReturnType<typeof vi.fn>;
+  // T24 (F-26): openExternalEditor mock.
+  openExternalEditor: ReturnType<typeof vi.fn>;
 } {
   return {
     isSearchOpen: vi.fn(() => false),
@@ -49,6 +53,10 @@ function makeApi(): {
     historyForward: vi.fn(),
     // T16-P2 (FR-03) — 全屏切换 mock.
     toggleFullscreen: vi.fn(),
+    // T24 (F-26) — openExternalEditor mock.
+    openExternalEditor: vi.fn(),
+    // T26 (R-12 修复) — reload mock.
+    reload: vi.fn(),
   };
 }
 
