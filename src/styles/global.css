@@ -73,8 +73,10 @@ body {
 .prose-kite {
   line-height: 1.7;
   color: rgb(var(--color-fg) / 0.9);
-  /* 内容内边距: 上下 32px, 左右 24px. */
-  padding: 2rem 1.5rem;
+  /* 内容内边距: 上下 16px (T26+ 减半 — 之前 2rem / 32px, 与 h1 margin-top
+     1.4em 叠加, 文档首屏顶留白 70+px, 太奢侈; 减半到 1rem 视觉更紧凑),
+     左右 24px 不变. */
+  padding: 1rem 1.5rem;
 }
 /* .prose-kite 块级元素 (table / pre / figure / img / hr / .kite-*) 默认撑满 article,
  * 避免 prose 主题的 max-width 截断.
