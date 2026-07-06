@@ -26,9 +26,12 @@
 #   scripts/install-dev-mac.sh                     # 默认从 src-tauri/target/release/bundle/macos/KITE.app
 #   KITE_APP=path/to/OtherKITE.app scripts/install-dev-mac.sh
 #
-# 参考:
-#   docs/security-audit-exceptions.md (R-07 / R-11 衍生);
-#   上一轮诊断对话 (2026-01-30) 的 "Info.plist=not bound, Sealed Resources=none".
+# 设计依据:
+#   Tauri 2.x macOS bundler 调 codesign(1) 时默认 --ad-hoc + 不设 runtime,
+#   产物里 Info.plist=not bound / Sealed Resources=none,
+#   触发 Apple Silicon 上 Gatekeeper 弹"无法验证是否恶意软件"警告.
+#   xattr -dr com.apple.quarantine 单独执行无法解决, 因为根因是签名不完整,
+#   不是下载隔离属性.
 
 set -euo pipefail
 

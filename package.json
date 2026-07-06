@@ -21,8 +21,6 @@
     "check-bundle-config": "node ./scripts/check-bundle-config.mjs",
     "check-i18n-hardcode": "node ./scripts/check-i18n-hardcode.mjs",
     "check-manual-chunks": "node ./scripts/check-manual-chunks.mjs",
-    "append-release-notes": "node ./scripts/append-release-notes.mjs",
-    "measure-cold-start": "node ./scripts/measure-cold-start.mjs",
     "test": "vitest run"
   },
   "dependencies": {

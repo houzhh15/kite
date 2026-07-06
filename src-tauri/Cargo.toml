@@ -30,7 +30,7 @@ base64 = "0.22"
 default = []
 
 # T13 (F-31 / FR-01) release profile 五项强制参数.
-# 任何放宽必须在 docs/perf.md 写 "DEVIATION:<参数>:<原因>" (C2 / N9).
+# 任何放宽需在 PR 描述中显式标注 DEVIATION:<参数>:<原因> (C2 / N9).
 [profile.release]
 strip = true            # 移除符号表与调试信息 (典型 -2~4MB).
 lto = true              # 跨 crate 内联优化 (典型 -1~3MB + 启动加速).

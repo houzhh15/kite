@@ -2,28 +2,30 @@
 /**
  * measure-cold-start.mjs — T13 step-14a (FR-09 / N8 / AC-08-2)
  *
- * 采集 5 次 cold_to_paint 样本, 计算 μ / σ / σ/μ, append 到 docs/perf.md.
+ * 采集 5 次 cold_to_paint 样本, 计算 μ / σ / σμ, 输出到 stdout.
+ *
+ * 历史：曾经 append 到仓库内已被移除的 perf 文档。仓库已不再保留内部过程文档，
+ * 脚本现在直接把汇总打印到 stdout（CI / 本地均可通过管道捕获）。
  *
  * 工作模式:
- *   - 默认模式 (--interactive=false): 通过 Tauri 应用产物的 spawn (按平台选择),
+ *   - 默认模式 (--interactive=true): 通过 Tauri 应用产物的 spawn (按平台选择),
  *     解析子进程 stdout 中 `[perf] cold_to_paint: <float> ms`, 收集 5 次样本.
  *   - 离线模式 (--input <json>): 读取 5 次预采集的样本 (例如 CI 拆分机器先各跑一次),
- *     单独跑 μ/σ/σμ 计算 + append.
- *   - 一次性调试: 直接传 `--manual` + 5 个数字 argv 计算 + append.
+ *     单独跑 μ/σ/σμ 计算.
+ *   - 一次性调试: 直接传 `--manual` + 5 个数字 argv 计算.
  *
  * 通用流程:
  *   1. 收集 samples[] = [n1,n2,n3,n4,n5] (ms).
  *   2. 计算 μ / σ (population stddev) / σμ (相对偏差).
  *   3. 若 K3 (μ) < 2000ms && σμ < 0.20 -> verdict PASS; 否则 FAIL.
- *   4. 把表格 markdown 块 append 到 docs/perf.md (在原有 "## 启动性能 (K3/K4)" 段落下).
  *
  * 注意:
- *   - 不强依赖任何外部测时库; 30 行实现即可.
+ *   - 不强依赖任何外部测时库.
  *   - runner 上若产物路径不可达 (无 cargo build), 应优先 `--input` 由 setup
  *     步骤给定预采集值, 不要阻塞 CI.
  */
 
-import { readFile, writeFile, appendFile } from 'node:fs/promises';
+import { readFileSync } from 'node:fs';
 import { existsSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import { dirname, resolve } from 'node:path';
@@ -32,7 +34,6 @@ import { fileURLToPath } from 'node:url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const REPO_ROOT = resolve(__dirname, '..');
-const PERF_MD = resolve(REPO_ROOT, 'docs', 'perf.md');
 
 const N = 5;
 const TARGET_K3_MS = 2000;
@@ -71,7 +72,6 @@ function printHelp() {
 async function collectInteractive(timeoutMs) {
   // 平台差异: Windows -> src-tauri/target/release/kite.exe;
   //           macOS   -> src-tauri/target/release/bundle/macos/Kite.app
-  // 这里为简单起见假设存在可执行二进制 (cargo tauri build 完成后必有).
   const exe = resolve(REPO_ROOT, 'src-tauri', 'target', 'release', 'kite');
   const macosApp = resolve(REPO_ROOT, 'src-tauri', 'target', 'release', 'bundle', 'macos', 'Kite.app', 'Contents', 'MacOS', 'Kite');
   const candidate = process.platform === 'darwin' && existsSync(macosApp) ? macosApp : exe;
@@ -141,7 +141,7 @@ function runOnce(bin, timeoutMs) {
 }
 
 async function readSamplesFromInput(path) {
-  const raw = await readFile(path, 'utf8');
+  const raw = readFileSync(path, 'utf8');
   const j = JSON.parse(raw);
   if (!Array.isArray(j.samples) || j.samples.length < N) {
     throw new Error('input file must include samples[] of length >= 5');
@@ -174,44 +174,21 @@ function computeStats(samples) {
   return { samples, mu, sigma, ratio, k3Pass, k4Pass };
 }
 
-async function appendToPerfMd(stats) {
-  if (!existsSync(PERF_MD)) {
-    console.error(`[measure-cold-start] ${PERF_MD} 不存在, 跳过 append.`);
-    return;
-  }
-  const original = await readFile(PERF_MD, 'utf8');
-  const tableLines = [
-    '',
-    '<!-- measure-cold-start.mjs auto-append (' + new Date().toISOString() + ') -->',
-    '| Run | cold_to_paint (ms) |',
-    '| --- | ------------------ |',
-    ...stats.samples.map((v, i) => `| ${i + 1}   | ${v.toFixed(1)}             |`),
-    '',
+function formatReport(stats) {
+  const lines = [];
+  lines.push('');
+  lines.push(`<!-- measure-cold-start.mjs (${new Date().toISOString()}) -->`);
+  lines.push('| Run | cold_to_paint (ms) |');
+  lines.push('| --- | ------------------ |');
+  stats.samples.forEach((v, i) => lines.push(`| ${i + 1}   | ${v.toFixed(1)}             |`));
+  lines.push('');
+  lines.push(
     `μ = ${stats.mu.toFixed(1)} ms, σ = ${stats.sigma.toFixed(1)} ms, σ/μ = ${stats.ratio.toFixed(3)} (< ${TARGET_SIGMA_RATIO} ? ${stats.k4Pass ? '✅' : 'FAIL ❌'})`,
-    '',
-  ];
-  const block = tableLines.join('\n');
-  // 替换 "## 启动性能 (K3/K4) — 10MB 文档冷启动" 表格里 "待测量" 行,
-  // 简化处理: append 在文件末尾的 ## 启动性能段下.
-  const updated = original.replace(
-    /(\| 5\s+\| 待测量\s+\|)/,
-    stats.samples
-      .map((v, i) => `| ${i + 1}   | ${v.toFixed(1)} |`)
-      .join('\n'),
   );
-  // 同步追加 verdict 段.
-  const verdict = [
-    '',
-    `> **Auto-appended (${new Date().toISOString()})**:`,
-    `> μ = ${stats.mu.toFixed(1)} ms, σ = ${stats.sigma.toFixed(1)} ms, σ/μ = ${stats.ratio.toFixed(3)}`,
-    `> K3 (μ < ${TARGET_K3_MS} ms): ${stats.k3Pass ? 'PASS' : 'FAIL'}`,
-    `> K4 (σ/μ < ${TARGET_SIGMA_RATIO}): ${stats.k4Pass ? 'PASS' : 'FAIL'}`,
-    '',
-  ].join('\n');
-
-  await writeFile(PERF_MD, updated + verdict, 'utf8');
-  void appendFile; // 保留以备 CLI 直接 append 用.
-  void block;       // 暂不作为最终追加路径使用.
+  lines.push(`K3 (μ < ${TARGET_K3_MS} ms): ${stats.k3Pass ? 'PASS' : 'FAIL'}`);
+  lines.push(`K4 (σ/μ < ${TARGET_SIGMA_RATIO}): ${stats.k4Pass ? 'PASS' : 'FAIL'}`);
+  lines.push('');
+  return lines.join('\n');
 }
 
 async function main() {
@@ -243,8 +220,7 @@ async function main() {
     `[measure-cold-start] samples=${samples.map((s) => s.toFixed(1)).join(', ')} ` +
       `μ=${stats.mu.toFixed(1)} σ=${stats.sigma.toFixed(1)} σμ=${stats.ratio.toFixed(3)}`,
   );
-
-  await appendToPerfMd(stats);
+  console.log(formatReport(stats));
 
   if (!stats.k3Pass || !stats.k4Pass) {
     console.error('[measure-cold-start] K3/K4 FAIL.');

@@ -32,10 +32,9 @@ const FORBIDDEN = [
   'chokidar',
   'electron',
   'nut-tree',
-  // T23.4 (FR-04 / AC-04-2): volume governance — Reject `mermaid-vendor-bin`
+  // T23.4 (FR-04 / AC-04-2): volume governance — reject `mermaid-vendor-bin`
   // on the npm side as well (the Rust-side lockfile is covered by the
-  // --cve audit pass in the same script). See
-  // docs/decisions/ADR-T23-mermaid-vendor-bin.md.
+  // --cve audit pass in the same script).
   'mermaid-vendor-bin',
 ];
 

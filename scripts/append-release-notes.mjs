@@ -4,9 +4,11 @@
  *
  * 扫描 `--artifact-dir` 中的打包产物（*.dmg / *.app / *.msi / *.exe），
  * 计算 SHA256 + Bytes；与 `--version`（默认 package.json version）校验；
- * 汇总 commit range（`git log <prev>..HEAD --oneline`）；追加一段到
- * `docs/release-notes.md`。同时把豁免审计列表（docs/security-audit-exceptions.md
- * 的 Active Exceptions 段）作为 audit ignore 来源附在尾部。
+ * 汇总 commit range（`git log <prev>..HEAD --oneline`）。
+ *
+ * 历史：曾经 append 到仓库内已被移除的 release-notes / perf / audit-exceptions
+ * 文档。该流程已废弃（仓库已不再保留内部过程文档）；脚本现在仅把汇总打印到
+ * stdout，并在 GitHub Actions 环境下写入 `$GITHUB_STEP_SUMMARY`。
  *
  * 退出码：
  *   0 = 成功
@@ -20,7 +22,7 @@
  */
 
 import { createHash } from 'node:crypto';
-import { createReadStream, readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { createReadStream, readFileSync } from 'node:fs';
 import { readdir, stat } from 'node:fs/promises';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -31,8 +33,6 @@ const __dirname = dirname(__filename);
 
 const REPO_ROOT = resolve(__dirname, '..');
 const PKG = JSON.parse(readFileSync(join(REPO_ROOT, 'package.json'), 'utf8'));
-const RELEASE_NOTES_PATH = join(REPO_ROOT, 'docs', 'release-notes.md');
-const AUDIT_EXCEPTIONS_PATH = join(REPO_ROOT, 'docs', 'security-audit-exceptions.md');
 
 const ARTIFACT_GLOBS = ['.dmg', '.app', '.msi', '.exe'];
 
@@ -109,30 +109,6 @@ async function findArtifacts(dir) {
   return out;
 }
 
-function readAuditExceptions() {
-  if (!existsSync(AUDIT_EXCEPTIONS_PATH)) return [];
-  const body = readFileSync(AUDIT_EXCEPTIONS_PATH, 'utf8');
-  const lines = body.split('\n');
-  const rows = [];
-  let inTable = false;
-  for (const line of lines) {
-    if (line.startsWith('| Advisory')) { inTable = true; continue; }
-    if (inTable && line.startsWith('|---')) continue;
-    if (inTable && line.startsWith('|')) {
-      const cells = line.split('|').map((c) => c.trim()).filter(Boolean);
-      if (cells.length >= 3 && cells[0] && cells[0] !== '_empty_') {
-        const sev = cells[1];
-        if (sev && ['Low', 'Medium'].includes(sev)) {
-          rows.push({ advisory: cells[0], severity: sev, reason: cells[3] || '' });
-        }
-      }
-    } else if (inTable && line.trim() === '') {
-      break;
-    }
-  }
-  return rows;
-}
-
 function isoDate(d = new Date()) {
   return d.toISOString().slice(0, 10);
 }
@@ -178,11 +154,9 @@ async function main() {
     });
   }
 
-  const auditExceptions = readAuditExceptions();
   const dateStr = isoDate();
-  const heading = `## v${version} (${dateStr})`;
 
-  let md = `\n${heading}\n\n`;
+  let md = `\n## v${version} (${dateStr})\n\n`;
   md += `### Commit range (${prevTag}..HEAD)\n\n`;
   md += '```\n' + commitList + '\n```\n\n';
   md += `### Artifacts\n\n`;
@@ -191,34 +165,18 @@ async function main() {
     md += `| \`${r.file}\` | ${r.bytes} | \`${r.sha256}\` |\n`;
   }
   md += '\n';
-  md += `### Audit\n\n`;
-  if (auditExceptions.length === 0) {
-    md += '_No active audit exceptions recorded. cargo audit + npm audit both gate the release._\n';
-  } else {
-    md += 'Active audit exceptions (Low / Medium only; High / Critical block release):\n\n';
-    md += '| Advisory | Severity | Reason |\n| --- | --- | --- |\n';
-    for (const e of auditExceptions) {
-      md += `| \`${e.advisory}\` | ${e.severity} | ${e.reason} |\n`;
-    }
-  }
-  md += '\n';
 
-  // append (do NOT touch H1)
-  let existing = '';
-  if (existsSync(RELEASE_NOTES_PATH)) {
-    existing = readFileSync(RELEASE_NOTES_PATH, 'utf8');
-    if (!existing.endsWith('\n')) existing += '\n';
-  }
-  writeFileSync(RELEASE_NOTES_PATH, existing + md, 'utf8');
+  // stdout: 完整 markdown 段（CI / 本地均可直接捕获并发布到 release notes / GitHub release）
+  console.log(md);
 
   // GitHub Actions step summary
   if (process.env.GITHUB_STEP_SUMMARY) {
+    const { writeFileSync } = await import('node:fs');
     let summary = `### Release v${version} (${dateStr})\n\n`;
     summary += `**Artifacts**: ${rows.length}\n\n`;
     for (const r of rows) {
       summary += `- \`${r.file}\` (${r.bytes} B, sha256:${r.sha256.slice(0, 12)}…)\n`;
     }
-    summary += `\n_Appended to docs/release-notes.md._\n`;
     try {
       writeFileSync(process.env.GITHUB_STEP_SUMMARY, summary, { flag: 'a' });
     } catch {
@@ -226,7 +184,6 @@ async function main() {
     }
   }
 
-  console.log(`append-release-notes: appended v${version} (${rows.length} artifacts)`);
   process.exit(0);
 }
 
