@@ -90,8 +90,9 @@
 }
 
 /* 行内代码不应进入 Tab 序列 (AC-15-3).
-   T27 (R-14) 最终回退: 彻底不限制 user-select, 浏览器默认行为管所有.
-   原 `.prose-kite code { user-select: text }` 也回退, 默认 `<code>` 已可选. */
+   T27 (R-14) 最终策略: 默认全禁选 + white-list 仅 .prose-kite block 元素 + 链接.
+   这一条原本是 inline `<code>` 的 user-select: text, 但 R-14 white-list
+   不再列 `<code>`, 浏览器默认即可选 — 故删除. */
 
 /* Wiki 链接未命中视觉降级 (FR-09 / AC-09-2). */
 .prose-kite a.wiki-missing {
@@ -143,4 +144,54 @@
   border-radius: 0.3em;
   background: rgb(var(--color-fg) / 0.06);
   color: rgb(var(--color-fg) / 0.8);
+}
+
+
+/* ---- T27 (R-14 修复) 跨容器文本拖选限制 (white-list) ----
+   目标 (用户明确要求):
+     1) 跨容器禁选 — 用户从 Toolbar 起拖到 Reader 时, 不应选中整个 UI.
+        之前反复打补丁搞复杂就是因为这个核心需求反复被 trade-off 掉.
+     2) 中栏 (Outline / 文档标题目录) 不参与拖选.
+     3) 左栏 (FileTree) 不参与拖选.
+     4) Toolbar chrome 不参与拖选.
+     5) 只有右栏 (Reader / .prose-kite) 可选 — 用户复制 markdown 正文.
+
+   修法:
+     - 默认所有元素禁选 (`html, body, *`), 阻断跨容器拖选.
+     - white-list 只列 .prose-kite 内的 **block 元素** + 链接 + 代码块.
+     - 不列 inline formatting tags (strong / em / b / i / u / s / mark / del / ins /
+       sub / sup / kbd / abbr / cite / q / dfn / var / samp / small / time) —
+       用户接受的取舍: 粗体 / 强调段复制会跳过这些元素, 但换取 chrome 不被误选中.
+     - 不列 span — CodeBlock 的 lang / 复制 / 展开按钮都是 span (虽然它们是
+       prose-kite 的后代, 但用户期望 chrome 不被拖选). 用 descendant combinator
+       `.prose-kite pre code` 让 `<code>` 元素本身可选; 不递归 `pre code *` —
+       语法高亮 span 不可选 (用户接受).
+     - 选区高亮色回浏览器默认 (不上 ::selection 覆盖). */
+
+/* 1) 默认全禁选. */
+html, body, * {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* 2) white-list: 只有右栏的 block 元素 + 链接 + 代码块本身 (不递归 descendants). */
+.prose-kite p,
+.prose-kite h1,
+.prose-kite h2,
+.prose-kite h3,
+.prose-kite h4,
+.prose-kite h5,
+.prose-kite h6,
+.prose-kite li,
+.prose-kite blockquote,
+.prose-kite pre,
+.prose-kite pre code,
+.prose-kite table,
+.prose-kite th,
+.prose-kite td,
+.prose-kite dd,
+.prose-kite dt,
+.prose-kite a {
+  -webkit-user-select: text;
+  user-select: text;
 }
