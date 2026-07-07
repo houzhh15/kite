@@ -90,9 +90,8 @@
 }
 
 /* 行内代码不应进入 Tab 序列 (AC-15-3).
-   T27 (R-14) 最终策略: 默认全禁选 + white-list 仅 .prose-kite block 元素 + 链接.
-   这一条原本是 inline `<code>` 的 user-select: text, 但 R-14 white-list
-   不再列 `<code>`, 浏览器默认即可选 — 故删除. */
+   T27 (R-14) 增量: `.prose-kite code` 已加入 user-select white-list (行 204),
+   让反引号行内代码可选中. 同时继承 `* { user-select: none }` 的跨容器禁选. */
 
 /* Wiki 链接未命中视觉降级 (FR-09 / AC-09-2). */
 .prose-kite a.wiki-missing {
@@ -158,14 +157,10 @@
 
    修法:
      - 默认所有元素禁选 (`html, body, *`), 阻断跨容器拖选.
-     - white-list 只列 .prose-kite 内的 **block 元素** + 链接 + 代码块.
-     - 不列 inline formatting tags (strong / em / b / i / u / s / mark / del / ins /
-       sub / sup / kbd / abbr / cite / q / dfn / var / samp / small / time) —
-       用户接受的取舍: 粗体 / 强调段复制会跳过这些元素, 但换取 chrome 不被误选中.
-     - 不列 span — CodeBlock 的 lang / 复制 / 展开按钮都是 span (虽然它们是
-       prose-kite 的后代, 但用户期望 chrome 不被拖选). 用 descendant combinator
-       `.prose-kite pre code` 让 `<code>` 元素本身可选; 不递归 `pre code *` —
-       语法高亮 span 不可选 (用户接受).
+     - white-list 只列 .prose-kite 内的 block 元素 + 链接 + 代码块 + inline formatting tags.
+     - 不列 span — CodeBlock chrome 的 lang / 复制 / 展开按钮都用 <span>，加入会误选.
+     - 列 strong/em/mark/del/sub/sup/code/b/i/u/kbd 等 — 这些标签不被 CodeBlock
+       chrome 使用，加进 white-list 无副作用，让粗体/高亮/行内代码均可正常选中.
      - 选区高亮色回浏览器默认 (不上 ::selection 覆盖). */
 
 /* 1) 默认全禁选. */
@@ -174,7 +169,7 @@ html, body, * {
   user-select: none;
 }
 
-/* 2) white-list: 只有右栏的 block 元素 + 链接 + 代码块本身 (不递归 descendants). */
+/* 2) white-list: 右栏 block 元素 + inline formatting + 链接 + 代码块 (不加 span). */
 .prose-kite p,
 .prose-kite h1,
 .prose-kite h2,
@@ -191,7 +186,22 @@ html, body, * {
 .prose-kite td,
 .prose-kite dd,
 .prose-kite dt,
-.prose-kite a {
+.prose-kite a,
+/* inline formatting: 让粗体/斜体/高亮/删除线/行内代码/上下标等可选中.
+   不含 span (CodeBlock chrome 用 span, 加入会误选 chrome). */
+.prose-kite strong,
+.prose-kite b,
+.prose-kite em,
+.prose-kite i,
+.prose-kite u,
+.prose-kite s,
+.prose-kite mark,
+.prose-kite del,
+.prose-kite ins,
+.prose-kite sub,
+.prose-kite sup,
+.prose-kite code,
+.prose-kite kbd {
   -webkit-user-select: text;
   user-select: text;
 }
