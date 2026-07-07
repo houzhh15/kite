@@ -89,11 +89,9 @@
   font-size: inherit;
 }
 
-/* 行内代码不应进入 Tab 序列 (AC-15-3). */
-.prose-kite code {
-  -webkit-user-select: text;
-  user-select: text;
-}
+/* 行内代码不应进入 Tab 序列 (AC-15-3).
+   T27 (R-14) 最终回退: 彻底不限制 user-select, 浏览器默认行为管所有.
+   原 `.prose-kite code { user-select: text }` 也回退, 默认 `<code>` 已可选. */
 
 /* Wiki 链接未命中视觉降级 (FR-09 / AC-09-2). */
 .prose-kite a.wiki-missing {
@@ -145,38 +143,4 @@
   border-radius: 0.3em;
   background: rgb(var(--color-fg) / 0.06);
   color: rgb(var(--color-fg) / 0.8);
-}
-
-/* ---- T27 (R-14 修复) 增量: 跨容器文本拖选限制 ----
-   背景: webview 默认让用户拖选任意 DOM 元素, 用户从 Toolbar 拖到 Reader 会
-         选中整个 UI 的文本 (Toolbar 按钮文字 + FileTree 文件名 + Outline 标题
-         + Reader 正文), 影响阅读/复制体验. 期望: 拖选只在文本展示区生效.
-   修法: 默认 body { user-select: none }, 只在 Reader 容器 + 文章区显式允许.
-         Reader 内部 p/h1/code/blockquote 等天然继承 user-select: text (MDN 推荐).
-   -webkit-user-select 是 Safari / WebKit 内核 webview 的旧 prefix, 同步加.
-   注意: button / input / textarea / [contenteditable] 不受此规则影响
-         (浏览器特殊 case), 按钮上的 label 文字也不会被拖选. */
-html, body {
-  -webkit-user-select: none;
-  user-select: none;
-}
-
-/* Reader 容器 (含 outline 内嵌) 重新允许选中文本.
-   用户拖选只能圈住 Reader 内的 markdown 文本, 拖出边界就停止. */
-[data-testid="reader"],
-[data-testid="reader"] *,
-.prose-kite,
-.prose-kite * {
-  -webkit-user-select: text;
-  user-select: text;
-}
-
-/* 选区高亮色与 Tailwind 主题一致 (默认 webkit 蓝 #9ab8ff 在亮色下太亮, 深色下偏暗). */
-::selection {
-  background: rgb(var(--color-accent) / 0.32);
-  color: inherit;
-}
-::-moz-selection {
-  background: rgb(var(--color-accent) / 0.32);
-  color: inherit;
 }
