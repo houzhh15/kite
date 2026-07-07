@@ -144,6 +144,17 @@ export default function App(): JSX.Element {
   // T11: progressStore.hydrated=true 后, 一次性调 tryRestoreLastPath (FR-10).
   const progressHydrated = useProgressStore((s) => s.hydrated);
   const restoreAttemptedRef = useRef(false);
+  // T26+ (R-13 修复) 增量: 跨 effect 协调 open-file 已处理信号.
+  //   背景: 上一版 R-12 只解决了「getPendingOpenFile 抢 argv」的 race. 但还有个
+  //   时序 bug: progressStore hydrate 速度在 macOS / Windows 上不同. macOS 上
+  //   hydrate 足够快, restore effect 先跑抢先拿到 argv → 用 argv 跳过 restore.
+  //   Windows 上 hydrate 慢, open-file effect 先跑 loadFile(B.md) → 之后
+  //   hydrate 完成, restore effect 还是照样跑 → tryRestoreLastPath() 用
+  //   progress.lastPath = A.md 覆盖了 B.md. 用户看到上一个文档.
+  //   修法: open-file effect 成功 loadFile 时置 openFileHandledRef=true;
+  //         restore effect 跑之前先看这个 ref, 已处理就直接早返回, 不再
+  //         tryRestoreLastPath. 这样无论哪个 effect 先跑, 都不会互相覆盖.
+  const openFileHandledRef = useRef(false);
   // T26+ (R-12 修复) 增量: restore 之前先 peek PendingOpen.
   //   原因: 用户从 Finder 双击 .md 启动 KITE, 冷启动 argv 已 cache 进 PendingOpen.
   //   但 progressStore.hydrated 通常比 getPendingOpenFile IPC resolve 更快, 导致
@@ -154,6 +165,10 @@ export default function App(): JSX.Element {
   useEffect(() => {
     if (!progressHydrated) return;
     if (restoreAttemptedRef.current) return;
+    // T26+ (R-13 修复): 如果 open-file effect 已经处理过 argv, restore 不应再跑.
+    // 场景: Windows hydrate 慢, open-file 先 loadFile(B), hydrate 完成后
+    // restore effect 仍会触发; 这里早返回避免用 progress.lastPath 覆盖 B.
+    if (openFileHandledRef.current) return;
     void (async () => {
       let pending: string | null = null;
       try {
@@ -166,9 +181,12 @@ export default function App(): JSX.Element {
       // 拿到 argv → 抢先 loadFile; 另一个 effect 拿到 None 时会 no-op.
       // 拿到 None → 走 progress restore.
       if (decision.action === "open") {
+        openFileHandledRef.current = true;
         void loadFile(decision.path);
         return;
       }
+      // 二次防护: PendingOpen 被对方抢走 / 对方已完成 loadFile → 不要 restore.
+      if (openFileHandledRef.current) return;
       void tryRestoreLastPath();
     })();
   }, [progressHydrated, tryRestoreLastPath, loadFile]);
@@ -196,6 +214,9 @@ export default function App(): JSX.Element {
       try {
         const path = await getPendingOpenFile();
         if (typeof path === 'string' && path.length > 0) {
+          // T26+ (R-13 修复): 标记 open-file 已处理, restore effect 看到后早返回.
+          // 解决 Windows 上 progress hydrate 慢时 restore 用旧 progress 覆盖新文件.
+          openFileHandledRef.current = true;
           onOpened(path);
         }
         // 拿到 None → restore effect 抢先 loadFile 了, 这里 no-op.
