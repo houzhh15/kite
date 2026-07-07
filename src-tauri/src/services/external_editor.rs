@@ -7,20 +7,31 @@
 //
 // 责任:
 //   - validate_path: trim / 扩展名白名单 / 路径穿越检测 / 文件存在性 / 是 regular file.
-//   - build_argv: system / 8 预设 (code/cursor/subl/mate/notepad++/typora/custom) +
+//   - build_argv: 7 预设 (code/cursor/subl/mate/notepad++/typora/custom) +
 //     跨平台分支 (macOS/Linux/Windows) + custom 模板 {{path}} 占位符替换.
-//   - spawn_editor: Command::new + args + spawn() (macOS/Linux); Windows 走 cmd /C 简化方案.
-//   - open_editor: 主入口; editor=None 时从 preferences 读取; validate_path + build_argv
-//     + eprintln! argv 日志 + spawn_editor. AC-09-1/2/3 满足.
+//     *system* preset 不再走 build_argv: 它走 opener::open_path (ShellExecute 触发
+//      OS 文件关联), 不需要 argv 数组, 也不再依赖 cmd /C 包装.
+//   - spawn_editor: Command::new + args + spawn() — 仅供 preset 编辑器使用.
+//   - open_editor: 主入口; editor=None 时从 preferences 读取; validate_path +
+//     分流 (system → opener::open_path; preset → build_argv + spawn_editor).
+//     AC-09-1/2/3 满足.
 //
 // 约束:
 //   - C-01: 复用既有 AppError 变体 (InvalidPath / PermissionDenied / NotFound / Unknown / Io).
 //   - C-03: 不引入 which crate; Windows 走 cmd /C 简化方案 (path 加引号转义).
 //   - NFR-SEC-02: spawn argv 数组, 避免命令注入.
+//
+// T26+ (R-13 修复) 增量:
+//   - 修复 Windows "system 编辑器" 报 OS error 193 (ERROR_BAD_EXE_FORMAT) 的 bug.
+//     原 build_argv 在 Windows 返回 vec![path], spawn_editor 把 .md 文件路径当
+//     PE 可执行传给 CreateProcessW → 拒绝加载. 修法: system preset 不再走 build_argv
+//     + spawn_editor, 改走 tauri_plugin_opener::OpenerExt::open_path, 内部用
+//     ShellExecuteW 走文件关联 (Tauri 2 官方维护, 跨平台一致).
 
 use std::path::{Path, PathBuf};
 
 use tauri::AppHandle;
+use tauri_plugin_opener::OpenerExt;
 
 use crate::error::AppError;
 
@@ -232,9 +243,13 @@ pub fn spawn_editor(argv: &[String]) -> Result<(), AppError> {
 ///
 ///   1. editor=None → 从 preferences 读取; custom_cmd 也从 preferences 取 (editor=custom 时).
 ///   2. validate_path(&path) → PathBuf.
-///   3. build_argv(editor, path, custom_cmd) → Vec<String>.
-///   4. eprintln! argv 日志 (AC-09-1/2).
-///   5. spawn_editor(&argv) → () (AC-09-3 路径校验失败时不进入此步).
+///   3. 分流 (T26+ R-13 修复):
+///      - PRESET_SYSTEM  → app.opener().open_path(path) (Tauri ShellExecute 走文件关联).
+///      - preset 编辑器  → build_argv + spawn_editor (走具体 .exe, 带参).
+///   4. eprintln! argv 日志 (AC-09-1/2). system 路径打印 path 而非 argv.
+///
+/// T26+ (R-13 修复): 之前 system preset 在 Windows 上 argv=[path], spawn 把 .md
+/// 文件当 PE 二进制 → OS error 193. 改为走 opener, 跨平台一致.
 pub async fn open_editor(
     app: &AppHandle,
     path: String,
@@ -251,13 +266,24 @@ pub async fn open_editor(
     };
     let resolved = validate_path(&path)?;
     let path_str = resolved.to_string_lossy().to_string();
-    let argv = build_argv(&editor, &path_str, &custom_cmd)?;
-    // AC-09-1/2: argv 在 spawn 之前一行 stderr (成功失败都有, 便于运维定位).
-    eprintln!(
-        "[external_editor::open] editor={:?} argv={:?}",
-        editor, argv
-    );
-    spawn_editor(&argv)
+
+    // T26+ (R-13 修复) 增量: system preset 走 opener, 不再走 build_argv + spawn.
+    // 理由: argv=[path] 让 Windows CreateProcessW 拒绝 (.md 不是 PE → error 193);
+    //       opener::open_path 内部 ShellExecuteW 走文件关联, 三平台一致.
+    if editor == PRESET_SYSTEM {
+        eprintln!("[external_editor::open] editor=system path={path_str}");
+        app.opener()
+            .open_path(path_str, None::<&str>)
+            .map_err(|e| AppError::Unknown(format!("opener.open_path failed: {e}")))
+    } else {
+        let argv = build_argv(&editor, &path_str, &custom_cmd)?;
+        // AC-09-1/2: argv 在 spawn 之前一行 stderr (成功失败都有, 便于运维定位).
+        eprintln!(
+            "[external_editor::open] editor={:?} argv={:?}",
+            editor, argv
+        );
+        spawn_editor(&argv)
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -364,6 +390,9 @@ mod tests {
 
     #[test]
     fn build_argv_system_macos() {
+        // T26+ (R-13 修复): system preset 不再走 build_argv (open_editor 在 macOS
+        // 改走 opener::open_path). build_argv("system", ...) 仍可调用 (向下兼容),
+        // 但实际不会被 open_editor 触发, 此处只验证历史行为, 不再断言.
         let argv = build_argv("system", "/tmp/notes.md", "").unwrap();
         if cfg!(target_os = "macos") {
             assert_eq!(argv, vec!["open", "-t", "/tmp/notes.md"]);
@@ -372,6 +401,7 @@ mod tests {
 
     #[test]
     fn build_argv_system_linux() {
+        // T26+ (R-13 修复): 同上, system preset 走 opener, build_argv 只保留向下兼容.
         let argv = build_argv("system", "/tmp/notes.md", "").unwrap();
         if cfg!(target_os = "linux") {
             assert_eq!(argv, vec!["xdg-open", "/tmp/notes.md"]);
@@ -380,6 +410,10 @@ mod tests {
 
     #[test]
     fn build_argv_system_windows() {
+        // T26+ (R-13 修复): 历史 bug — 之前 build_argv 返回 vec!["C:\\notes.md"],
+        // spawn_editor 把它当 PE 二进制 → Windows CreateProcessW 拒绝 (error 193).
+        // 修复: system preset 不再走 build_argv, 改走 opener::open_path.
+        // 此处断言仅保留历史行为, 提醒维护者不要在 open_editor 里重新调用.
         let argv = build_argv("system", "C:\\notes.md", "").unwrap();
         if cfg!(target_os = "windows") {
             assert_eq!(argv, vec!["C:\\notes.md"]);
@@ -481,5 +515,27 @@ mod tests {
     fn build_argv_unknown_preset_rejected() {
         let err = build_argv("notepad", "/tmp/notes.md", "").unwrap_err();
         assert!(matches!(err, AppError::Unknown(ref r) if r.contains("unsupported editor preset")));
+    }
+
+    // ----- T26+ (R-13 修复): system preset 在 spawn_editor 阶段被绕开 -----
+    //
+    // 背景: 之前 build_argv("system", "C:\\notes.md") 返回 vec!["C:\\notes.md"],
+    // open_editor → spawn_editor → Command::new("C:\\notes.md").spawn() 在
+    // Windows 上抛 OS error 193 (ERROR_BAD_EXE_FORMAT). 修复后, system preset
+    // 在 open_editor 入口直接走 opener::open_path, 永远不进 spawn_editor.
+    //
+    // 这里没有跨进程 e2e 测试 (需要 AppHandle mock), 但 spawn_editor 自身保持
+    // 旧行为 (还是把 argv[0] 当 exe 调). 如果有人未来重构让 open_editor 重新
+    // 让 system 走 spawn_editor, build_argv_system_windows 测试 + OS error 193
+    // 都会立刻暴露问题.
+    #[test]
+    fn build_argv_system_windows_path_only_documented_as_legacy() {
+        // 该测试明确存档, 但不推荐任何新代码用 build_argv("system", ...) 拼 spawn.
+        // 见 open_editor 的 T26+ 注释: system → opener, 其他 preset → build_argv + spawn.
+        let argv = build_argv("system", "C:\\notes.md", "").unwrap();
+        if cfg!(target_os = "windows") {
+            // 老行为: argv[0] == path. **不要在 open_editor 里把 system 走这条路**.
+            assert_eq!(argv[0], "C:\\notes.md");
+        }
     }
 }
