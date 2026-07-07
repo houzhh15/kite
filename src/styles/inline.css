@@ -158,7 +158,9 @@
    修法:
      - 默认所有元素禁选 (`html, body, *`), 阻断跨容器拖选.
      - white-list 只列 .prose-kite 内的 block 元素 + 链接 + 代码块 + inline formatting tags.
-     - 不列 span — CodeBlock chrome 的 lang / 复制 / 展开按钮都用 <span>，加入会误选.
+     - span 仅限 `.prose-kite pre code span` — 只匹配 <code> 内部的 highlight.js
+       语法 token (keyword/string/comment 等), 不匹配 CodeBlock toolbar 的 <span>
+       (在 <pre> > <div> > <span>, 不在 <code> 内部).
      - 列 strong/em/mark/del/sub/sup/code/b/i/u/kbd 等 — 这些标签不被 CodeBlock
        chrome 使用，加进 white-list 无副作用，让粗体/高亮/行内代码均可正常选中.
      - 选区高亮色回浏览器默认 (不上 ::selection 覆盖). */
@@ -169,7 +171,9 @@ html, body, * {
   user-select: none;
 }
 
-/* 2) white-list: 右栏 block 元素 + inline formatting + 链接 + 代码块 (不加 span). */
+/* 2) white-list: 右栏 block 元素 + inline formatting + 链接 + 代码块 + 代码块内 span.
+   span 分两层: .prose-kite pre code span 匹配 <code> 内部的 highlight.js 语法 token;
+   不匹配 CodeBlock toolbar 的 <span> (它在 <pre> > <div> > <span>, 不在 <code> 内). */
 .prose-kite p,
 .prose-kite h1,
 .prose-kite h2,
@@ -181,6 +185,7 @@ html, body, * {
 .prose-kite blockquote,
 .prose-kite pre,
 .prose-kite pre code,
+.prose-kite pre code span,
 .prose-kite table,
 .prose-kite th,
 .prose-kite td,
@@ -188,7 +193,8 @@ html, body, * {
 .prose-kite dt,
 .prose-kite a,
 /* inline formatting: 让粗体/斜体/高亮/删除线/行内代码/上下标等可选中.
-   不含 span (CodeBlock chrome 用 span, 加入会误选 chrome). */
+   不含 span (CodeBlock chrome 用 span, 加入会误选 chrome).
+   代码块内的 span 用 .prose-kite pre code span 单独覆盖. */
 .prose-kite strong,
 .prose-kite b,
 .prose-kite em,
