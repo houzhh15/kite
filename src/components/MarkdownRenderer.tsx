@@ -43,6 +43,7 @@ import HeadingAnchor from './inline/HeadingAnchor';
 import { isMermaidBlock } from '../lib/mermaidDetect';
 import { useImageViewer } from '../hooks/useImageViewer';
 import { remarkInlineMarks } from '../lib/inline/remarkInlineMarks';
+import { remarkHtmlToText } from '../lib/inline/remarkHtmlToText';
 import { COMMON_LANGS } from '../lib/pipeline';
 // T17-P2 (F-21): MermaidBlock 通过 React.lazy + Suspense 按需加载,
 //   让 mermaid vendor chunk 仅在 flags.mermaid===true 时被 fetch,
@@ -125,7 +126,7 @@ function useAsyncPluginMemo(
 function buildRemarkPluginsSync(flags: { mermaid: boolean; katex: boolean }): unknown[] {
   // 关闭态 katex=false → 不 import remark-math. 同步基线即可.
   void flags;
-  return [remarkGfm, remarkInlineMarks];
+  return [remarkGfm, remarkInlineMarks, remarkHtmlToText];
 }
 
 function buildRehypePluginsSync(flags: { mermaid: boolean; katex: boolean }): unknown[] {

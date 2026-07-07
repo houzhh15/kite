@@ -6,7 +6,7 @@
  *   REMARK_PLUGINS / REHYPE_PLUGINS — 静态常量, default-off 等价物 (T12 baseline).
  *     - remarkGfm + remarkInlineMarks (T07) 恒定.
  *     - rehypeHighlight 14 种语言白名单 (T13 step-05a).
- *     保留目的是: 旧测试 `expect(REMARK_PLUGINS).toEqual([remarkGfm, remarkInlineMarks])`;
+ *     保留目的是: 旧测试 `expect(REMARK_PLUGINS).toEqual([remarkGfm, remarkInlineMarks, remarkHtmlToText])`;
  *     MarkdownRenderer 在 flag 尚未注入前的兜底.
  *
  *   buildRemarkPlugins(flags) / buildRehypePlugins(flags) — T17-P2 新增工厂函数.
@@ -41,12 +41,15 @@ import css from 'highlight.js/lib/languages/css';
 import xml from 'highlight.js/lib/languages/xml';
 
 import { remarkInlineMarks } from './inline/remarkInlineMarks';
+import { remarkHtmlToText } from './inline/remarkHtmlToText';
 import { urlSafe } from './inline/urlSafe';
 import { COMMON_LANG_KEYS as COMMON_LANG_KEYS_SOURCE } from './highlightLanguages';
 
 /** remark 插件链 (mdast 阶段) — T12 baseline, default-off 等价物.
- *  remarkInlineMarks 受 lib/featureFlags 控制 (高亮/上下标), 不需要外部 props. */
-export const REMARK_PLUGINS = [remarkGfm, remarkInlineMarks] as const;
+ *  remarkInlineMarks 受 lib/featureFlags 控制 (高亮/上下标), 不需要外部 props.
+ *  remarkHtmlToText: 把 html 节点 (如 <!-- comment -->) 转为 text 节点,
+ *  避免渲染为 DOM Comment (CSS 无法选中). */
+export const REMARK_PLUGINS = [remarkGfm, remarkInlineMarks, remarkHtmlToText] as const;
 
 /** rehype 插件链 (hast 阶段) — T12 baseline, default-off 等价物.
  *  14 种语言白名单: ts, tsx, js, jsx, json, css, html, md, bash, rust, python, go, yaml, sql */
@@ -104,13 +107,13 @@ export interface PipelineFlags {
 }
 
 /** T17-P2 (F-21/F-22): remark 插件工厂.
- *  - 基础链 [remarkGfm, remarkInlineMarks] 恒定.
+ *  - 基础链 [remarkGfm, remarkInlineMarks, remarkHtmlToText] 恒定.
  *  - flags.katex === true → 追加 remarkMath (动态 import).
  *  返回值类型为 unknown[] 以兼容 react-markdown 的 Pluggable 联合类型. */
 export async function buildRemarkPlugins(
   flags: PipelineFlags,
 ): Promise<unknown[]> {
-  const plugins: unknown[] = [remarkGfm, remarkInlineMarks];
+  const plugins: unknown[] = [remarkGfm, remarkInlineMarks, remarkHtmlToText];
   if (flags.katex) {
     const mod = await import('remark-math');
     plugins.push(mod.default);

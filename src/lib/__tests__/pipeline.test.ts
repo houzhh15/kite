@@ -4,7 +4,7 @@
  * 设计依据: docs/design/compiled.md §3.1.3 / 需求 AC-01-1 / AC-02-1 / AC-04-3.
  *
  * 覆盖:
- *   - buildRemarkPlugins({ mermaid: false, katex: false }) → 仅基础链 [remarkGfm, remarkInlineMarks].
+ *   - buildRemarkPlugins({ mermaid: false, katex: false }) → 仅基础链 [remarkGfm, remarkInlineMarks, remarkHtmlToText].
  *   - buildRehypePlugins({ mermaid: false, katex: false }) → 仅基础链 [rehypeHighlight + opts].
  *   - buildRehypePlugins({ mermaid: true }) → 包含 rehypeMermaid (mock 动态 import).
  *   - buildRehypePlugins({ katex: true }) → 包含 rehypeKatex + 副作用 import katex CSS.
@@ -42,7 +42,7 @@ describe('pipeline (T17-P2 工厂)', () => {
   });
 
   it('REMARK_PLUGINS / REHYPE_PLUGINS 常量保持 default-off 等价物', () => {
-    expect(REMARK_PLUGINS.length).toBe(2);
+    expect(REMARK_PLUGINS.length).toBe(3);
     expect(REHYPE_PLUGINS.length).toBe(1);
   });
 
