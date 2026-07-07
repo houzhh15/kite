@@ -12,6 +12,12 @@
  *   - progressLoaded=true, pending=非空 → 'open', path=pending (抢先 argv, skip restore)
  *   - pending='' (异常 / Rust 防御) → 'restore' (视作无 argv)
  *
+ * 跨 effect 协调 (R-13 增量):
+ *   此函数只解决「同一时刻两个 effect 都试图 loadFile」的 race.
+ *   「先到的 effect 已经 loadFile, 后到的 effect 不该再跑」由 App.tsx 里
+ *   openFileHandledRef 控制 — 本函数不感知. 调用方负责在 effect 跑之前检查
+ *   openFileHandledRef, 跑过之后置 true.
+ *
  * 设计要点:
  *   - 纯函数: 不依赖 React / 不发 IPC / 不读 store. 调用方自己拉 pending 和 progressLoaded
  *     后再调它. 这样测试不需要 render <App />.
