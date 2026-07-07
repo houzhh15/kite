@@ -270,11 +270,22 @@ pub async fn open_editor(
     // T26+ (R-13 修复) 增量: system preset 走 opener, 不再走 build_argv + spawn.
     // 理由: argv=[path] 让 Windows CreateProcessW 拒绝 (.md 不是 PE → error 193);
     //       opener::open_path 内部 ShellExecuteW 走文件关联, 三平台一致.
+    //
+    // R-27 补丁: macOS 不能走 opener.open_path — 如果用户把 KITE 设为 .md 默认应用,
+    // opener 会用 KITE 打开自己 (看起来什么都没发生). 恢复原始设计: macOS system
+    // preset 走 `open -t` (TextEdit), 不走文件关联.
     if editor == PRESET_SYSTEM {
-        eprintln!("[external_editor::open] editor=system path={path_str}");
-        app.opener()
-            .open_path(path_str, None::<&str>)
-            .map_err(|e| AppError::Unknown(format!("opener.open_path failed: {e}")))
+        if cfg!(target_os = "macos") {
+            // macOS: open -t → TextEdit, 避免 KITE 打开自己.
+            eprintln!("[external_editor::open] editor=system (macos open -t) path={path_str}");
+            spawn_editor(&["open".into(), "-t".into(), path_str])
+        } else {
+            // Windows/Linux: opener 走 ShellExecute / xdg-open (文件关联).
+            eprintln!("[external_editor::open] editor=system path={path_str}");
+            app.opener()
+                .open_path(path_str, None::<&str>)
+                .map_err(|e| AppError::Unknown(format!("opener.open_path failed: {e}")))
+        }
     } else {
         let argv = build_argv(&editor, &path_str, &custom_cmd)?;
         // AC-09-1/2: argv 在 spawn 之前一行 stderr (成功失败都有, 便于运维定位).
