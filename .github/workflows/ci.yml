@@ -41,6 +41,16 @@ jobs:
         with:
           workspaces: src-tauri -> target
 
+      # `cargo tauri` is a third-party subcommand provided by `cargo-tauri`;
+      # GitHub-hosted runners ship cargo + rustc but NOT this binary.
+      # release.yml already installs it (step 5). ci.yml previously relied on
+      # the cargo cache to have it pre-built; any cache miss (cold runner,
+      # cache-key change, image bump) surfaces the bug as
+      # `error: no such command: tauri`. Pin the install so it always
+      # resolves before the build step.
+      - name: Install tauri-cli
+        run: cargo install tauri-cli --version "^2" --locked
+
       - name: Install npm deps
         run: npm ci
 
