@@ -246,11 +246,11 @@ describe('WikilinkLink (T28 / FR-03 / FR-06 / AC-03-1..5 / AC-06-1..5)', () => {
   });
 
   it('AC-03-4 / AC-06-2: security-violation (target 含 ..) → 全部候选静默跳过, 不弹 toast', async () => {
-    // 即使 pathExists 全部 true, security-violation 也会被跳过 → 全部失败 → targetNotFound toast.
+    // security-violation 跳过所有候选, 最终触发 targetNotFound toast.
     pathExistsImpl = () => Promise.resolve(true);
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const loadFile = vi.fn();
     setWikilinkLoadFile(loadFile);
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const { container } = render(
       <WikilinkLink target="../../etc/passwd">escape</WikilinkLink>,
     );
@@ -266,7 +266,8 @@ describe('WikilinkLink (T28 / FR-03 / FR-06 / AC-03-1..5 / AC-06-1..5)', () => {
     const toasts = useToastStore.getState().items;
     expect(toasts.length).toBe(1);
     expect(toasts[0]?.message).toContain('toast.wikilink.targetNotFound');
-    expect(warnSpy).not.toHaveBeenCalled();
+    // R-29: 探测失败时输出 console.warn 调试 (含 attempted 路径).
+    expect(warnSpy).toHaveBeenCalled();
     warnSpy.mockRestore();
   });
 

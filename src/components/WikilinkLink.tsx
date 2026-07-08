@@ -63,6 +63,11 @@ function WikilinkLinkInner(props: WikilinkLinkProps): JSX.Element {
       }
 
       // 2) 逐层探测: 取第一个 pathExists 为 true 的候选.
+      // 探测策略 (T28 / F-46 / FR-03 增量):
+      //   - 当前目录 → 父目录 → ... → 根 (按路径段数动态).
+      //   - 每个候选先尝试 resolveWikilinkTarget (自动补 .md + 5 重安全网关).
+      //   - 命中即 break.
+      //   - 全部失败 → pushToast(t('toast.wikilink.targetNotFound')) + return.
       let resolved: { absPath: string; anchor?: string } | null = null;
       for (const candidate of candidates) {
         const r = resolveWikilinkTarget({ target, vaultRoot: candidate, anchor });
@@ -82,6 +87,20 @@ function WikilinkLinkInner(props: WikilinkLinkProps): JSX.Element {
           resolved = { absPath: r.absPath, anchor: r.anchor };
           break;
         }
+      }
+
+      // R-29 调试: 当 per-level 探测失败时, console.warn 输出全部尝试过的路径, 帮用户排查.
+      // 这是 R-04 缓解 (NFR-12 调试可观测性): 不弹 toast (已经弹了), 仅在 dev tools 可见.
+      if (resolved === null && candidates.length > 0) {
+        const attempted: string[] = [];
+        for (const candidate of candidates) {
+          const r = resolveWikilinkTarget({ target, vaultRoot: candidate, anchor });
+          if (r.ok) attempted.push(r.absPath);
+        }
+        console.warn(
+          `[WikilinkLink] targetNotFound: target=${JSON.stringify(target)} ` +
+            `currentPath=${JSON.stringify(currentPath)} attempted=${JSON.stringify(attempted)}`,
+        );
       }
 
       if (resolved === null) {
