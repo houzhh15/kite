@@ -19,13 +19,20 @@ declare module '*.css' {
 declare module 'path' {
   export function resolve(...segments: string[]): string;
   export function dirname(p: string): string;
+  export function basename(p: string, ext?: string): string;
   export function relative(from: string, to: string): string;
+  export function isAbsolute(p: string): boolean;
+  export function extname(p: string): string;
+  export function normalize(p: string): string;
+  export function join(...segments: string[]): string;
   export function isAbsolute(p: string): boolean;
   export namespace posix {
     export function join(...segments: string[]): string;
     export function dirname(p: string): string;
+    export function basename(p: string, ext?: string): string;
     export function relative(from: string, to: string): string;
     export function isAbsolute(p: string): boolean;
+    export function normalize(p: string): string;
   }
 }
 

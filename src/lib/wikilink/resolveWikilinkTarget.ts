@@ -161,8 +161,26 @@ export function resolveWikilinkTarget(input: ResolveInput): ResolveResult {
     normalized = normalized + '.md';
   }
 
-  // posix 拼接 (无论宿主平台, vault 内相对路径用 posix 语义, NFR-18)
-  const absPath = path.posix.join(vaultRoot, normalized);
+  // posix 拼接 (无论宿主平台, vault 内相对路径用 posix 语义, NFR-18).
+  // R-31 修复: 处理 "target 与 candidate 后缀重叠" 的常见 case.
+  //   例: candidate=/A/B, target=wiki/foo → 直接 join 得 /A/B/wiki/foo.md
+  //   实际上 wikilink 写 [[wiki/foo]] 是相对 vault 根的, 期望 /A/B/foo.md.
+  //   检测规则: target 第一段 == candidate 最后一段 → 从 target 头部剥除该段.
+  //   防御性: 仍要保证拼接结果仍在 vaultRoot 内 (后续 relative 校验).
+  const overlapSegment = path.posix.basename(vaultRoot);
+  let joinedTarget = normalized;
+  if (
+    overlapSegment.length > 0 &&
+    !overlapSegment.includes('\\') &&
+    !overlapSegment.includes('/')
+  ) {
+    // target 第一段 = overlapSegment 时剥除
+    const segments = joinedTarget.split('/');
+    if (segments[0] === overlapSegment) {
+      joinedTarget = segments.slice(1).join('/');
+    }
+  }
+  const absPath = path.posix.join(vaultRoot, joinedTarget);
 
   // 二次校验: 拼接结果必须仍在 vaultRoot 下 (防御性)
   const rel = path.posix.relative(vaultRoot, absPath);
