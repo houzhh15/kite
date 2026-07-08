@@ -111,7 +111,12 @@ export interface PipelineFlags {
  *  - 基础链 [remarkGfm, remarkInlineMarks, remarkHtmlToText] 恒定.
  *  - flags.katex === true → 追加 remarkMath (动态 import).
  *  - T28 (F-46): 末尾追加 remarkWikilink (AST 改写 [[...]] → wikilink 节点).
- *  返回值类型为 unknown[] 以兼容 react-markdown 的 Pluggable 联合类型. */
+ *  返回值类型为 unknown[] 以兼容 react-markdown 的 Pluggable 联合类型.
+ *
+ *  注意: 末尾追加的是 plugin factory (remarkWikilink), 不是工厂调用结果 (remarkWikilink()).
+ *  unified 的 Pluggable 链需要 attacher, 由 unified 在 freeze 阶段调用 attacher 并传入
+ *  options 得到真正的 transformer. 传 transformer 会让 unified 把它当 attacher 调用,
+ *  tree=undefined 抛错. */
 export async function buildRemarkPlugins(
   flags: PipelineFlags,
 ): Promise<unknown[]> {
@@ -120,7 +125,7 @@ export async function buildRemarkPlugins(
     const mod = await import('remark-math');
     plugins.push(mod.default);
   }
-  plugins.push(remarkWikilink());
+  plugins.push(remarkWikilink);
   return plugins;
 }
 

@@ -142,7 +142,12 @@ function buildRemarkPluginsSync(flags: { mermaid: boolean; katex: boolean }): un
   // 关闭态 katex=false → 不 import remark-math. 同步基线即可.
   // T28 (F-46): 末尾追加 remarkWikilink (FR-01), 同步首屏也支持 wikilink 渲染.
   void flags;
-  return [remarkGfm, remarkInlineMarks, remarkHtmlToText, remarkWikilink()];
+  // ⚠ 重要: unified 插件链要求传入 **plugin factory** (attacher), 而不是 factory 的返回值.
+  //   若传入 remarkWikilink() (已调用), unified 会把内层 transformer 当作 attacher,
+  //   在 freeze 阶段以 `transformer.call(processor, undefined)` 调用, 内层 tree=undefined 报错.
+  //   正确做法: 传 factory, 由 unified 在 freeze 阶段调用 factory 并传入 options,
+  //   factory 返回真正的 (tree)=>void transformer, 再由 unified 在 run 阶段调用.
+  return [remarkGfm, remarkInlineMarks, remarkHtmlToText, remarkWikilink];
 }
 
 function buildRehypePluginsSync(flags: { mermaid: boolean; katex: boolean }): unknown[] {

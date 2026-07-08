@@ -29,7 +29,10 @@ import { parseWikilink, type ParsedWikilink } from './parseWikilink';
 export interface WikilinkNode extends Parent {
   type: 'wikilink';
   data?: {
-    hName: 'span';
+    // hName 设为 'wikilink' 以匹配 MarkdownRenderer.components.wikilink 键.
+    // 若设为 'span', hast 阶段 tagName='span', 组件查表 'span' 失败, 退化为默认 span,
+    // WikilinkNode 永远不会被调用, 且被 vite/rollup tree-shake 视为死代码.
+    hName: 'wikilink';
     hProperties: {
       'data-wikilink': string;
       'data-anchor'?: string;
@@ -75,7 +78,11 @@ function splitTextByWikilink(textNode: Text, parse: (raw: string) => ParsedWikil
       const wn: WikilinkNode = {
         type: 'wikilink',
         data: {
-          hName: 'span',
+          // hName 必须 === components map 中的 key, 才能让 WikilinkNode 实际被调用.
+          // 之前用 'span' 导致 tagName='span' 而 components key 是 'wikilink', 查表失败,
+          // WikilinkNode 退化为死代码, vite/rollup tree-shake 删除; 渲染只看到
+          // data-wikilink 属性挂在一个 span 上, 但点击事件链路全断.
+          hName: 'wikilink',
           hProperties: {
             'data-wikilink': parsed.target,
             ...(parsed.anchor !== undefined ? { 'data-anchor': parsed.anchor } : {}),
@@ -106,6 +113,7 @@ export function remarkWikilink(options?: RemarkWikilinkOptions): (tree: Root) =>
   return (tree: Root): void => {
     // 防御性递归: 不依赖 unist-util-visit (它在某些 mdast 形态下会触发 'children' in undefined).
     // 我们只关心 text 节点的 wikilink 切分, 跳过 code/inlineCode 容器即可.
+    if (tree === undefined || tree === null) return;
     walk(tree, parse);
   };
 }

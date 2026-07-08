@@ -76,7 +76,9 @@ describe('remarkWikilink (T28 / FR-01 / AC-01-1..4)', () => {
         children: PhrasingContent[];
       };
       expect(wn.type).toBe('wikilink');
-      expect(wn.data.hName).toBe('span');
+      // T28-修复: hName 必须 === components map 的 key 'wikilink' 才能让
+      // WikilinkNode 组件实际被调用. 之前 'span' 错位导致 vite tree-shake 误删组件.
+      expect(wn.data.hName).toBe('wikilink');
       expect(wn.data.hProperties['data-wikilink']).toBe('wiki/sources/foo');
       expect(wn.data.hProperties['data-anchor']).toBeUndefined();
       expect(wn.data.hProperties['data-alias']).toBeUndefined();
