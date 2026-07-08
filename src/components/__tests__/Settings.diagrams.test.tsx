@@ -28,6 +28,8 @@ const FULL_PREFS = {
   katexEnabled: false as const,
   externalEditor: 'system' as const,
   externalEditorCustomCmd: '',
+  vaultRootMode: 'follow-current' as const,
+  vaultRootCustom: null,
 };
 
 describe('Settings diagrams & formulas section (T17-P2)', () => {

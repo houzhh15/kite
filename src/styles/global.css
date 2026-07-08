@@ -12,6 +12,9 @@
 /* T10 页内查找样式: search-hit / search-hit-current / 浮层. */
 @import "./search.css";
 
+/* T26 (F-28): Obsidian 风格 frontmatter 面板样式. */
+@import "./frontmatter.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

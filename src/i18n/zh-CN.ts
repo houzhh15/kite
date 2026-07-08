@@ -136,6 +136,15 @@ export const zhCN = {
     mermaidDesc: '渲染 mermaid 代码块为图表；启用后将按需加载约 600 KB 资源',
     katexEnable: 'KaTeX 数学公式',
     katexDesc: '渲染行内 / 块级数学公式；启用后将按需加载约 250 KB 资源',
+    // T28 (F-46): vault 根分组 — 与 F-15 相对路径跳转 + wikilink 配合使用.
+    vaultRoot: {
+      title: 'Vault 根',
+      followCurrent: '跟随当前文件目录',
+      custom: '自定义 Vault 根',
+      customPlaceholder: '请选择文件夹…',
+      pickFolder: '选择文件夹',
+      clear: '清空',
+    },
   },
   history: {
     indicator: '{{current}} / {{total}}',
@@ -206,6 +215,10 @@ export const zhCN = {
     // T19 (FR-01 / FR-06 / C-06): 危险协议链接拦截 toast.
     link: {
       blocked: '已拦截不安全的链接',
+    },
+    // T28 (F-46 / FR-06 / AC-06-1): vault 根未配置时点击 wikilink 弹 toast.
+    wikilink: {
+      vaultNotConfigured: '请先在设置中配置 Vault 根',
     },
   },
   fallback: {
@@ -372,6 +385,10 @@ export const zhCN = {
   skipLink: {
     label: '跳到主内容',
   },
+  // T26 (F-28): Obsidian 风格 frontmatter 面板标题.
+  frontmatter: {
+    title: '笔记属性',
+  },
 } as const;
 
 export type ZhCNMessages = typeof zhCN;
@@ -433,6 +450,8 @@ export const i18nKeys = {
   skipLink: zhCN.skipLink,
   // T24 (F-26): 外部编辑器.
   externalEditor: zhCN.externalEditor,
+  // T26 (F-28): Obsidian 风格 frontmatter 面板.
+  frontmatter: zhCN.frontmatter,
 } as const;
 
 export type I18nKeys = typeof i18nKeys;

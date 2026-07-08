@@ -37,6 +37,8 @@ import LinkHandler, {
 } from '../LinkHandler';
 import { useInlineStore } from '../../stores/inlineStore';
 import { useToastStore } from '../../lib/toast';
+import { useDocStore } from '../../stores/docStore';
+import { setWikilinkLoadFile } from '../../lib/wikilink/loadFileRef';
 
 import type * as tauriModule from '../../lib/tauri';
 
@@ -288,6 +290,13 @@ describe('LinkHandler T19 (FR-01/05/06)', () => {
   });
 
   it('relative_passthrough', () => {
+    // T28 (F-46 / FR-05): .md 后缀走 useMarkdownDoc.loadFile, 图片后缀保持 return.
+    //   currentPath=null → 弹 toast('message.nothingToOpen'), 不静默.
+    useDocStore.setState({
+      state: { currentPath: null, content: '', title: '', dirty: false },
+      history: [],
+      cursor: -1,
+    });
     const { container } = render(
       <LinkHandler href="./other.md">link</LinkHandler>,
     );
@@ -299,7 +308,53 @@ describe('LinkHandler T19 (FR-01/05/06)', () => {
 
     expect(openExternalUrl).not.toHaveBeenCalled();
     expect(window.open).not.toHaveBeenCalled();
+    // md 后缀 + currentPath=null → toast 提示
+    expect(useToastStore.getState().items.length).toBe(1);
+    expect(useToastStore.getState().items[0]?.message).toBe('message.nothingToOpen');
+  });
+
+  it('relative_md_loadfile: .md 后缀 + 有 currentPath → useMarkdownDoc.loadFile 1 次 (AC-05-1)', async () => {
+    useDocStore.setState({
+      state: { currentPath: '/Users/me/notes/daily/2025-01-01.md', content: '', title: '', dirty: false },
+      history: [],
+      cursor: -1,
+    });
+    const loadFile = vi.fn().mockResolvedValue(undefined);
+    setWikilinkLoadFile(loadFile);
+    const { container } = render(
+      <LinkHandler href="projects/foo.md">link</LinkHandler>,
+    );
+    const a = container.querySelector('a') as HTMLAnchorElement;
+
+    await act(async () => {
+      fireEvent.click(a, makeClickEvent() as unknown as MouseEvent);
+    });
+
+    expect(loadFile).toHaveBeenCalledTimes(1);
+    expect(loadFile).toHaveBeenCalledWith('/Users/me/notes/daily/projects/foo.md');
     expect(useToastStore.getState().items.length).toBe(0);
+  });
+
+  it('relative_png_unchanged (AC-05-2): 图片后缀 → 0 次 loadFile, 与改造前一致', () => {
+    useDocStore.setState({
+      state: { currentPath: '/Users/me/notes/daily/2025-01-01.md', content: '', title: '', dirty: false },
+      history: [],
+      cursor: -1,
+    });
+    const loadFile = vi.fn();
+    setWikilinkLoadFile(loadFile);
+    const { container } = render(
+      <LinkHandler href="./logo.png">link</LinkHandler>,
+    );
+    const a = container.querySelector('a') as HTMLAnchorElement;
+
+    act(() => {
+      fireEvent.click(a, makeClickEvent() as unknown as MouseEvent);
+    });
+
+    expect(loadFile).not.toHaveBeenCalled();
+    expect(openExternalUrl).not.toHaveBeenCalled();
+    expect(window.open).not.toHaveBeenCalled();
   });
 
   it('rel_noopener_noreferrer_attached', () => {

@@ -43,6 +43,7 @@ import xml from 'highlight.js/lib/languages/xml';
 import { remarkInlineMarks } from './inline/remarkInlineMarks';
 import { remarkHtmlToText } from './inline/remarkHtmlToText';
 import { urlSafe } from './inline/urlSafe';
+import { remarkWikilink } from './wikilink/remarkWikilink';
 import { COMMON_LANG_KEYS as COMMON_LANG_KEYS_SOURCE } from './highlightLanguages';
 
 /** remark 插件链 (mdast 阶段) — T12 baseline, default-off 等价物.
@@ -109,6 +110,7 @@ export interface PipelineFlags {
 /** T17-P2 (F-21/F-22): remark 插件工厂.
  *  - 基础链 [remarkGfm, remarkInlineMarks, remarkHtmlToText] 恒定.
  *  - flags.katex === true → 追加 remarkMath (动态 import).
+ *  - T28 (F-46): 末尾追加 remarkWikilink (AST 改写 [[...]] → wikilink 节点).
  *  返回值类型为 unknown[] 以兼容 react-markdown 的 Pluggable 联合类型. */
 export async function buildRemarkPlugins(
   flags: PipelineFlags,
@@ -118,6 +120,7 @@ export async function buildRemarkPlugins(
     const mod = await import('remark-math');
     plugins.push(mod.default);
   }
+  plugins.push(remarkWikilink());
   return plugins;
 }
 

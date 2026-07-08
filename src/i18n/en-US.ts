@@ -113,6 +113,15 @@ export const enUS = {
     mermaidDesc: 'Render mermaid code blocks as diagrams; loads ~600 KB on enable',
     katexEnable: 'KaTeX math',
     katexDesc: 'Render inline / block math formulas; loads ~250 KB on enable',
+    // T28 (F-46): vault root section — works with F-15 relative path jumps + wikilinks.
+    vaultRoot: {
+      title: 'Vault root',
+      followCurrent: 'Follow current file directory',
+      custom: 'Custom vault root',
+      customPlaceholder: 'Pick a folder…',
+      pickFolder: 'Pick folder',
+      clear: 'Clear',
+    },
   },
   history: {
     indicator: '{{current}} / {{total}}',
@@ -178,6 +187,10 @@ export const enUS = {
     // T19 (FR-01 / FR-06 / C-06): blocked unsafe link toast.
     link: {
       blocked: 'Blocked unsafe link',
+    },
+    // T28 (F-46 / FR-06 / AC-06-1): wikilink click toast when vault root is unconfigured.
+    wikilink: {
+      vaultNotConfigured: 'Please configure a vault root in Settings first',
     },
   },
   fallback: {
@@ -343,6 +356,10 @@ export const enUS = {
   },
   skipLink: {
     label: 'Skip to main content',
+  },
+  // T26 (F-28): Obsidian-style frontmatter panel title.
+  frontmatter: {
+    title: 'Note Properties',
   },
 } as const;
 

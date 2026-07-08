@@ -19,6 +19,7 @@
 
 import { useRef } from 'react';
 import { useTranslation } from 'react-i18next';
+import { open as openDialog } from '@tauri-apps/plugin-dialog';
 
 import { usePrefStore, type ExternalEditor, type Language } from '../stores/prefStore';
 import { ThemeSwitcher } from './ThemeSwitcher';
@@ -74,6 +75,11 @@ export function Settings(props: SettingsProps): JSX.Element | null {
   const katexEnabled = usePrefStore((s) => s.prefs.katexEnabled);
   const setMermaidEnabled = usePrefStore((s) => s.setMermaidEnabled);
   const setKatexEnabled = usePrefStore((s) => s.setKatexEnabled);
+  // T28 (F-46 / FR-04): vault 根配置.
+  const vaultRootMode = usePrefStore((s) => s.prefs.vaultRootMode);
+  const vaultRootCustom = usePrefStore((s) => s.prefs.vaultRootCustom);
+  const setVaultRootMode = usePrefStore((s) => s.setVaultRootMode);
+  const setVaultRootCustom = usePrefStore((s) => s.setVaultRootCustom);
 
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const closeRef = useRef<HTMLButtonElement | null>(null);
@@ -409,6 +415,110 @@ export function Settings(props: SettingsProps): JSX.Element | null {
               className="w-full rounded-md border border-border bg-bg px-2 py-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-50"
             />
           </div>
+        </fieldset>
+      </section>
+
+      {/* T28 (F-46 / FR-04): vault 根分组 — radiogroup 2 档 (follow-current / custom)
+            + custom 模式启用目录选择按钮 + 清空按钮. data-testid=vault-root-section 与
+            既有 settings-* 一致 (e2e 可定位). 选 radio → setVaultRootMode;
+            选目录 → openDialog({ directory: true }) → setVaultRootCustom (内部走 isValidVaultPath 校验);
+            清空 → setVaultRootCustom(null) + setVaultRootMode('follow-current') (AC-04-5). */}
+      <section
+        className="mb-4"
+        data-section="vault-root"
+        data-testid="vault-root-section"
+      >
+        <fieldset>
+          <legend className="mb-2 text-sm text-muted">
+            {t('settings.vaultRoot.title')}
+          </legend>
+          <div
+            role="radiogroup"
+            aria-label={t('settings.vaultRoot.title')}
+            data-testid="vault-root-radiogroup"
+            className="flex flex-wrap gap-2"
+          >
+            <button
+              type="button"
+              role="radio"
+              aria-checked={vaultRootMode === 'follow-current'}
+              aria-label={`${t('settings.vaultRoot.title')} ${t('settings.vaultRoot.followCurrent')}`}
+              data-testid="vault-root-follow-current"
+              onClick={() => setVaultRootMode('follow-current')}
+              className={cx(
+                'rounded-md border px-3 py-1.5 text-sm',
+                vaultRootMode === 'follow-current'
+                  ? 'border-accent bg-accent/10 font-semibold'
+                  : 'border-border hover:bg-fg/5',
+              )}
+            >
+              {t('settings.vaultRoot.followCurrent')}
+            </button>
+            <button
+              type="button"
+              role="radio"
+              aria-checked={vaultRootMode === 'custom'}
+              aria-label={`${t('settings.vaultRoot.title')} ${t('settings.vaultRoot.custom')}`}
+              data-testid="vault-root-custom"
+              onClick={() => setVaultRootMode('custom')}
+              className={cx(
+                'rounded-md border px-3 py-1.5 text-sm',
+                vaultRootMode === 'custom'
+                  ? 'border-accent bg-accent/10 font-semibold'
+                  : 'border-border hover:bg-fg/5',
+              )}
+            >
+              {t('settings.vaultRoot.custom')}
+            </button>
+          </div>
+          {vaultRootMode === 'custom' && (
+            <div className="mt-2 flex flex-col gap-2">
+              <input
+                type="text"
+                data-testid="vault-root-custom-path"
+                value={vaultRootCustom ?? ''}
+                placeholder={t('settings.vaultRoot.customPlaceholder')}
+                aria-label={t('settings.vaultRoot.custom')}
+                disabled
+                readOnly
+                className="w-full rounded-md border border-border bg-bg px-2 py-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-70"
+              />
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  data-testid="vault-root-pick"
+                  aria-label={t('settings.vaultRoot.pickFolder')}
+                  onClick={async () => {
+                    try {
+                      const picked = await openDialog({
+                        directory: true,
+                        multiple: false,
+                      });
+                      if (typeof picked !== 'string') return; // 用户取消
+                      setVaultRootCustom(picked);
+                    } catch {
+                      // dialog 自身出错 → 静默 noop (设置面板不弹 toast, 用户可重试).
+                    }
+                  }}
+                  className="rounded-md border border-border px-3 py-1.5 text-sm hover:bg-fg/5"
+                >
+                  {t('settings.vaultRoot.pickFolder')}
+                </button>
+                <button
+                  type="button"
+                  data-testid="vault-root-clear"
+                  aria-label={t('settings.vaultRoot.clear')}
+                  onClick={() => {
+                    setVaultRootCustom(null);
+                    setVaultRootMode('follow-current');
+                  }}
+                  className="rounded-md border border-border px-3 py-1.5 text-sm hover:bg-fg/5"
+                >
+                  {t('settings.vaultRoot.clear')}
+                </button>
+              </div>
+            </div>
+          )}
         </fieldset>
       </section>
 

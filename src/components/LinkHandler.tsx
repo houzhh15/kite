@@ -2,16 +2,16 @@
  * LinkHandler — Markdown 链接处理器 (契约 4 / FR-06/13/14/16/17).
  *
  * 设计依据: docs/design/compiled.md §3.5.1 + §3.8 契约 4 + 设计 §3.10 事件流 +
- *   T19 §3.1 强化 (FR-01/FR-05/FR-06 落地).
+ *   T19 §3.1 强化 (FR-01/FR-05/FR-06 落地) + T28 (F-46 / FR-05 / AC-05-1..4).
  *
- * 责任 (T19):
+ * 责任 (T19 + T28):
  *   - 渲染时: 先经 urlSafe() 校验 href; 危险协议 / 空 href 改写为 '#'
  *   - 点击: preventDefault + 分发
  *     - 危险协议 (kind=inert && !safe): 5s 合并去重后 pushToast('toast.link.blocked') + 标准化 warn
  *     - 锚点 (#xxx / '' / '#'): scrollIntoView + history.replaceState + warn-if-missing
  *     - 修饰键 (Ctrl/Cmd/Shift/Alt) + external: window.open(url, '_blank', 'noopener,noreferrer')
  *     - 外链 (http/https/mailto/tel): 通过 openExternalUrl 包装调 IPC + 更新 inlineStore
- *     - 相对路径 (.md): 文本中 md 链接视为 in-app 跳转 (host 空, 不发 IPC)
+ *     - 相对路径 (.md / .markdown / .mdx): 走 useMarkdownDoc.loadFile (T28 / F-46)
  *   - 强制外链 rel="noopener noreferrer" (AC-14-5 / NFR-S-03)
  *
  * 不调 IPC:
@@ -26,6 +26,27 @@ import { slugify } from '../lib/inline/slugify';
 import { openExternalUrl } from '../lib/tauri';
 import { useInlineStore } from '../stores/inlineStore';
 import { pushToast } from '../lib/toast';
+import { useDocStore } from '../stores/docStore';
+import { readWikilinkLoadFile } from '../lib/wikilink/loadFileRef';
+
+/** POSIX 路径拼接: 不引 path 依赖 (eslint no-restricted-imports), 用 split/filter/join 实现. */
+function posixJoin(...parts: string[]): string {
+  const filtered = parts.filter((p) => p !== '' && p !== null && p !== undefined);
+  if (filtered.length === 0) return '';
+  const isAbs = filtered[0]?.startsWith('/') ?? false;
+  const segments: string[] = [];
+  for (const p of filtered) {
+    for (const seg of p.split('/')) {
+      if (seg === '' || seg === '.') continue;
+      if (seg === '..') {
+        if (segments.length > 0) segments.pop();
+        continue;
+      }
+      segments.push(seg);
+    }
+  }
+  return (isAbs ? '/' : '') + segments.join('/');
+}
 
 export interface LinkHandlerProps extends AnchorHTMLAttributes<HTMLAnchorElement> {
   href?: string;
@@ -129,10 +150,27 @@ export function LinkHandler(props: LinkHandlerProps): JSX.Element {
       return;
     }
 
-    // 2c) 相对路径 (.md / .png 等): host 空, 不发 IPC.
-    //    文本中 md 链接 → 在更上层 docStore 触发 reader 加载 (本组件不接管,
-    //    留给 reader 层 useMarkdownDoc / 后续 T 任务).
+    // 2c) 相对路径 (.md / .markdown / .mdx / .png 等): host 空, 不发 IPC.
+    //   T28 (F-46 / FR-05 / AC-05-1..4): md 后缀走 useMarkdownDoc.loadFile;
+    //   图片后缀保持现状 (return, 走 <img src> 解析).
     if (check.kind === 'relative') {
+      const mdMatch = /\.(md|markdown|mdx)$/i.test(url);
+      if (!mdMatch) return; // 图片等其它后缀: 不接管
+      const currentPath = useDocStore.getState().state.currentPath;
+      if (currentPath === null) {
+        // 无当前文件 → 无法拼接绝对路径. 弹 toast 提示, 不静默.
+        pushToast({ kind: 'error', message: t('message.nothingToOpen') });
+        return;
+      }
+      const baseDir = currentPath.replace(/[^/]*$/, '');
+      const absPath = posixJoin(baseDir, url);
+      const loadFile = readWikilinkLoadFile();
+      if (loadFile) {
+        // 失败 toast 由 docStore.loadFile 内部统一映射; 不重复弹.
+        void loadFile(absPath).catch(() => {
+          /* docStore 已 pushToast */
+        });
+      }
       return;
     }
 

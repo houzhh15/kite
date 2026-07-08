@@ -46,10 +46,12 @@ describe('pipeline (T17-P2 工厂)', () => {
     expect(REHYPE_PLUGINS.length).toBe(1);
   });
 
-  it('buildRemarkPlugins({ mermaid: false, katex: false }) → 仅基础链', async () => {
+  it('buildRemarkPlugins({ mermaid: false, katex: false }) → 基础链 + remarkWikilink (T28 / F-46)', async () => {
     const plugins = await buildRemarkPlugins({ mermaid: false, katex: false });
-    expect(plugins.length).toBe(REMARK_PLUGINS.length);
-    expect(plugins).toEqual([...REMARK_PLUGINS]);
+    // 基础链 3 + remarkWikilink = 4
+    expect(plugins.length).toBe(REMARK_PLUGINS.length + 1);
+    expect(plugins.slice(0, 3)).toEqual([...REMARK_PLUGINS]);
+    expect(typeof plugins[3]).toBe('function'); // remarkWikilink()
   });
 
   it('buildRehypePlugins({ mermaid: false, katex: false }) → 仅基础链', async () => {

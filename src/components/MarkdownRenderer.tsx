@@ -20,7 +20,7 @@
  *   - pre 节点自定义: isMermaidBlock(children) 命中 → MermaidBlock; 否则 CodeBlock.
  */
 
-import { memo, useEffect, useState, lazy, Suspense } from 'react';
+import { memo, useEffect, useState, lazy, Suspense, useMemo, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
@@ -33,6 +33,7 @@ import {
 import { getFlags } from '../lib/featureFlags';
 import LinkHandler from './LinkHandler';
 import ImageHandler from './ImageHandler';
+import FrontmatterPanel from './FrontmatterPanel';
 import MarkHighlight from './inline/MarkHighlight';
 import SubMark from './inline/SubMark';
 import SupMark from './inline/SupMark';
@@ -44,7 +45,12 @@ import { isMermaidBlock } from '../lib/mermaidDetect';
 import { useImageViewer } from '../hooks/useImageViewer';
 import { remarkInlineMarks } from '../lib/inline/remarkInlineMarks';
 import { remarkHtmlToText } from '../lib/inline/remarkHtmlToText';
+import { remarkWikilink } from '../lib/wikilink/remarkWikilink';
+import { WikilinkNode } from './WikilinkNode';
 import { COMMON_LANGS } from '../lib/pipeline';
+import { parseFrontmatter } from '../lib/frontmatter/parseFrontmatter';
+import { renderMeta } from '../lib/frontmatter/renderMeta';
+import type { FrontmatterMeta } from '../lib/frontmatter/types';
 // T17-P2 (F-21): MermaidBlock 通过 React.lazy + Suspense 按需加载,
 //   让 mermaid vendor chunk 仅在 flags.mermaid===true 时被 fetch,
 //   关闭态主入口不引用 mermaid vendor (AC-04-3).
@@ -59,6 +65,15 @@ export interface MarkdownRendererProps {
 
 function flagsHashOf(flags: { mermaid: boolean; katex: boolean }): string {
   return `${flags.mermaid ? 'm' : '-'}${flags.katex ? 'k' : '-'}`;
+}
+
+/**
+ * O(1) 内容指纹: 长度 + 首字符 charCode.
+ * 避免引入 crypto.createHash; 仅用作 "warnedRef 上一内容指纹" 比较键, 不用于唯一标识.
+ * 安全性: 不同内容完全可能撞指纹, 这是设计预期 — 我们只想避免同 fingerprint 连续触发 warn.
+ */
+function fingerprint(s: string): string {
+  return `${s.length}:${s.length > 0 ? s.charCodeAt(0) : 0}:${s.length > 1 ? s.charCodeAt(s.length - 1) : 0}`;
 }
 
 /** useAsyncPluginMemo: 异步加载插件链, 仅在 flagsHash 变化时重 import.
@@ -125,8 +140,9 @@ function useAsyncPluginMemo(
 /** 同步版本 (关闭态): 不调 `await import`, 直接返回基础链. */
 function buildRemarkPluginsSync(flags: { mermaid: boolean; katex: boolean }): unknown[] {
   // 关闭态 katex=false → 不 import remark-math. 同步基线即可.
+  // T28 (F-46): 末尾追加 remarkWikilink (FR-01), 同步首屏也支持 wikilink 渲染.
   void flags;
-  return [remarkGfm, remarkInlineMarks, remarkHtmlToText];
+  return [remarkGfm, remarkInlineMarks, remarkHtmlToText, remarkWikilink()];
 }
 
 function buildRehypePluginsSync(flags: { mermaid: boolean; katex: boolean }): unknown[] {
@@ -181,6 +197,32 @@ function MarkdownRendererInner({ content }: MarkdownRendererProps): JSX.Element 
   const remarkPlugins = useAsyncPluginMemo('remark', flags);
   const rehypePlugins = useAsyncPluginMemo('rehype', flags);
 
+  // T26 (F-28): 在两条 return 分支之前上提 frontmatter 解析 (设计 §3.6.0).
+  //   - content 不变时 useMemo 命中缓存, 解析 0 额外开销.
+  //   - parsed.meta 空 → 不挂 FrontmatterPanel (AC-FR-2-3).
+  //   - 解析失败 → console.warn 一次 (按 content 指纹去重, React 18 StrictMode 安全).
+  const warnedRef = useRef<string | null>(null);
+  const parsed = useMemo(() => {
+    try {
+      const r = parseFrontmatter(content);
+      // 解析成功也可能 meta 是空 (例如非 frontmatter 文档或空 frontmatter).
+      return { ok: true as const, meta: r.meta as FrontmatterMeta, body: r.body as string };
+    } catch {
+      const fp = fingerprint(content);
+      if (warnedRef.current !== fp) {
+        // 文案固定模板, 不输出原始文件内容 (NFR §4.2 / 设计 §4.1).
+        console.warn('[frontmatter] parse failed, falling back to raw body');
+        warnedRef.current = fp;
+      }
+      return { ok: false as const, meta: {} as FrontmatterMeta, body: content };
+    }
+  }, [content]);
+  // rows 仅在 meta 非空时计算, 避免空数组对象分配.
+  const rows = useMemo(
+    () => (Object.keys(parsed.meta).length > 0 ? renderMeta(parsed.meta) : []),
+    [parsed.meta],
+  );
+
   // 在异步插件链加载完成前不渲染 react-markdown; 避免插件链闪烁.
   if (!remarkPlugins || !rehypePlugins) {
     return (
@@ -188,6 +230,7 @@ function MarkdownRendererInner({ content }: MarkdownRendererProps): JSX.Element 
         data-testid="markdown-article"
         className="prose-kite w-full"
       >
+        {rows.length > 0 && <FrontmatterPanel rows={rows} />}
         <div data-testid="markdown-loading" className="text-muted">
           …
         </div>
@@ -200,6 +243,7 @@ function MarkdownRendererInner({ content }: MarkdownRendererProps): JSX.Element 
       data-testid="markdown-article"
       className="prose-kite w-full"
     >
+      {rows.length > 0 && <FrontmatterPanel rows={rows} />}
       <ReactMarkdown
         key={flagsHash}
         remarkPlugins={remarkPlugins as never[]}
@@ -229,9 +273,11 @@ function MarkdownRendererInner({ content }: MarkdownRendererProps): JSX.Element 
           h4: HeadingAnchor as never,
           h5: HeadingAnchor as never,
           h6: HeadingAnchor as never,
+          // T28 (F-46): wikilink 自定义节点 → WikilinkNode 组件 (FR-02 + AC-02-1..4).
+          wikilink: WikilinkNode as never,
         }}
       >
-        {content}
+        {parsed.body}
       </ReactMarkdown>
     </article>
   );

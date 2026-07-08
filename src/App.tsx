@@ -74,6 +74,7 @@ import { setWindowTitle } from './lib/window';
 import { openInExternalEditor } from './lib/openInExternalEditor';
 import { pushToast } from './lib/toast';
 import { listen as tauriListen } from '@tauri-apps/api/event';
+import { setWikilinkLoadFile } from './lib/wikilink/loadFileRef';
 
 export default function App(): JSX.Element {
   const { t } = useTranslation(); // T18 (FR-02): 4 个 toast 文案通过 t('app.*') 取值.
@@ -242,6 +243,16 @@ export default function App(): JSX.Element {
 
   // T11: Reader 挂载完成后, 一次性调 restoreScrollAfterOpen.
   const restoreScrollOnceRef = useRef(false);
+  // T28 (F-46 / FR-03): 把 useMarkdownDoc.loadFile 暴露给 WikilinkLink (通过模块级 ref).
+  //   WikilinkLink 嵌套在 MarkdownRenderer 内, 无法通过 props 拿到; 模块级 ref 是逃生通道.
+  //   loadFile 是 useCallback 稳定引用, 此处 useEffect 只装一次.
+  useEffect(() => {
+    setWikilinkLoadFile(loadFile);
+    return () => {
+      setWikilinkLoadFile(null);
+    };
+  }, [loadFile]);
+
   const handleReaderMounted = (): void => {
     if (restoreScrollOnceRef.current) return;
     if (state.status !== 'ok') return;

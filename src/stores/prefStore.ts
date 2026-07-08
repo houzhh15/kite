@@ -121,6 +121,10 @@ export interface PrefStore extends PrefState {
   setExternalEditor(editor: ExternalEditor): void;
   /** T24 (F-26): 自定义命令模板 setter. 长度 >256 截断 + console.warn (AC-06-4). */
   setExternalEditorCustomCmd(cmd: string): void;
+  /** T27 (F-29): vault 根模式 setter. 非法值 console.warn + 忽略 (AC-03-4). */
+  setVaultRootMode(mode: 'follow-current' | 'custom'): void;
+  /** T27 (F-29): 自定义 vault 路径 setter. null 表示清空. */
+  setVaultRootCustom(p: string | null): void;
 }
 
 const defaults: Prefs = {
@@ -136,6 +140,8 @@ const defaults: Prefs = {
   katexEnabled: false,
   externalEditor: 'system',
   externalEditorCustomCmd: '',
+  vaultRootMode: 'follow-current',
+  vaultRootCustom: null,
 };
 
 /** 校验 Theme 三档 union. */
@@ -160,6 +166,22 @@ function isExternalEditor(value: unknown): value is ExternalEditor {
     value === 'typora' ||
     value === 'custom'
   );
+}
+
+/** T27 (F-29): 校验 VaultRootMode 2 档 union. */
+function isVaultRootMode(value: unknown): value is 'follow-current' | 'custom' {
+  return value === 'follow-current' || value === 'custom';
+}
+
+/** T27 (F-29): 校验 vault 路径合法. 非空 + 绝对 + 不含 .. 段 + 不含反斜杠 + 不含 Windows 盘符 + ≤ 1024 字符. */
+export function isValidVaultPath(p: unknown): p is string {
+  if (typeof p !== 'string' || p.length === 0) return false;
+  if (p.length > 1024) return false;
+  if (!p.startsWith('/')) return false;
+  if (p.split('/').some((seg) => seg === '..')) return false;
+  if (/[\\\u0000-\u001f]/.test(p)) return false;
+  if (/^[A-Za-z]:/.test(p)) return false;
+  return true;
 }
 
 /** clamp 12..24 整数; 非法 (NaN) → 16. */
@@ -352,6 +374,31 @@ export const usePrefStore = create<PrefStore>((set, get) => ({
     set((s) => ({ prefs: { ...s.prefs, externalEditorCustomCmd: next } }));
   },
 
+  // T27 (F-29): vault 根模式 setter. 非法值 console.warn + 忽略.
+  setVaultRootMode(mode) {
+    if (!isVaultRootMode(mode)) {
+      console.warn(`[prefStore] invalid vaultRootMode: ${String(mode)}`);
+      return;
+    }
+    set((s) => ({ prefs: { ...s.prefs, vaultRootMode: mode } }));
+  },
+
+  // T27 (F-29): 自定义 vault 路径 setter.
+  //   - 接受 null 表示清空.
+  //   - 校验: 非空字符串 + 绝对路径 + 不含 .. 段 + 不含反斜杠 + 不含盘符.
+  //   - 失败 console.warn + 保留前值 (AC-03-4 联动).
+  setVaultRootCustom(p) {
+    if (p === null) {
+      set((s) => ({ prefs: { ...s.prefs, vaultRootCustom: null } }));
+      return;
+    }
+    if (!isValidVaultPath(p)) {
+      console.warn(`[prefStore] invalid vaultRootCustom: ${String(p)}`);
+      return;
+    }
+    set((s) => ({ prefs: { ...s.prefs, vaultRootCustom: p } }));
+  },
+
   // T04 新增: 一次性合并 partial + 设 hydrated=true.
   // 缺失字段保持当前值; 字段 clamp/校验与 setter 等价 (防脏数据).
   // T15 (FR-05): language 字段若 patch 提供但非法, 视为缺省值 'zh-CN' (AC-05-2).
@@ -404,6 +451,26 @@ export const usePrefStore = create<PrefStore>((set, get) => ({
               : rawCmd;
         }
       }
+      // T27 (F-29): vaultRootMode hydrate. 缺字段保留 / 非法值回退 'follow-current'.
+      const rawVaultMode = (patch as { vaultRootMode?: unknown }).vaultRootMode;
+      const nextVaultMode =
+        'vaultRootMode' in patch && isVaultRootMode(rawVaultMode)
+          ? rawVaultMode
+          : 'vaultRootMode' in patch
+            ? 'follow-current'
+            : s.prefs.vaultRootMode;
+      // T27 (F-29): vaultRootCustom hydrate. 缺字段保留 / 非法值回退 null.
+      let nextVaultCustom: string | null = s.prefs.vaultRootCustom;
+      if ('vaultRootCustom' in patch) {
+        const rawVault = (patch as { vaultRootCustom?: unknown }).vaultRootCustom;
+        if (rawVault === null) {
+          nextVaultCustom = null;
+        } else if (isValidVaultPath(rawVault)) {
+          nextVaultCustom = rawVault;
+        } else {
+          nextVaultCustom = null;
+        }
+      }
       return {
         prefs: {
           theme: isTheme(patch.theme) ? patch.theme : s.prefs.theme,
@@ -427,6 +494,8 @@ export const usePrefStore = create<PrefStore>((set, get) => ({
               : s.prefs.katexEnabled,
           externalEditor: nextExternalEditor,
           externalEditorCustomCmd: nextCustomCmd,
+          vaultRootMode: nextVaultMode,
+          vaultRootCustom: nextVaultCustom,
         },
         hydrated: true,
       };
