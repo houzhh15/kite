@@ -7,13 +7,20 @@
  *   - 渲染 <button type="button" role="link"> 作为可点击 UI (键盘 Tab + Enter 默认支持).
  *   - onClick 流程 (FR-03 + AC-03-1..5 / AC-06-1..5):
  *       1) preventDefault + stopPropagation
- *       2) 取 vaultRoot (同步, 通过 deriveVaultRoot + usePrefStore + useDocStore.getState)
- *          root === null → pushToast(t('toast.wikilink.vaultNotConfigured')) + return
- *       3) resolveWikilinkTarget({ target, vaultRoot, anchor })
- *          security-violation → 静默 noop (防探测)
- *          not-configured → 已在前置拦截
- *       4) loadFile(absPath) — 通过 loadFileRef 拿到 App.tsx 的实例
- *       5) anchor 滚动 — 双 RAF 后 scrollIntoView; 不命中 → console.warn
+ *       2) 逐层假设 vaultRoot (T28 增量):
+ *            取 currentPath, 调用 probeVaultRootCandidates → string[]
+ *            (例: /A/B/C/D.md → ['/A/B/C', '/A/B', '/A', '/']).
+ *          顺序遍历每个候选:
+ *            a) resolveWikilinkTarget({ target, vaultRoot: candidate, anchor })
+ *               security-violation → 静默 noop (AC-03-4)
+ *               not-configured → 跳过 (理论上不会发生, 候选非空)
+ *            b) await pathExists(absPath) (Tauri IPC, 轻量级 fs::metadata).
+ *               true → 立即 break, 进入 step 3
+ *               false → 继续下一个候选
+ *          所有候选均 false → pushToast(t('toast.wikilink.targetNotFound')) + return
+ *          currentPath 为 null (无文件打开) → 弹 vaultNotConfigured toast + return
+ *       3) loadFile(absPath) — 通过 loadFileRef 拿到 App.tsx 的实例
+ *       4) anchor 滚动 — 双 RAF 后 scrollIntoView; 不命中 → console.warn
  *
  * 错误映射 (FR-06):
  *   - loadFile 抛 NOT_FOUND → 走 docStore.loadFile 内部统一映射 (pushToast message.fileNotFound);
@@ -22,20 +29,19 @@
  *   - anchor 不命中 → console.warn('[WikilinkLink] anchor not found: <slug>').
  *
  * 纪律:
- *   - 不调 IPC (IPC 由 useMarkdownDoc.loadFile 内部调).
- *   - 不订阅 store; 通过 getState() 同步取 currentPath / root.
+ *   - 不调 IPC except pathExists / loadFile.
+ *   - 不订阅 store; 通过 getState() 同步取 currentPath.
  *   - React.memo 包裹 (NFR-01).
  */
 import { memo, useCallback, type MouseEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { resolveWikilinkTarget } from '../lib/wikilink/resolveWikilinkTarget';
-import { deriveVaultRoot } from '../lib/wikilink/vaultRoot';
-import { usePrefStore } from '../stores/prefStore';
+import { resolveWikilinkTarget, probeVaultRootCandidates } from '../lib/wikilink/resolveWikilinkTarget';
 import { useDocStore } from '../stores/docStore';
 import { pushToast } from '../lib/toast';
 import { slugify } from '../lib/inline/slugify';
 import { readWikilinkLoadFile } from '../lib/wikilink/loadFileRef';
+import { pathExists } from '../lib/tauri';
 import type { WikilinkLinkProps } from '../lib/wikilink/types';
 
 function WikilinkLinkInner(props: WikilinkLinkProps): JSX.Element {
@@ -47,23 +53,43 @@ function WikilinkLinkInner(props: WikilinkLinkProps): JSX.Element {
       e.preventDefault();
       e.stopPropagation();
 
-      // 1) 取 root (同步, 不订阅)
-      const mode = usePrefStore.getState().prefs.vaultRootMode;
-      const customPath = usePrefStore.getState().prefs.vaultRootCustom;
+      // 1) 同步取 currentPath, 派生候选 vaultRoot 列表.
       const currentPath = useDocStore.getState().state.currentPath;
-      const root = deriveVaultRoot(mode, customPath, currentPath);
-
-      if (root === null) {
-        // AC-06-1: vaultRoot=null → toast (5s 合并去重由 toast UI 自动 TTL 保证;
-        // wikilink 与 LinkHandler 共享 link 类文案路径, 由 UI 自动清空).
+      const candidates = probeVaultRootCandidates(currentPath);
+      if (candidates.length === 0) {
+        // AC-06-1: 没有打开的文件, 无法猜测 vaultRoot → toast 提示去设置.
         pushToast({ kind: 'error', message: t('toast.wikilink.vaultNotConfigured') });
         return;
       }
 
-      // 2) resolve
-      const r = resolveWikilinkTarget({ target, vaultRoot: root, anchor });
-      if (!r.ok) {
-        // security-violation / not-configured → 静默 noop (防探测, AC-03-4 / AC-06-2)
+      // 2) 逐层探测: 取第一个 pathExists 为 true 的候选.
+      let resolved: { absPath: string; anchor?: string } | null = null;
+      for (const candidate of candidates) {
+        const r = resolveWikilinkTarget({ target, vaultRoot: candidate, anchor });
+        if (!r.ok) {
+          // security-violation: 跳过 (防探测, AC-03-4)
+          continue;
+        }
+        // 轻量级 IPC: 仅 fs::metadata, 4-10ms.
+        // NFR-S-01: pathExists 永不抛错, 只返回 true/false.
+        let exists = false;
+        try {
+          exists = await pathExists(r.absPath);
+        } catch {
+          exists = false;
+        }
+        if (exists) {
+          resolved = { absPath: r.absPath, anchor: r.anchor };
+          break;
+        }
+      }
+
+      if (resolved === null) {
+        // AC-06: 全部候选都不存在 → toast 提示.
+        pushToast({
+          kind: 'error',
+          message: t('toast.wikilink.targetNotFound', { target }),
+        });
         return;
       }
 
@@ -75,7 +101,7 @@ function WikilinkLinkInner(props: WikilinkLinkProps): JSX.Element {
         return;
       }
       try {
-        await loadFile(r.absPath);
+        await loadFile(resolved.absPath);
       } catch {
         // useMarkdownDoc.loadFile 内部已 pushToast; currentPath / history 由 docStore 截断保持.
         // 此处不重复抛错 / 不重弹 toast.
@@ -83,8 +109,8 @@ function WikilinkLinkInner(props: WikilinkLinkProps): JSX.Element {
       }
 
       // 4) anchor 滚动 (双 RAF, AC-03-2 / AC-06-4).
-      if (r.anchor) {
-        const slug = slugify(r.anchor);
+      if (resolved.anchor) {
+        const slug = slugify(resolved.anchor);
         requestAnimationFrame(() => {
           requestAnimationFrame(() => {
             const el = document.getElementById(slug);

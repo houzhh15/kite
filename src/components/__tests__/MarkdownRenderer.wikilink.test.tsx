@@ -16,12 +16,26 @@
  *   内层 tree=undefined 抛错或被静默吞掉, 插件从未生效. 正确做法:
  *   传 `remarkWikilink` factory, 由 unified 在 freeze 阶段调用并得到 transformer.
  */
-import { describe, expect, it, beforeEach } from 'vitest';
+import { describe, expect, it, beforeEach, vi } from 'vitest';
 import { render } from '@testing-library/react';
 
 import MarkdownRenderer from '../MarkdownRenderer';
 import { useDocStore } from '../../stores/docStore';
 import { usePrefStore } from '../../stores/prefStore';
+
+// pathExists 注入, 让端到端测试可控: 默认全部 false, 测试可显式覆盖.
+let pathExistsImpl: ((p: string) => Promise<boolean>) | null = null;
+vi.mock('../../lib/tauri', async (importOriginal) => {
+  // eslint-disable-next-line @typescript-eslint/consistent-type-imports -- importOriginal 返回 unknown, 此处 cast 唯一可行.
+  const mod = (await importOriginal()) as Record<string, unknown>;
+  return {
+    ...mod,
+    pathExists: vi.fn((p: string) => {
+      if (pathExistsImpl) return pathExistsImpl(p);
+      return Promise.resolve(false);
+    }),
+  };
+});
 
 function setupVaultRoot(currentPath: string, customPath: string | null): void {
   usePrefStore.setState({
@@ -47,6 +61,7 @@ describe('T28 wikilink 渲染端到端 (F-46 / AC-02)', () => {
     useDocStore.setState({
       state: { currentPath: null, content: '', title: '', dirty: false },
     });
+    pathExistsImpl = null;
   });
 
   it('AC-R25-1: [[target]] 不再字面量输出 (无 [[ ]] 残留在文本节点)', () => {
@@ -91,6 +106,8 @@ describe('T28 wikilink 渲染端到端 (F-46 / AC-02)', () => {
   });
 
   it('AC-R25-2c: vaultRoot 配置后点击 wikilink → 调用 loadFile (FR-03)', async () => {
+    // pathExists 全部返回 true, 让所有候选都"存在", 命中第 1 层.
+    pathExistsImpl = () => Promise.resolve(true);
     setupVaultRoot('/vault/daily/2025-01-01.md', '/vault');
     let calledWith: string | null = null;
     // 模拟 App.tsx 注册的 loadFile.
@@ -105,7 +122,9 @@ describe('T28 wikilink 渲染端到端 (F-46 / AC-02)', () => {
     expect(linkEl).not.toBeNull();
     linkEl?.click();
     // 等待微任务
-    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 10));
+    // 第 1 层候选 /vault/daily/sources/foo.md 命中
+    expect(calledWith).not.toBeNull();
     expect(calledWith).toContain('sources/foo');
   });
 

@@ -191,6 +191,8 @@ export const enUS = {
     // T28 (F-46 / FR-06 / AC-06-1): wikilink click toast when vault root is unconfigured.
     wikilink: {
       vaultNotConfigured: 'Please configure a vault root in Settings first',
+      // T28 (F-46 / FR-03 increment): target not found after per-level vaultRoot probing.
+      targetNotFound: 'Target not found: {{target}}',
     },
   },
   fallback: {

@@ -230,6 +230,27 @@ export function readMarkdownFile(path: string): Promise<string> {
 }
 
 /**
+ * pathExists — T28 (F-46 / FR-03) 增量.
+ *
+ * 轻量级文件存在性探测, 专供 wikilink 多层 vaultRoot 探测使用.
+ *
+ * 契约:
+ *   - 输入 path, 输出 boolean. 任何错误 (NotFound / PermissionDenied / InvalidPath 等)
+ *     一律返回 false (NFR-S-01 静默拒绝, 防探测).
+ *   - 成功 → Ok(true|false), true=文件存在且为常规文件
+ *   - 当前实现永不 reject (后端 exists 内部静默).
+ *
+ * 区别于 readMarkdownFile:
+ *   - 不读文件内容, 不校验大小, 不校验扩展名白名单, 不做 UTF-8 校验.
+ *   - 性能: 单次 fs::metadata 即可, ~4-10ms, 远低于 readMarkdownFile.
+ *
+ * @param path 文件绝对路径
+ */
+export function pathExists(path: string): Promise<boolean> {
+  return safeInvoke<boolean>('path_exists', { path });
+}
+
+/**
  * getRecentFiles — F-03 (AC-07-1)
  *
  * 取最近文件列表 (按 lastOpenedAt 倒序, 长度 0..8).

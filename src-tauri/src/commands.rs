@@ -93,6 +93,26 @@ pub async fn read_markdown_file(path: String) -> Result<String, AppError> {
     crate::services::markdown_file::read(&PathBuf::from(path)).await
 }
 
+// ---------- 1b. path_exists (T28-补充) ----------
+
+/// path_exists — T28 (F-46 / FR-03) 增量.
+///
+/// 轻量级文件存在性探测, 用于 wikilink 逐层 vaultRoot 假设时的多轮尝试.
+/// 区别于 read_markdown_file:
+///   - 不读文件内容, 不校验大小, 不校验扩展名白名单, 不做 UTF-8 校验.
+///   - 仅 fs::metadata().is_file(), 失败 → false (不抛错).
+///   - IO 错误 (PermissionDenied 等非 NotFound) 一律视为不存在,
+///     避免探测阶段把权限问题暴露给用户 (NFR-S-01 静默拒绝).
+///
+/// - Input:  path (绝对文件路径字符串)
+/// - Output: Ok(bool) true=文件存在且为常规文件, false=不存在/不是文件/IO 错误
+/// - Error 约定: 当前实现永不失败 (返回 Ok(false) 兜底).
+///   [对应 wikilink 多层探测场景]
+#[tauri::command]
+pub async fn path_exists(path: String) -> Result<bool, AppError> {
+    Ok(crate::services::markdown_file::exists(&PathBuf::from(path)).await)
+}
+
 // ---------- 2. get_recent_files ----------
 
 /// get_recent_files — F-03

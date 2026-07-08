@@ -95,6 +95,7 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::read_markdown_file,
+            commands::path_exists,
             commands::load_preferences,
             commands::save_preferences,
             commands::set_window_title,

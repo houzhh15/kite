@@ -169,6 +169,21 @@ pub async fn read(path: &Path) -> Result<String, AppError> {
     Ok(text)
 }
 
+/// exists — T28 (F-46 / FR-03) 增量.
+///
+/// 轻量级文件存在性探测, 专供 wikilink 多层 vaultRoot 探测使用.
+/// 区别于 read: 不读内容, 不校验大小/扩展名/编码; 任何错误一律返回 false (静默).
+///
+/// 设计依据: docs/design/compiled.md §3.3 + §3.6.3 (AC-03-1..5 多层探测).
+/// 安全考虑 (NFR-S-01): 探测阶段不抛错, 不暴露 IO 错误细节 (PermissionDenied 等),
+/// 防止用户通过"是否弹错"探测文件系统结构.
+pub async fn exists(path: &Path) -> bool {
+    match std::fs::metadata(path) {
+        Ok(m) => m.is_file(),
+        Err(_) => false, // NotFound / PermissionDenied / InvalidInput 一律视为不存在.
+    }
+}
+
 /// resolve_image — 占位 (T07 既有, 不删除以防 T07 引用).
 pub async fn resolve_image(_base: &Path, _rel: &Path) -> Result<PathBuf, AppError> {
     unimplemented!("resolve_image 计划在 T07 阶段落地 (PathBuf 形态)")
@@ -330,6 +345,29 @@ mod tests {
             AppError::InvalidPath(_) => {}
             other => panic!("expected InvalidPath, got {other:?}"),
         }
+    }
+
+    // ---- exists (T28 增量) ----
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn exists_returns_true_for_existing_file() {
+        let dir = tmp_dir();
+        let path = dir.join("alive.md");
+        std::fs::write(&path, "# alive").expect("write");
+        assert!(exists(&path).await);
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn exists_returns_false_for_missing_file() {
+        let dir = tmp_dir();
+        let path = dir.join("__dead__.md");
+        assert!(!exists(&path).await);
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn exists_returns_false_for_directory() {
+        let dir = tmp_dir();
+        assert!(!exists(&dir).await); // 目录不是常规文件 → false
     }
 
     // ---- resolve_as_data_url 测试 (T08 step-2a) ----

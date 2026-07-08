@@ -219,6 +219,8 @@ export const zhCN = {
     // T28 (F-46 / FR-06 / AC-06-1): vault 根未配置时点击 wikilink 弹 toast.
     wikilink: {
       vaultNotConfigured: '请先在设置中配置 Vault 根',
+      // T28 (F-46 / FR-03 增量): 逐层假设 vaultRoot 探测后仍未找到目标文件.
+      targetNotFound: '未找到目标文件：{{target}}',
     },
   },
   fallback: {

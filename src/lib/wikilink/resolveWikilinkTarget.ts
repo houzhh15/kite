@@ -33,6 +33,60 @@ export interface ResolveInput {
 export const RESOLVE_TARGET_MAX_LENGTH = 512;
 
 /**
+ * probeVaultRootCandidates — 逐层假设 vaultRoot (T28 / F-46 / FR-03 增量).
+ *
+ * 背景:
+ *   wikilink 设计上要求全局配置 vaultRoot, 但实际场景用户常在子目录打开 markdown
+ *   而未配置 vaultRoot. 退路: 假设当前文件所在目录就是 vaultRoot, 逐层向上假设.
+ *
+ * 契约 (AC-03-1 / AC-03-2):
+ *   - 入参 currentPath (绝对文件路径, 由 docStore.state.currentPath 提供).
+ *   - 返回 string[] 候选 vaultRoot 列表, 顺序由内向外 (最近 → 最远).
+ *   - 动态深度 = 路径段数:
+ *       /A/B/C/D.md → ['/A/B/C', '/A/B', '/A', '/'] (depth 4)
+ *       /foo.md     → ['/'] (depth 1)
+ *   - 边界: 已是根 '/' → 返回 ['/'] (depth 1, 防止死循环).
+ *   - 路径统一 posix (NFR-18).
+ *   - 入参非法 (空 / 非字符串) → 返回 [].
+ *
+ * 性能: 单次 dirname 调用 O(深度), 总耗时 < 1ms.
+ */
+export function probeVaultRootCandidates(currentPath: string | null | undefined): string[] {
+  if (typeof currentPath !== 'string' || currentPath.length === 0) {
+    return [];
+  }
+  // 截到 basename 之前 (currentPath 可能是文件, 取其所在目录).
+  // path.posix.dirname 边界:
+  //   dirname('foo.md')  === '.'  → 我们把它当作 '/'
+  //   dirname('/')       === '/'
+  //   dirname('/A/B/')   === '/A'
+  let dir = path.posix.dirname(currentPath);
+  if (dir === '.' || dir === '') {
+    // 极端边界: 没有目录部分 (例如 'foo.md'), 退路到根.
+    dir = '/';
+  }
+  // 统一末尾无 '/', 便于 path.posix.join 一致行为.
+  if (dir !== '/' && dir.endsWith('/')) {
+    dir = dir.slice(0, -1);
+  }
+  const candidates: string[] = [];
+  // 防死循环: dirname('/') === '/' 永远不收敛, 上限由段数自然限制.
+  const seen = new Set<string>();
+  let cur = dir;
+  let safetyGuard = 64; // 极端深路径也限制 (1 + 63 = 64, 远大于实际).
+  while (safetyGuard-- > 0) {
+    if (seen.has(cur)) break;
+    seen.add(cur);
+    candidates.push(cur);
+    if (cur === '/') break; // 已到根, 停止.
+    const next = path.posix.dirname(cur);
+    if (next === cur) break; // 防御性: 任何平台不收敛情况.
+    cur = next;
+  }
+  return candidates;
+}
+
+/**
  * 是否绝对路径 (POSIX `/` 开头 或 Windows 盘符 `C:` `c:`).
  *   - POSIX: '/etc/passwd'
  *   - Windows drive: 'C:/Windows' / 'C:\\Windows' / 'c:foo'
