@@ -14,10 +14,13 @@
  *   - 纯函数; 无副作用; 无 IPC; 不依赖 React / store.
  *   - 校验失败返回 `{ ok: false, reason }` 不抛错 (AC-04-4 / AC-06-1~4 静默拒绝语义).
  *   - 调用方负责文件存在性 IPC (NFR-07 复用 read_markdown_file NotFound 通道).
+ *
+ * 实施注 (R-32 增量): 不使用 Node `path` 模块.
+ *   - Vite 在浏览器/Tauri-WebView 中把 `path` 标记为 `__vite-browser-external:path`
+ *     (空对象 stub); `path.posix.dirname(...)` 会抛 `Cannot read properties of undefined`.
+ *   - 所以这里内联一个最小 posix 路径工具 (posixPath), 不依赖 Node `path`.
+ *   - 不在 lib/ 单独建 posix-path.ts (保持本文件自包含, 减少新文件).
  */
-
-// eslint-disable-next-line no-restricted-imports -- path.posix 是 vault 内路径跨平台统一语义 (NFR-18), 与 IPC 无关; 不涉及 fs IO.
-import * as path from 'path';
 
 export type ResolveResult =
   | { ok: true; absPath: string; anchor?: string }
@@ -31,6 +34,80 @@ export interface ResolveInput {
 
 /** target 最大长度 (与 parseWikilink.PARSE_WIKILINK_MAX_LENGTH 对齐). */
 export const RESOLVE_TARGET_MAX_LENGTH = 512;
+
+/* ------------------------------ posix-path 工具 ------------------------------ */
+/* R-32 增量: 不依赖 Node `path` (浏览器/Tauri-WebView 下为 Vite 外部空 stub). */
+
+const posixPath = {
+  /** 等价 `path.posix.dirname(p)`. 输入 '/A/B/C.md' → '/A/B'. 输入 '/' → '/'. */
+  dirname(p: string): string {
+    if (typeof p !== 'string' || p.length === 0) return '/';
+    // path.posix.dirname 行为: 末段是 '/' (path 视为目录) 时, 截到倒数第二段.
+    //   '/A/B/C/D.md' → '/A/B/C'
+    //   '/A/B/C/D.md/' → '/A/B/C'  (尾 '/' 视为目录, dirname 返回上一级)
+    //   '/' → '/'
+    //   'foo.md' → '.'
+    //   'foo.md/' → '.' (末段为空, dirname 取上一级即 'foo.md'?)
+    // 实际: '/A/B/C/'  → '/A/B' (尾 '/' 不算一段, 截到 '/A/B')
+    let s = p;
+    if (s.length > 1 && s.charCodeAt(s.length - 1) === 47 /* '/' */) {
+      s = s.slice(0, -1);
+    }
+    const i = s.lastIndexOf('/');
+    if (i < 0) return '.'; // 'foo.md' → '.'
+    if (i === 0) return '/'; // '/foo.md' → '/'
+    return s.slice(0, i);
+  },
+  /** 等价 `path.posix.basename(p, ext?)`. */
+  basename(p: string): string {
+    if (typeof p !== 'string' || p.length === 0) return '';
+    const i = p.lastIndexOf('/');
+    return i < 0 ? p : p.slice(i + 1);
+  },
+  /** 等价 `path.posix.join(...segments)`. 多个段拼接, 空段忽略. 保留首段的前导 '/'. */
+  join(...segments: string[]): string {
+    const out: string[] = [];
+    let leadingSlash = false;
+    for (let idx = 0; idx < segments.length; idx++) {
+      const segRaw = segments[idx];
+      if (typeof segRaw !== 'string' || segRaw.length === 0) continue;
+      // 第一个非空段: 保留前导 '/', 其后段去除前导 '/'
+      const isFirst = out.length === 0 && !leadingSlash;
+      const seg = segRaw.replace(/^\/+/, '').replace(/\/+$/, '');
+      if (seg.length === 0) {
+        if (isFirst) leadingSlash = true;
+        continue;
+      }
+      if (isFirst && segRaw.charCodeAt(0) === 47 /* '/' */) {
+        leadingSlash = true;
+      }
+      out.push(...seg.split('/'));
+    }
+    let result = out.join('/');
+    if (leadingSlash) result = '/' + result;
+    return result.length === 0 ? '/' : result;
+  },
+  /** 等价 `path.posix.relative(from, to)`. 始终返回不含 '..' 前缀的相对路径. */
+  relative(from: string, to: string): string {
+    if (from === to) return '';
+    const fromSegs = from.split('/').filter((s) => s.length > 0);
+    const toSegs = to.split('/').filter((s) => s.length > 0);
+    let i = 0;
+    while (i < fromSegs.length && i < toSegs.length && fromSegs[i] === toSegs[i]) {
+      i++;
+    }
+    const up = fromSegs.length - i;
+    const down = toSegs.slice(i);
+    const parts: string[] = [];
+    for (let k = 0; k < up; k++) parts.push('..');
+    parts.push(...down);
+    return parts.join('/');
+  },
+  /** 等价 `path.posix.isAbsolute(p)`. */
+  isAbsolute(p: string): boolean {
+    return typeof p === 'string' && p.length > 0 && p.charCodeAt(0) === 47; // '/'
+  },
+};
 
 /**
  * probeVaultRootCandidates — 逐层假设 vaultRoot (T28 / F-46 / FR-03 增量).
@@ -56,11 +133,11 @@ export function probeVaultRootCandidates(currentPath: string | null | undefined)
     return [];
   }
   // 截到 basename 之前 (currentPath 可能是文件, 取其所在目录).
-  // path.posix.dirname 边界:
+  // posixPath.dirname 边界:
   //   dirname('foo.md')  === '.'  → 我们把它当作 '/'
   //   dirname('/')       === '/'
   //   dirname('/A/B/')   === '/A'
-  let dir = path.posix.dirname(currentPath);
+  let dir = posixPath.dirname(currentPath);
   if (dir === '.' || dir === '') {
     // 极端边界: 没有目录部分 (例如 'foo.md'), 退路到根.
     dir = '/';
@@ -79,7 +156,7 @@ export function probeVaultRootCandidates(currentPath: string | null | undefined)
     seen.add(cur);
     candidates.push(cur);
     if (cur === '/') break; // 已到根, 停止.
-    const next = path.posix.dirname(cur);
+    const next = posixPath.dirname(cur);
     if (next === cur) break; // 防御性: 任何平台不收敛情况.
     cur = next;
   }
@@ -167,7 +244,7 @@ export function resolveWikilinkTarget(input: ResolveInput): ResolveResult {
   //   实际上 wikilink 写 [[wiki/foo]] 是相对 vault 根的, 期望 /A/B/foo.md.
   //   检测规则: target 第一段 == candidate 最后一段 → 从 target 头部剥除该段.
   //   防御性: 仍要保证拼接结果仍在 vaultRoot 内 (后续 relative 校验).
-  const overlapSegment = path.posix.basename(vaultRoot);
+  const overlapSegment = posixPath.basename(vaultRoot);
   let joinedTarget = normalized;
   if (
     overlapSegment.length > 0 &&
@@ -180,11 +257,11 @@ export function resolveWikilinkTarget(input: ResolveInput): ResolveResult {
       joinedTarget = segments.slice(1).join('/');
     }
   }
-  const absPath = path.posix.join(vaultRoot, joinedTarget);
+  const absPath = posixPath.join(vaultRoot, joinedTarget);
 
   // 二次校验: 拼接结果必须仍在 vaultRoot 下 (防御性)
-  const rel = path.posix.relative(vaultRoot, absPath);
-  if (rel.startsWith('..') || path.posix.isAbsolute(rel)) {
+  const rel = posixPath.relative(vaultRoot, absPath);
+  if (rel.startsWith('..') || posixPath.isAbsolute(rel)) {
     return { ok: false, reason: 'security-violation' };
   }
 
