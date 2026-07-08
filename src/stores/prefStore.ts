@@ -76,6 +76,10 @@ export interface Prefs {
   externalEditor: ExternalEditor;
   /** T24 (F-26): 自定义编辑器命令模板. 默认 '' (≤256 字符). */
   externalEditorCustomCmd: string;
+  /** T27 (F-29): vault 根模式. 'follow-current' = 跟随当前文件目录; 'custom' = 用 vaultRootCustom. */
+  vaultRootMode: 'follow-current' | 'custom';
+  /** T27 (F-29): 自定义 vault 根绝对路径. 仅 mode==='custom' 时生效; null 表示未配置. */
+  vaultRootCustom: string | null;
 }
 
 export interface PrefState {

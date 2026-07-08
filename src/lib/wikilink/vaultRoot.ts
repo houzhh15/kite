@@ -18,6 +18,7 @@
  */
 
 import { useMemo } from 'react';
+// eslint-disable-next-line no-restricted-imports -- path.posix 是 vault 内路径跨平台统一语义 (NFR-18), 与 IPC 无关; 不涉及 fs IO.
 import * as path from 'path';
 
 import { usePrefStore, isValidVaultPath } from '../../stores/prefStore';

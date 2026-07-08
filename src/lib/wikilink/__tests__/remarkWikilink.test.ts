@@ -51,6 +51,15 @@ function findWikilink(tree: Root) {
   return wn;
 }
 
+/** 过滤 wikilink 节点. mdast PhrasingContent 不含 'wikilink', 必须先转 unknown. */
+function wikilinksOf(segs: PhrasingContent[]): Array<{
+  data?: { hProperties?: Record<string, string | undefined> };
+}> {
+  return segs.filter((s) => (s as { type: string }).type === 'wikilink') as unknown as Array<{
+    data?: { hProperties?: Record<string, string | undefined> };
+  }>;
+}
+
 describe('remarkWikilink (T28 / FR-01 / AC-01-1..4)', () => {
   describe('基础 4 种语法 (AC-01-1/2)', () => {
     it('AC-01-1: [[target]] 改写为 wikilink 节点', () => {
@@ -60,7 +69,8 @@ describe('remarkWikilink (T28 / FR-01 / AC-01-1..4)', () => {
       // 前缀 text + wikilink + 后缀 text
       expect(segs.length).toBe(3);
       expect(segs[0]).toMatchObject({ type: 'text', value: 'visit me ' });
-      const wn = segs[1] as {
+      // mdast PhrasingContent 不含 'wikilink', 必须先转 unknown 再断言.
+      const wn = segs[1] as unknown as {
         type: 'wikilink';
         data: { hName: string; hProperties: Record<string, string> };
         children: PhrasingContent[];
@@ -123,7 +133,7 @@ describe('remarkWikilink (T28 / FR-01 / AC-01-1..4)', () => {
       const tree = rootWithText('see [[|alias]] here');
       remarkWikilink()(tree);
       const segs = flatChildren(tree);
-      const wikilinks = segs.filter((s) => s.type === 'wikilink');
+      const wikilinks = wikilinksOf(segs);
       expect(wikilinks.length).toBe(0);
       const joined = segs.map((s) => ('value' in s ? s.value : '')).join('');
       expect(joined).toBe('see [[|alias]] here');
@@ -133,7 +143,7 @@ describe('remarkWikilink (T28 / FR-01 / AC-01-1..4)', () => {
       const tree = rootWithText('see [[invalid:colon]] here');
       remarkWikilink()(tree);
       const segs = flatChildren(tree);
-      const wikilinks = segs.filter((s) => s.type === 'wikilink');
+      const wikilinks = wikilinksOf(segs);
       expect(wikilinks.length).toBe(0);
       const joined = segs.map((s) => ('value' in s ? s.value : '')).join('');
       expect(joined).toBe('see [[invalid:colon]] here');
@@ -165,9 +175,9 @@ describe('remarkWikilink (T28 / FR-01 / AC-01-1..4)', () => {
       remarkWikilink()(tree);
       const para = tree.children[0] as { children: PhrasingContent[] };
       // inlineCode 不变; text 被切分为 [prefix-empty, wikilink, suffix]
-      const wn = para.children.find((c) => c.type === 'wikilink');
+      const wn = para.children.find((c) => (c as { type: string }).type === 'wikilink');
       expect(wn).toBeDefined();
-      expect((wn as { data: { hProperties: Record<string, string> } }).data.hProperties['data-wikilink']).toBe('y');
+      expect((wn as unknown as { data: { hProperties: Record<string, string> } }).data.hProperties['data-wikilink']).toBe('y');
     });
 
     it('围栏代码块 (code 节点) 内 [[x]] 不被切分', () => {
@@ -189,7 +199,7 @@ describe('remarkWikilink (T28 / FR-01 / AC-01-1..4)', () => {
       const codeBlock = tree.children[0] as { value: string };
       expect(codeBlock.value).toBe('[[x]] [[y]]'); // 完全不变
       const para = tree.children[1] as { children: PhrasingContent[] };
-      const wn = para.children.find((c) => c.type === 'wikilink');
+      const wn = para.children.find((c) => (c as { type: string }).type === 'wikilink');
       expect(wn).toBeDefined();
     });
 
@@ -197,7 +207,7 @@ describe('remarkWikilink (T28 / FR-01 / AC-01-1..4)', () => {
       const tree = rootWithText('a [[one]] b [[two|dos]] c');
       remarkWikilink()(tree);
       const segs = flatChildren(tree);
-      const wikilinks = segs.filter((s) => s.type === 'wikilink');
+      const wikilinks = wikilinksOf(segs);
       expect(wikilinks.length).toBe(2);
       expect(
         (wikilinks[0] as { data: { hProperties: Record<string, string> } }).data.hProperties[
@@ -250,7 +260,7 @@ describe('remarkWikilink (T28 / FR-01 / AC-01-1..4)', () => {
       const tree = rootWithText('see [[any]] here');
       remarkWikilink({ parse: customParse })(tree);
       const segs = flatChildren(tree);
-      const wikilinks = segs.filter((s) => s.type === 'wikilink');
+      const wikilinks = wikilinksOf(segs);
       expect(wikilinks.length).toBe(0);
       const joined = segs.map((s) => ('value' in s ? s.value : '')).join('');
       expect(joined).toBe('see [[any]] here');

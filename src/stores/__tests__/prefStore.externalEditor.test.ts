@@ -30,6 +30,8 @@ const BASE_PREFS = {
   katexEnabled: false,
   externalEditor: 'system' as const,
   externalEditorCustomCmd: '',
+  vaultRootMode: 'follow-current' as const,
+  vaultRootCustom: null,
 };
 
 describe('prefStore externalEditor (T24 F-26)', () => {

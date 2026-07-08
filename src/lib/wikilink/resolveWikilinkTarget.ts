@@ -16,6 +16,7 @@
  *   - 调用方负责文件存在性 IPC (NFR-07 复用 read_markdown_file NotFound 通道).
  */
 
+// eslint-disable-next-line no-restricted-imports -- path.posix 是 vault 内路径跨平台统一语义 (NFR-18), 与 IPC 无关; 不涉及 fs IO.
 import * as path from 'path';
 
 export type ResolveResult =

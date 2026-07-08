@@ -21,7 +21,7 @@
  *   - options.parse 允许注入测试用 parser, 默认 parseWikilink.
  */
 
-import type { Root, Text, PhrasingContent } from 'mdast';
+import type { Root, Text, Parent, PhrasingContent } from 'mdast';
 
 import { parseWikilink, type ParsedWikilink } from './parseWikilink';
 

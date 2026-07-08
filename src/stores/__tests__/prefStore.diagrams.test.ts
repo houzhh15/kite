@@ -27,6 +27,8 @@ const BASE_PREFS = {
   katexEnabled: false,
   externalEditor: 'system' as const,
   externalEditorCustomCmd: '',
+  vaultRootMode: 'follow-current' as const,
+  vaultRootCustom: null,
 };
 
 describe('prefStore mermaid/katex (T17-P2)', () => {

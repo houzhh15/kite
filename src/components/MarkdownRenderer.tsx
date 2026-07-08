@@ -274,8 +274,10 @@ function MarkdownRendererInner({ content }: MarkdownRendererProps): JSX.Element 
           h5: HeadingAnchor as never,
           h6: HeadingAnchor as never,
           // T28 (F-46): wikilink 自定义节点 → WikilinkNode 组件 (FR-02 + AC-02-1..4).
+          // react-markdown 的 Components 类型不识别 'wikilink' (T28 自定义节点类型);
+          // 通过 unknown 二次断言平滑过渡, 与其它 custom node 一致.
           wikilink: WikilinkNode as never,
-        }}
+        } as unknown as never}
       >
         {parsed.body}
       </ReactMarkdown>
