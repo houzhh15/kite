@@ -30,15 +30,28 @@
 
 .frontmatter-list {
     display: grid;
+    /* 每行 2 列: 列 1 = icon + key (固定宽度); 列 2 = value (弹性).
+     * .frontmatter-row 作为子网格项, 其内部再次划分为 key 单元 + value 单元. */
     grid-template-columns: minmax(7rem, max-content) 1fr;
-    gap: 0.375rem 0.875rem;
+    column-gap: 0.875rem;
+    row-gap: 0.375rem;
     margin: 0;
     padding: 0;
 }
 
 .frontmatter-row {
-    display: contents;
-    /*  让 grid 直接对接到内部 dt/dd, 避免外层 div 多占一行. */
+    /* 行级 2 列布局: 左侧 [icon + dt key], 右侧 [dd value].
+     * 这样保证 grid-template-columns 的 2 列语义与"一行一对(key,value)"一致. */
+    display: grid;
+    grid-template-columns: subgrid;
+    grid-column: 1 / -1;
+    align-items: center;
+}
+
+.frontmatter-key-cell {
+    display: inline-flex;
+    align-items: center;
+    min-width: 0;
 }
 
 .frontmatter-icon {

@@ -81,10 +81,12 @@ function FrontmatterPanelInner({ rows }: FrontmatterPanelProps): JSX.Element | n
       <dl className="frontmatter-list">
         {rows.map((row) => (
           <div key={row.key} className="frontmatter-row">
-            <span className="frontmatter-icon" aria-hidden="true">
-              <Icon name={row.icon} />
-            </span>
-            <dt className="frontmatter-key kite-muted">{row.key}</dt>
+            <div className="frontmatter-key-cell">
+              <span className="frontmatter-icon" aria-hidden="true">
+                <Icon name={row.icon} />
+              </span>
+              <dt className="frontmatter-key kite-muted">{row.key}</dt>
+            </div>
             <dd className="frontmatter-value">
               {row.tags && row.tags.length > 0
                 ? row.tags.map((tag) => (
