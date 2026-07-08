@@ -6,54 +6,23 @@
  * 覆盖:
  *   - 可点击态 + 有 alias (AC-02-1)
  *   - 可点击态 + 无 anchor (AC-02-2)
- *   - 降级态 (root=null) (AC-02-3)
- *   - useVaultRoot 抛错 mock (AC-02-4)
- *   - useVaultRoot 返回 root=null 时仍渲染降级
+ *   - 始终渲染为可点击 button (AC-02-3) — R-26 修复: 移除 root=null 降级分支,
+ *     错误处理下沉到 WikilinkLink.onClick (vaultRoot 缺失时点击 → pushToast).
+ *   - 缺 data-wikilink 时降级显示纯文本 (AC-02-4)
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { render } from '@testing-library/react';
 
 import { setWikilinkLoadFile } from '../../lib/wikilink/loadFileRef';
-
-// mock react-i18next
-vi.mock('react-i18next', () => ({
-  useTranslation: () => ({
-    t: (key: string) => key,
-    i18n: { language: 'zh-CN', changeLanguage: vi.fn() },
-  }),
-  Trans: ({ children }: { children: React.ReactNode }) => children,
-  initReactI18next: { type: '3rdParty', init: () => {} },
-}));
-
-// mock useVaultRoot (单一返回 root 字段; 其他字段保留为 noop).
-let mockRoot: string | null = '/Users/me/notes';
-const useVaultRootMock = vi.fn(() => ({
-  root: mockRoot,
-  mode: 'follow-current' as const,
-  setMode: vi.fn(),
-  setCustomPath: vi.fn(),
-  refresh: vi.fn(),
-}));
-
-vi.mock('../../lib/wikilink/vaultRoot', () => ({
-  useVaultRoot: () => useVaultRootMock(),
-  deriveVaultRoot: (mode: unknown, customPath: unknown, currentPath: unknown) => {
-    if (mode === 'custom' && typeof customPath === 'string') return customPath;
-    if (typeof currentPath === 'string') return currentPath.replace(/\/[^/]+$/, '');
-    return null;
-  },
-}));
 
 import { WikilinkNode } from '../WikilinkNode';
 
 describe('WikilinkNode (T28 / FR-02 / AC-02-1..4)', () => {
   beforeEach(() => {
-    mockRoot = '/Users/me/notes';
     setWikilinkLoadFile(null);
-    useVaultRootMock.mockClear();
   });
 
-  it('AC-02-1: root 非空 + 有 alias → 渲染 <button> 带 data-wikilink', () => {
+  it('AC-02-1: 有 alias → 渲染 <button> 带 data-wikilink + data-anchor + data-alias', () => {
     const { container } = render(
       <WikilinkNode data-wikilink="projects/foo" data-anchor="目标" data-alias="项目计划">
         项目计划
@@ -69,7 +38,7 @@ describe('WikilinkNode (T28 / FR-02 / AC-02-1..4)', () => {
     expect(btn?.textContent).toBe('项目计划');
   });
 
-  it('AC-02-2: root 非空 + 无 anchor → children 为 target', () => {
+  it('AC-02-2: 无 anchor → children 为 target', () => {
     const { container } = render(
       <WikilinkNode data-wikilink="foo">foo</WikilinkNode>,
     );
@@ -80,40 +49,25 @@ describe('WikilinkNode (T28 / FR-02 / AC-02-1..4)', () => {
     expect(btn?.textContent).toBe('foo');
   });
 
-  it('AC-02-3: root=null → 渲染 <span aria-disabled="true"> + title 提示', () => {
-    mockRoot = null;
+  it('AC-02-3 (R-26): 始终渲染为可点击 button — 错误处理下沉到 WikilinkLink.onClick', () => {
+    // 不再分支: 即使 vaultRoot=null (测试中 useDocStore.currentPath=null + usePrefStore 默认),
+    // wikilink 仍渲染为 button[role=link]. 错误处理 (toast 提示) 在 onClick 触发时.
     const { container } = render(
       <WikilinkNode data-wikilink="projects/foo" data-alias="项目计划">
         项目计划
       </WikilinkNode>,
     );
-    const span = container.querySelector('span');
-    expect(span).not.toBeNull();
-    expect(span?.getAttribute('aria-disabled')).toBe('true');
-    expect(span?.getAttribute('data-wikilink')).toBe('projects/foo');
-    expect(span?.getAttribute('title')).toBe('toast.wikilink.vaultNotConfigured');
-    expect(span?.textContent).toBe('项目计划');
-    // 不应是 <button>
-    expect(container.querySelector('button')).toBeNull();
+    const btn = container.querySelector('button');
+    expect(btn).not.toBeNull();
+    expect(btn?.getAttribute('role')).toBe('link');
+    // 链接视觉 (不被降级成 text-muted 灰字)
+    expect(btn?.className).toContain('text-accent');
+    expect(btn?.className).toContain('hover:underline');
+    // 不再是 aria-disabled span
+    expect(container.querySelector('[aria-disabled]')).toBeNull();
   });
 
-  it('AC-02-4: useVaultRoot 抛错 → 渲染降级 + console.error 一次', () => {
-    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    useVaultRootMock.mockImplementationOnce(() => {
-      throw new TypeError('mock failure');
-    });
-    const { container } = render(
-      <WikilinkNode data-wikilink="projects/foo">foo</WikilinkNode>,
-    );
-    const span = container.querySelector('span');
-    expect(span).not.toBeNull();
-    expect(span?.getAttribute('aria-disabled')).toBe('true');
-    expect(errSpy).toHaveBeenCalledTimes(1);
-    expect(errSpy.mock.calls[0]?.[0]).toContain('[WikilinkNode] useVaultRoot failed');
-    errSpy.mockRestore();
-  });
-
-  it('data-wikilink 缺失时降级显示纯文本', () => {
+  it('AC-02-4: data-wikilink 缺失时降级显示纯文本 (防御性)', () => {
     const { container } = render(<WikilinkNode>fallback</WikilinkNode>);
     const span = container.querySelector('span');
     expect(span).not.toBeNull();
