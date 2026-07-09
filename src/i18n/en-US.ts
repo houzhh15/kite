@@ -168,6 +168,11 @@ export const enUS = {
     failGeneric: 'Export failed: {{message}}',
     failDevMode: 'Please run export in the desktop app',
     pdfHint: 'PDF sent to the print dialog. Save to {{path}} in the system dialog.',
+    // T29 (R-35): Copy current markdown file to system clipboard, equivalent
+    // to Cmd/Ctrl+C in Finder/Explorer. Pasting creates a file copy elsewhere.
+    copyFile: 'Copy file',
+    successCopy: 'Copied {{name}} to clipboard',
+    failCopy: 'Copy failed: {{message}}',
   },
   fullscreen: {
     enter: 'Fullscreen',

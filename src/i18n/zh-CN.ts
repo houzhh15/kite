@@ -191,6 +191,12 @@ export const zhCN = {
     failGeneric: '导出失败：{{message}}',
     failDevMode: '请在桌面应用中执行导出',
     pdfHint: 'PDF 已发送到打印机对话框，请在系统对话框中保存到 {{path}}',
+    // T29 (R-35): "拷贝文件" — 把当前 markdown 文件复制到系统剪贴板,
+    // 行为等价于 Finder/Explorer 中 Cmd/Ctrl+C 复制文件. 用户在其他位置粘贴
+    // 会创建文件副本 (粘贴到文本编辑器则粘贴文件名).
+    copyFile: '拷贝文件',
+    successCopy: '已拷贝 {{name}} 到剪贴板',
+    failCopy: '拷贝失败：{{message}}',
   },
   fullscreen: {
     enter: '全屏',

@@ -1,10 +1,11 @@
 /**
- * ToolbarExportMenu 单测 (T16-P2 step-5c).
+ * ToolbarExportMenu 单测 (T16-P2 step-5c + T29 R-35 增量).
  *
  * 覆盖:
  *   - disabled = true → aria-disabled='true', 点击不展开菜单.
  *   - disabled = false, 无 __TAURI__ (开发模式) → toast 'export.failDevMode'.
  *   - disabled = false, Tauri 环境 → 不应报 dev-mode toast.
+ *   - T29 R-35: 菜单含「拷贝文件」项, 点击触发 navigator.clipboard.write.
  */
 import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
 import { fireEvent, render, screen, cleanup } from '@testing-library/react';
@@ -15,9 +16,12 @@ import { useToastStore } from '../lib/toast';
 // Tauri 环境 stub (开 / 关).
 function setTauriEnv(present: boolean): void {
   if (present) {
+    // 同时设置 __TAURI__ (旧版标志) 与 __TAURI_INTERNALS__ (v2 标志, isTauri() 检查此标志).
     (window as unknown as { __TAURI__?: unknown }).__TAURI__ = { core: {} };
+    (window as unknown as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__ = {};
   } else {
     delete (window as unknown as { __TAURI__?: unknown }).__TAURI__;
+    delete (window as unknown as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__;
   }
 }
 
@@ -65,11 +69,75 @@ describe('ToolbarExportMenu', () => {
     expect(msg).toMatch(/desktop app|桌面应用/);
   });
 
-  it('菜单包含 HTML 与 PDF 两项', () => {
+  it('菜单包含 HTML / PDF / 拷贝文件 三项', () => {
     setTauriEnv(true);
     render(<ToolbarExportMenu disabled={false} />);
     fireEvent.click(screen.getByTestId('toolbar-export'));
     expect(screen.getByTestId('toolbar-export-html')).toBeTruthy();
     expect(screen.getByTestId('toolbar-export-pdf')).toBeTruthy();
+    // T29 R-35: 拷贝文件菜单项.
+    expect(screen.getByTestId('toolbar-export-copy')).toBeTruthy();
+  });
+
+  // T29 R-35: 拷贝文件点击 → navigator.clipboard.write 被调用, toast 成功.
+  it('点击「拷贝文件」触发 navigator.clipboard.write, 弹成功 toast', async () => {
+    setTauriEnv(true);
+    // mock navigator.clipboard.write, 记录参数.
+    const writeMock = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { write: writeMock },
+      configurable: true,
+      writable: true,
+    });
+    // mock ClipboardItem (jsdom 不支持).
+    const originalClipboardItem = (globalThis as { ClipboardItem?: unknown }).ClipboardItem;
+    (globalThis as { ClipboardItem?: unknown }).ClipboardItem = class {
+      constructor(public data: Record<string, Blob>) {}
+    };
+
+    // 设置 docStore.currentPath + 注入 docStore.content.
+    const { useDocStore } = await import('../stores/docStore');
+    useDocStore.setState({
+      state: {
+        currentPath: '/tmp/test/note.md',
+        content: '# hello',
+        title: 'note',
+        dirty: false,
+      },
+      history: [],
+      cursor: -1,
+    });
+    // mock readMarkdownFile IPC: 走 lib/tauri 的 safeInvoke → IPCUnavailableError (非 Tauri 端)
+    // 但这里 setTauriEnv(true) 后 __TAURI__ 存在, safeInvoke 会调 invoke. 我们 stub 它.
+    const tauri = await import('../lib/tauri');
+    vi.spyOn(tauri, 'readMarkdownFile').mockResolvedValue('# hello');
+
+    render(<ToolbarExportMenu disabled={false} />);
+    fireEvent.click(screen.getByTestId('toolbar-export'));
+    const copyBtn = screen.getByTestId('toolbar-export-copy');
+    fireEvent.click(copyBtn);
+
+    // 等待 async handler 完成.
+    await vi.waitFor(() => {
+      expect(writeMock).toHaveBeenCalled();
+    });
+    // ClipboardItem 应被构造 (File 对象传给 write).
+    expect(writeMock.mock.calls[0][0]).toBeInstanceOf(Array);
+    expect((writeMock.mock.calls[0][0] as unknown[]).length).toBe(1);
+    // toast 至少一条 success.
+    const toasts = useToastStore.getState().items;
+    expect(toasts.some((t) => t.kind === 'success')).toBe(true);
+
+    // cleanup.
+    Object.defineProperty(navigator, 'clipboard', {
+      value: undefined,
+      configurable: true,
+      writable: true,
+    });
+    if (originalClipboardItem) {
+      (globalThis as { ClipboardItem?: unknown }).ClipboardItem = originalClipboardItem;
+    } else {
+      delete (globalThis as { ClipboardItem?: unknown }).ClipboardItem;
+    }
   });
 });

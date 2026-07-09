@@ -1,29 +1,32 @@
 /**
- * ToolbarExportMenu — T16-P2 (FR-01 / FR-02 / FR-04) 工具栏「导出」下拉.
+ * ToolbarExportMenu — T16-P2 (FR-01 / FR-02 / FR-04) + T29 (R-35) 工具栏「导出」下拉.
  *
  * 设计依据: docs/design/compiled.md §3.3.2 + §3.3.3 + 需求 FR-01 / FR-02 / FR-04.
  *
  * 责任:
- *   - 渲染一个 <button aria-disabled> + 下拉两项 (HTML / PDF).
+ *   - 渲染一个 <button aria-disabled> + 下拉三项 (HTML / PDF / 拷贝文件).
  *   - props.disabled = true (docStore.content 为空) → 整按钮 opacity 0.5,
  *     cursor not-allowed, aria-disabled='true', 点击 preventDefault + stopPropagation
  *     (AC-04-1).
  *   - props.disabled = false 且处于开发模式 (window.__TAURI__ 缺失)
- *     → 点击 HTML/PDF 直接 toast 'export.failDevMode', 不调任何 IPC (AC-04-2/3).
+ *     → 点击 HTML/PDF/拷贝文件 直接 toast 'export.failDevMode', 不调任何 IPC (AC-04-2/3).
  *   - props.disabled = false 且 Tauri 环境 → 调用 buildHtml → exportHtml(payload);
  *     成功 toast 'export.successHtml' (FR-01 / AC-01-1).
  *   - PDF 走隐藏 iframe srcdoc + window.print(), 完成后清理 (FR-02 / AC-02-1~4).
+ *   - 拷贝文件 (T29 R-35): 读文件内容 → File 对象 → navigator.clipboard.write,
+ *     行为等价 Finder/Explorer 的 Cmd/Ctrl+C, 在其他位置粘贴创建文件副本.
  *
  * 边界:
  *   - 取消保存对话框 → 静默, 无 toast.
  *   - 失败 (IO / IO error) → toast 'export.failGeneric', message 来自 Rust.
+ *   - 拷贝文件失败 (Clipboard API 拒绝 / 权限) → toast 'export.failCopy'.
  */
 
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useDocStore } from '../stores/docStore';
-import { exportHtml } from '../lib/tauri';
+import { exportHtml, readMarkdownFile } from '../lib/tauri';
 import { isTauri } from '../lib/env';
 import { pushToast } from '../lib/toast';
 import { buildHtml } from '../lib/exportHtml';
@@ -198,6 +201,58 @@ export function ToolbarExportMenu({
     }
   };
 
+  // ---------- T29 (R-35) 拷贝文件到系统剪贴板 ----------
+  // 行为等价于在 Finder/Explorer 里 Cmd/Ctrl+C 复制文件:
+  //   - 在其他文件夹粘贴 → 创建文件副本
+  //   - 在文本编辑器粘贴 → 粘贴文件名
+  // 实现: Web Clipboard API (navigator.clipboard.write + ClipboardItem<File>).
+  //   - WKWebView (macOS 13+) / WebView2 (Windows) / WebKitGTK (Linux) 均支持
+  //   - 需要 user activation (click 事件满足) + secure context (Tauri 提供)
+  //   - 文件内容通过现有 readMarkdownFile IPC 读取 (R-04 IPC 唯一出口纪律)
+  const handleCopyFile = async (): Promise<void> => {
+    setOpen(false);
+    if (disabled) return;
+    if (!isTauri()) {
+      showDevModeToast();
+      return;
+    }
+    const currentPath = docStore.state.currentPath;
+    if (!currentPath) {
+      pushToast({
+        kind: 'error',
+        message: t('export.failGeneric', { message: 'no file' }),
+      });
+      return;
+    }
+    // basename: 兼容 POSIX 与 Windows 分隔符.
+    const basename = currentPath.split(/[/\\]/).pop() ?? 'document.md';
+    try {
+      const content = await readMarkdownFile(currentPath);
+      // 构造 File 对象: type 用 text/markdown, Finder/Explorer 会据此识别为 .md 文件.
+      const file = new File([content], basename, { type: 'text/markdown' });
+      // navigator.clipboard.write 需要 user activation, 这里来自按钮点击, 安全.
+      // ClipboardItem 的 MIME 类型与 file.type 一致, 保证 OS 剪贴板能正确识别.
+      await navigator.clipboard.write([
+        new ClipboardItem({ 'text/markdown': file }),
+      ]);
+      pushToast({
+        kind: 'success',
+        message: t('export.successCopy', { name: basename }),
+      });
+    } catch (err) {
+      const msg =
+        err instanceof Error
+          ? err.message
+          : typeof err === 'string'
+            ? err
+            : 'unknown';
+      pushToast({
+        kind: 'error',
+        message: t('export.failCopy', { message: msg }),
+      });
+    }
+  };
+
   const handleClick = (e: React.MouseEvent<HTMLButtonElement>): void => {
     if (disabled) {
       e.preventDefault();
@@ -250,6 +305,20 @@ export function ToolbarExportMenu({
             className="block w-full rounded px-3 py-2 text-left text-sm hover:bg-fg/5"
           >
             {t('export.pdf')}
+          </button>
+          {/* T29 (R-35): 分隔线 + 拷贝文件. 视觉上与导出操作区分. */}
+          <div
+            aria-hidden="true"
+            className="my-1 border-t border-fg/10"
+          />
+          <button
+            type="button"
+            role="menuitem"
+            data-testid="toolbar-export-copy"
+            onClick={() => void handleCopyFile()}
+            className="block w-full rounded px-3 py-2 text-left text-sm hover:bg-fg/5"
+          >
+            {t('export.copyFile')}
           </button>
         </div>
       )}
