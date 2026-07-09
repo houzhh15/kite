@@ -1,9 +1,14 @@
 # KITE — CI (T13 step-15a)
 #
-# release 任务矩阵 (windows-2022 + macos-13):
+# release 任务矩阵 (windows-2022 + macos-latest):
 #   1. checkout + 装 Rust + npm ci + npm run build (含 check-console)
 #   2. cargo tauri build (默认 release profile, 不传 --release)
 #   3. npm run check-perf-budget (bundle 体积 + Cargo profile)
+#
+# R-40: 矩阵从 macos-13 改为 macos-latest.
+#   旧固定 macos-13 在 CI runner 池里等待 ~2h 仍 "Waiting for a runner",
+#   是公共 Apple Silicon runner 队列拥堵 + GitHub 弃用 macos-13 旧镜像.
+#   macos-latest = macos-14 (Apple Silicon), runner 池大, 队列短.
 name: ci
 
 on:
@@ -19,7 +24,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-2022, macos-13]
+        os: [windows-2022, macos-latest]
     steps:
       - uses: actions/checkout@v4
 
@@ -30,7 +35,7 @@ jobs:
           cache: npm
 
       - name: Setup Rust (Linux skip)
-        if: matrix.os != 'windows-2022' && matrix.os != 'macos-13'
+        if: matrix.os != 'windows-2022' && matrix.os != 'macos-latest'
         uses: dtolnay/rust-toolchain@stable
 
       - name: Setup Rust (Windows + macOS)
