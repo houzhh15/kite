@@ -38,16 +38,18 @@ describe('FrontmatterPanel — T26 (F-28) 面板组件', () => {
     expect(rowEls.length).toBe(3);
   });
 
-  it('UT-F-03: tags 行 chip 数 === tags.length, 含 aria-hidden × 元素', () => {
+  it('UT-F-03: tags 行 chip 数 === tags.length, 每个 chip 只显示名称 (R-34: 去掉 × 元素)', () => {
     const rows: RenderRow[] = [
       { key: 'tags', icon: 'tag', display: '', tags: ['a', 'b', 'c'] },
     ];
     const { container } = render(wrap(<FrontmatterPanel rows={rows} />));
     const chips = container.querySelectorAll('.frontmatter-chip');
     expect(chips.length).toBe(3);
-    for (const chip of Array.from(chips)) {
-      const close = chip.querySelector('.frontmatter-chip-close');
-      expect(close?.getAttribute('aria-hidden')).toBe('true');
+    // R-34: 之前每个 chip 都有一个 .frontmatter-chip-close (×) 暗示可点击删除.
+    // 实际 chip 不是交互元素, 去掉 ×, chip 只显示 tag 名称.
+    expect(container.querySelectorAll('.frontmatter-chip-close').length).toBe(0);
+    for (let i = 0; i < chips.length; i++) {
+      expect(chips[i].textContent).toBe(['a', 'b', 'c'][i]);
     }
   });
 
@@ -89,16 +91,18 @@ describe('FrontmatterPanel — T26 (F-28) 面板组件', () => {
     expect(title?.textContent).toBe('笔记属性');
   });
 
-  it('UT-F-08: 同一 rows 引用不引发多余 DOM, × 元素无 role=button', () => {
+  it('UT-F-08: 同一 rows 引用不引发多余 DOM, chip 元素非交互 (无 role=button)', () => {
     const rows: RenderRow[] = [
       { key: 'title', icon: 'heading-1', display: '笔记' },
     ];
     const { container, rerender } = render(wrap(<FrontmatterPanel rows={rows} />));
     rerender(wrap(<FrontmatterPanel rows={rows} />));
     expect(container.querySelectorAll('.frontmatter-row').length).toBe(1);
-    const closeEls = container.querySelectorAll('.frontmatter-chip-close');
-    for (const el of Array.from(closeEls)) {
-      expect(el.getAttribute('role')).not.toBe('button');
+    // R-34: chip 不是交互元素, 不应有 button role; 且没有 close 元素
+    const chips = container.querySelectorAll('.frontmatter-chip');
+    for (const chip of Array.from(chips)) {
+      expect(chip.getAttribute('role')).not.toBe('button');
     }
+    expect(container.querySelectorAll('.frontmatter-chip-close').length).toBe(0);
   });
 });

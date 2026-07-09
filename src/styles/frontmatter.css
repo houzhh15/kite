@@ -13,7 +13,7 @@
     border-radius: 0.375rem;
     border: 1px solid rgb(var(--color-fg) / 0.12);
     background: rgb(var(--color-fg) / 0.04);
-    padding: 0.75rem 1rem;
+    padding: 0.625rem 1rem 0.75rem;
     font-size: 0.875rem;
     /* 不抢焦点, 鼠标点击不引起文章重排; 仅 typography reflow 触发. */
     display: block;
@@ -25,7 +25,9 @@
     text-transform: uppercase;
     letter-spacing: 0.08em;
     color: rgb(var(--color-fg) / 0.55);
-    margin: 0 0 0.5rem 0;
+    /* 覆盖 .prose-kite h2 的 margin-top: 1.4em, 避免面板顶部出现 30~40px 空白
+     * (R-33 修复: 之前 "笔记属性" 标题上方有大量空白, 现在紧贴面板 padding-top). */
+    margin: 0 0 0.5rem;
 }
 
 .frontmatter-list {
@@ -107,11 +109,4 @@
 
 .frontmatter-chip-label {
     line-height: 1.2;
-}
-
-.frontmatter-chip-close {
-    opacity: 0.55;
-    font-size: 0.875rem;
-    line-height: 1;
-    user-select: none;
 }

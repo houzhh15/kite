@@ -92,9 +92,6 @@ function FrontmatterPanelInner({ rows }: FrontmatterPanelProps): JSX.Element | n
                 ? row.tags.map((tag) => (
                     <span key={tag} className="frontmatter-chip">
                       <span className="frontmatter-chip-label">{tag}</span>
-                      <span className="frontmatter-chip-close" aria-hidden="true">
-                        ×
-                      </span>
                     </span>
                   ))
                 : row.display}
