@@ -189,40 +189,96 @@ function isCommentLine(line) {
 /**
  * 扫描单个文件的硬编码 CJK 命中.
  * 同时扫描: 字符串字面量 + JSX 文本节点.
+ *
+ * R-38 修复: 跨行追踪 JSX 块注释的开闭.
+ *   旧逻辑只检测行级 // 注释, 漏掉 JSX 内嵌块注释 (例如 CodeBlock.tsx L157
+ *   的注释, 里面含 "复制" 等 CJK 字符), 导致误报. 现改为:
+ *     - 维护 inJsxBlock 标志, 进入 [JSX-OPEN] 时打开, 遇到 [JSX-CLOSE] 时关闭.
+ *     - 在 JSX 块注释内的行直接 skip.
+ *   注意: 嵌套 JSX 块注释不被支持 (JSX 规范也不支持), 单层即可.
+ *   标记说明: [JSX-OPEN] = 形如 left-curly slash-asterisk 的序列;
+ *             [JSX-CLOSE] = 形如 asterisk slash right-curly 的序列.
  */
 function findHits(content, filePath) {
   const hits = [];
   const lines = content.split('\n');
+  let inJsxBlock = false;
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
+    // R-38: 跨行 JSX 块注释状态机.
+    if (inJsxBlock) {
+      const closeIdx = line.indexOf('*/}');
+      if (closeIdx === -1) continue;
+      inJsxBlock = false;
+      // 同一行关闭后, 关闭符之后的内容仍需扫描.
+      const after = line.slice(closeIdx + 3);
+      const tailHits = scanLineForHits(after, i + 1, filePath);
+      hits.push(...tailHits);
+      continue;
+    }
+    // 检查是否进入新的 JSX 块注释.
+    const openIdx = line.indexOf('{/*');
+    if (openIdx !== -1) {
+      // 同行内可能有 */} 关闭 (单行块注释).
+      const closeIdx = line.indexOf('*/}', openIdx);
+      if (closeIdx !== -1) {
+        // 单行块注释, 跳过 {/* ... */} 之间的内容, 扫描前后.
+        const before = line.slice(0, openIdx);
+        const after = line.slice(closeIdx + 3);
+        const beforeHits = scanLineForHits(before, i + 1, filePath);
+        const afterHits = scanLineForHits(after, i + 1, filePath);
+        hits.push(...beforeHits, ...afterHits);
+        continue;
+      }
+      // 多行块注释开始, 扫描 {/* 之前的内容, 之后的内容在后续行检查.
+      inJsxBlock = true;
+      const before = line.slice(0, openIdx);
+      const beforeHits = scanLineForHits(before, i + 1, filePath);
+      hits.push(...beforeHits);
+      continue;
+    }
     if (isCommentLine(line)) continue;
     // 跳过 i18n 字典本身 (zh-CN/en-US 必然含 CJK).
     if (filePath.endsWith('/i18n/zh-CN.ts') || filePath.endsWith('/i18n/en-US.ts')) continue;
     // 跳过英文文档/UI 测试
     if (filePath.includes('__tests__')) continue;
-    // ① 字符串字面量中的 CJK
-    const stringLiterals = line.match(/(['"`])(?:\\.|(?!\1).)*\1/g) ?? [];
-    for (const lit of stringLiterals) {
-      if (CJK_PATTERN.test(lit)) {
-        if (RUNTIME_LITERAL_EXCEPTIONS.some((rx) => rx.test(lit))) {
-          CJK_PATTERN.lastIndex = 0;
-          continue;
-        }
-        hits.push({ line: i + 1, text: lit, source: line.trim(), kind: 'literal' });
+    hits.push(...scanLineForHits(line, i + 1, filePath));
+  }
+  return hits;
+}
+
+/**
+ * R-38: 单行硬编码 CJK 扫描. 抽出 findHits 主体, 便于跨行块注释复用.
+ * 扫描两类硬编码:
+ *   ① 字符串字面量中的连续 CJK (≥2 字符) → 视为硬编码 UI 文案.
+ *   ② JSX 文本节点中含连续 CJK (≥2 字符) → 视为硬编码 UI 文案.
+ */
+function scanLineForHits(line, lineNum, filePath) {
+  const hits = [];
+  if (isCommentLine(line)) return hits;
+  if (filePath.endsWith('/i18n/zh-CN.ts') || filePath.endsWith('/i18n/en-US.ts')) return hits;
+  if (filePath.includes('__tests__')) return hits;
+  // ① 字符串字面量中的 CJK
+  const stringLiterals = line.match(/(['"`])(?:\\.|(?!\1).)*\1/g) ?? [];
+  for (const lit of stringLiterals) {
+    if (CJK_PATTERN.test(lit)) {
+      if (RUNTIME_LITERAL_EXCEPTIONS.some((rx) => rx.test(lit))) {
         CJK_PATTERN.lastIndex = 0;
+        continue;
       }
+      hits.push({ line: lineNum, text: lit, source: line.trim(), kind: 'literal' });
+      CJK_PATTERN.lastIndex = 0;
     }
-    // ② JSX 文本节点中的 CJK (例如 <h2>中文</h2>).
-    // 注意: 仅匹配单行 JSX 文本. 多行 JSX 文本暂不扫描（精度优先）.
-    JSX_TEXT_PATTERN.lastIndex = 0;
-    let m;
-    while ((m = JSX_TEXT_PATTERN.exec(line)) !== null) {
-      const text = m[1].trim();
-      if (text.length === 0) continue;
-      if (CJK_PATTERN.test(text)) {
-        CJK_PATTERN.lastIndex = 0;
-        hits.push({ line: i + 1, text: JSON.stringify(text), source: line.trim(), kind: 'jsx-text' });
-      }
+  }
+  // ② JSX 文本节点中的 CJK (例如 <h2>中文</h2>).
+  JSX_TEXT_PATTERN.lastIndex = 0;
+  let m;
+  while ((m = JSX_TEXT_PATTERN.exec(line)) !== null) {
+    const text = m[1].trim();
+    if (text.length === 0) continue;
+    if (CJK_PATTERN.test(text)) {
+      CJK_PATTERN.lastIndex = 0;
+      hits.push({ line: lineNum, text: JSON.stringify(text), source: line.trim(), kind: 'jsx-text' });
     }
   }
   return hits;
