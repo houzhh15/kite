@@ -11,6 +11,9 @@
 // T16-P2 增量:
 //   - 在 invoke_handler 中追加 export_html (FR-01) + set_fullscreen (FR-03).
 //
+// T29 增量 (R-35):
+//   - 在 invoke_handler 中追加 copy_file_to_clipboard (系统剪贴板写入文件路径).
+//
 // macOS 文件打开 (md/markdown) 增量:
 //   - 启动时把 std::env::args() 中第一个 .md 路径作为 "启动文件", 在 setup 钩子里
 //     cache 到 tauri::State<PendingOpen>. 由 frontend 启动后通过 listen("kite://open-file")
@@ -123,6 +126,9 @@ fn main() {
             commands::clear_recent_dirs,
             // T26 (R-12 修复): 外部编辑器改回后刷新. focus 事件 + 手动按钮均走此.
             commands::get_file_fresh,
+            // T29 (R-35): 拷贝文件到系统剪贴板 (NSPasteboard/CF_HDROP/text/uri-list).
+            // 不能走 Web Clipboard API, Tauri WebView 沙箱限制下返回 NotAllowedError.
+            commands::copy_file_to_clipboard,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

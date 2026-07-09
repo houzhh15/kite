@@ -608,3 +608,25 @@ pub async fn clear_recent_dirs(
 ) -> Result<(), AppError> {
     crate::services::recent_dirs::clear_recent_dirs(&state, &app)
 }
+
+// ---------- 20. copy_file_to_clipboard (T29 — R-35 / FR-04) ----------
+//
+// copy_file_to_clipboard — 把指定路径的文件写入系统剪贴板.
+//
+// - Input:  path (String, 绝对路径, 必须存在且是 regular file).
+// - Output: Ok(()), OS 剪贴板已包含文件引用.
+// - 平台行为:
+//   - macOS: NSPasteboardTypeFileURL → Finder/Explorer 粘贴时复制文件.
+//   - Windows: CF_HDROP → Explorer 粘贴时复制文件.
+//   - Linux: text/uri-list → 需要 xclip/xsel/wl-clipboard, 文件管理器粘贴时复制.
+// - Error 约定 (AppError code):
+//   - IO: 文件不存在 / 不是 regular file / 剪贴板写入失败.
+//
+// 为什么不用 Web Clipboard API: Tauri WebView (WKWebView on macOS) 在沙箱
+// 限制下 navigator.clipboard.write 返回 NotAllowedError, 不可用. clipboard-rs
+// 走原生 NSPasteboard/CF_HDROP, 绕过 WebView 权限限制 (R-35 增量).
+#[tauri::command]
+pub async fn copy_file_to_clipboard(path: String) -> Result<(), AppError> {
+    let p = PathBuf::from(path);
+    crate::services::clipboard::copy_file_to_clipboard(&p)
+}

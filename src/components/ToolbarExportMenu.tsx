@@ -26,7 +26,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useDocStore } from '../stores/docStore';
-import { exportHtml, readMarkdownFile } from '../lib/tauri';
+import { copyFileToClipboard, exportHtml } from '../lib/tauri';
 import { isTauri } from '../lib/env';
 import { pushToast } from '../lib/toast';
 import { buildHtml } from '../lib/exportHtml';
@@ -204,11 +204,14 @@ export function ToolbarExportMenu({
   // ---------- T29 (R-35) 拷贝文件到系统剪贴板 ----------
   // 行为等价于在 Finder/Explorer 里 Cmd/Ctrl+C 复制文件:
   //   - 在其他文件夹粘贴 → 创建文件副本
-  //   - 在文本编辑器粘贴 → 粘贴文件名
-  // 实现: Web Clipboard API (navigator.clipboard.write + ClipboardItem<File>).
-  //   - WKWebView (macOS 13+) / WebView2 (Windows) / WebKitGTK (Linux) 均支持
-  //   - 需要 user activation (click 事件满足) + secure context (Tauri 提供)
-  //   - 文件内容通过现有 readMarkdownFile IPC 读取 (R-04 IPC 唯一出口纪律)
+  //   - 在文本编辑器粘贴 → 粘贴文件路径
+  //
+  // 实现: 走 Rust IPC copyFileToClipboard → clipboard-rs (NSPasteboard / CF_HDROP /
+  //   text/uri-list). 不用 navigator.clipboard.write, Tauri WebView (WKWebView) 在沙箱
+  //   限制下返回 NotAllowedError (R-35 增量: 之前的 Web Clipboard API 方案失败).
+  //
+  // 不读取文件内容: clipboard-rs 只放文件路径到剪贴板, Finder/Explorer 粘贴时按路径
+  // 复制文件本身. 所以也不需要调 readMarkdownFile.
   const handleCopyFile = async (): Promise<void> => {
     setOpen(false);
     if (disabled) return;
@@ -224,17 +227,10 @@ export function ToolbarExportMenu({
       });
       return;
     }
-    // basename: 兼容 POSIX 与 Windows 分隔符.
+    // basename: 兼容 POSIX 与 Windows 分隔符. 仅用于 toast 文本, 不传 Rust.
     const basename = currentPath.split(/[/\\]/).pop() ?? 'document.md';
     try {
-      const content = await readMarkdownFile(currentPath);
-      // 构造 File 对象: type 用 text/markdown, Finder/Explorer 会据此识别为 .md 文件.
-      const file = new File([content], basename, { type: 'text/markdown' });
-      // navigator.clipboard.write 需要 user activation, 这里来自按钮点击, 安全.
-      // ClipboardItem 的 MIME 类型与 file.type 一致, 保证 OS 剪贴板能正确识别.
-      await navigator.clipboard.write([
-        new ClipboardItem({ 'text/markdown': file }),
-      ]);
+      await copyFileToClipboard(currentPath);
       pushToast({
         kind: 'success',
         message: t('export.successCopy', { name: basename }),

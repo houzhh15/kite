@@ -20,3 +20,5 @@ pub mod exporter;
 // T26 (R-12 修复): 外部编辑器改回后刷新. read_file_fresh(path) → {mtime, content}.
 // 复用 external_editor::validate_path 路径校验; 不引入 notify 监听.
 pub mod file_fresh;
+// T29 (R-35): 系统剪贴板服务 (文件拷贝, 跨平台).
+pub mod clipboard;

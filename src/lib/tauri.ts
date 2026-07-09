@@ -602,6 +602,27 @@ export function clearRecentDirs(): Promise<void> {
 }
 
 /**
+ * copyFileToClipboard — T29 (R-35 / FR-04).
+ *
+ * 把指定路径的文件写入系统剪贴板, 行为等价 Finder/Explorer 的 Cmd/Ctrl+C.
+ * 后端 `commands::copy_file_to_clipboard(path)` 走原生 NSPasteboard (macOS) /
+ * CF_HDROP (Windows) / text/uri-list (Linux), 绕过 WebView 沙箱限制.
+ *
+ * 不能用 Web Clipboard API (navigator.clipboard.write), Tauri WebView 在沙箱
+ * 限制下返回 NotAllowedError (macOS WKWebView 已知问题).
+ *
+ * - Input:  path (绝对路径).
+ * - Output: Ok(()), OS 剪贴板已包含文件引用.
+ * - Error:
+ *   - NOT_FOUND: 文件不存在.
+ *   - INVALID_PATH: 不是 regular file.
+ *   - IO: 剪贴板写入失败 (clipboard-rs 错误).
+ */
+export function copyFileToClipboard(path: string): Promise<void> {
+  return safeInvoke<void>('copy_file_to_clipboard', { path });
+}
+
+/**
  * FileFreshPayload — T26 (R-12 修复) 外部编辑器改回刷新 IPC 返回.
  *
  * 后端 `commands::get_file_fresh(path)` 一次性带回 mtime + content;
@@ -657,6 +678,8 @@ export const tauri = {
   removeRecentDir,
   clearRecentDirs,
   getFileFresh,
+  // T29 (R-35): 拷贝文件到系统剪贴板.
+  copyFileToClipboard,
 };
 
 export default tauri;
