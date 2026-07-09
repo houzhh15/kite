@@ -2,7 +2,7 @@
 #
 # release 任务矩阵 (windows-2022 + macos-13):
 #   1. checkout + 装 Rust + npm ci + npm run build (含 check-console)
-#   2. cargo tauri build --release (Rust 5 项强制参数生效)
+#   2. cargo tauri build (默认 release profile, 不传 --release)
 #   3. npm run check-perf-budget (bundle 体积 + Cargo profile)
 name: ci
 
@@ -58,7 +58,11 @@ jobs:
         run: npm run build
 
       - name: Bundle Rust release
-        run: cargo tauri build --release
+        # cargo tauri build 默认就是 release profile; 不接 --release 参数
+        # (那是 cargo 的 flag, 必须用 -- --release 透传). 早期错误写法:
+        #   run: cargo tauri build --release
+        # 导致 CI 报: error: unexpected argument '--release' found.
+        run: cargo tauri build
         working-directory: src-tauri
         env:
           CI: 'true'

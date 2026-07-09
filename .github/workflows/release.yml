@@ -7,7 +7,7 @@
 #   5       cargo install tauri-cli --locked
 #   6-7     npm ci + npm run build
 #   8       npm run check-bundle-config      (lint 兜底)
-#   9       cargo tauri build --release      (bundles to target/release/bundle/<os>/)
+#   9       cargo tauri build              (默认 release profile, 不传 --release)
 #   10-11   audit-rust / audit-npm           (summary → $GITHUB_STEP_SUMMARY)
 #   12      size-check                       (npm run check-perf-budget < 30MB)
 #   13      sha256-artifacts
@@ -89,7 +89,11 @@ jobs:
 
       # 9
       - name: Bundle Rust release
-        run: cargo tauri build --release
+        # cargo tauri build 默认就是 release profile; 不接 --release 参数
+        # (那是 cargo 的 flag, 必须用 -- --release 透传). 早期错误写法:
+        #   run: cargo tauri build --release
+        # 导致 CI 报: error: unexpected argument '--release' found.
+        run: cargo tauri build
         working-directory: src-tauri
         env:
           CI: 'true'
