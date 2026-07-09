@@ -60,7 +60,9 @@ describe('openInExternalEditor (T24 F-26)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     usePrefStore.setState((s) => ({
-      prefs: { ...s.prefs, externalEditor: 'system', externalEditorCustomCmd: '' },
+      prefs: { ...s.prefs, externalEditor: 'system', externalEditorCustomCmd: '',
+        vaultRootMode: 'follow-current',
+        vaultRootCustom: null },
       hydrated: true,
       loaded: true,
     }));

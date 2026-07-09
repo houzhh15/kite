@@ -43,6 +43,8 @@ describe('useReaderFontSize — DOM CSS 变量注入', () => {
         katexEnabled: false,
         externalEditor: 'system',
         externalEditorCustomCmd: '',
+        vaultRootMode: 'follow-current',
+        vaultRootCustom: null,
       },
       hydrated: true,
       loaded: true,

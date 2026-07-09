@@ -47,6 +47,8 @@ describe('usePreferences (T04)', () => {
         katexEnabled: false,
         externalEditor: 'system',
         externalEditorCustomCmd: '',
+        vaultRootMode: 'follow-current',
+        vaultRootCustom: null,
       },
       hydrated: false,
       loaded: false,

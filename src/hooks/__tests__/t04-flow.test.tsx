@@ -52,6 +52,8 @@ describe('T04 flow integration (主题 / 字号 / 行高三项联动)', () => {
         katexEnabled: false,
         externalEditor: 'system',
         externalEditorCustomCmd: '',
+        vaultRootMode: 'follow-current',
+        vaultRootCustom: null,
       },
       hydrated: false,
       loaded: false,

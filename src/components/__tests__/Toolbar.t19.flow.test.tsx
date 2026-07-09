@@ -91,6 +91,8 @@ beforeEach(() => {
       katexEnabled: false,
         externalEditor: 'system',
         externalEditorCustomCmd: '',
+        vaultRootMode: 'follow-current',
+        vaultRootCustom: null,
     },
     hydrated: true,
     loaded: true,

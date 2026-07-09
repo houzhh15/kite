@@ -90,6 +90,8 @@ describe('loadAndHydrate — 启动加载与容错', () => {
         katexEnabled: false,
         externalEditor: 'system',
         externalEditorCustomCmd: '',
+        vaultRootMode: 'follow-current',
+        vaultRootCustom: null,
       },
       hydrated: false,
       loaded: false,
