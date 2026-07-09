@@ -60,7 +60,7 @@
         "upgradeCode": "{8F6D2E1A-1B4C-4F2E-9B7D-7E2C4A1F5B3D}"
       },
       "nsis": {
-        "languages": ["en-US"],
+        "languages": ["English"],
         "displayLanguageSelector": false
       }
     },
