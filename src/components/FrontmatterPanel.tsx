@@ -77,7 +77,7 @@ function FrontmatterPanelInner({ rows }: FrontmatterPanelProps): JSX.Element | n
       aria-label={t('frontmatter.title')}
       className="frontmatter-panel"
     >
-      <h2 className="frontmatter-title kite-muted">{t('frontmatter.title')}</h2>
+      <div className="frontmatter-title kite-muted">{t('frontmatter.title')}</div>
       <dl className="frontmatter-list">
         {rows.map((row) => (
           <div key={row.key} className="frontmatter-row">
