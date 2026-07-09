@@ -22,12 +22,23 @@
  */
 
 import { readFile, readdir } from 'node:fs/promises';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const ROOT = resolve(__dirname, '..');
+
+/**
+ * R-39 修复: 把任意分隔符的绝对路径转成相对 ROOT 的 POSIX 路径.
+ *   Windows 上 path.join 用 '\\', 但下面的硬编码字面量都是 '/',
+ *   跨平台时 endsWith/startsWith 全失效. 这里统一转 POSIX 形式.
+ *   注意 ROOT 本身仍可保留平台原生分隔符, 因为 ROOT.length 截的是
+ *   绝对路径, 与 rel 用的字面量无关.
+ */
+function toPosixRel(absPath) {
+  return absPath.slice(ROOT.length + 1).split(sep).join('/');
+}
 
 // T18 升级：扫描目录. 'src' 单文件入口; 其它是目录, 递归 walk 跳过 i18n/__tests__.
 const SCAN_DIRS = [
@@ -153,7 +164,10 @@ async function walk(dir, baseDir) {
   }
   for (const e of entries) {
     const full = join(dir, e.name);
-    const rel = full.slice(ROOT.length + 1);
+    // R-39 修复: 统一把 rel 中的分隔符转成 POSIX '/', 否则 Windows 上
+    // rel === 'src\\i18n' 与硬编码 'src/i18n' 不匹配, 会误进 i18n 字典
+    // 目录, 扫描 zh-CN.ts 时报出 ~225 条假阳性 (CI 报 227 处).
+    const rel = full.slice(ROOT.length + 1).split(sep).join('/');
     if (e.isDirectory()) {
       // T18 升级: 跳过 i18n 字典与 __tests__.
       if (rel === 'src/i18n' || rel.startsWith('src/i18n/')) continue;
@@ -200,6 +214,10 @@ function isCommentLine(line) {
  *             [JSX-CLOSE] = 形如 asterisk slash right-curly 的序列.
  */
 function findHits(content, filePath) {
+  // R-39 修复: 提前把 filePath 转成 POSIX rel, 给 scanLineForHits 用.
+  //   旧逻辑在文件里 endsWith('/i18n/zh-CN.ts') 硬编码 '/', Windows 上
+  //   全部不匹配, 误进 i18n 字典目录扫出 ~225 条假阳性 (CI 报 227 处).
+  const rel = toPosixRel(filePath);
   const hits = [];
   const lines = content.split('\n');
   let inJsxBlock = false;
@@ -212,7 +230,7 @@ function findHits(content, filePath) {
       inJsxBlock = false;
       // 同一行关闭后, 关闭符之后的内容仍需扫描.
       const after = line.slice(closeIdx + 3);
-      const tailHits = scanLineForHits(after, i + 1, filePath);
+      const tailHits = scanLineForHits(after, i + 1, rel);
       hits.push(...tailHits);
       continue;
     }
@@ -225,24 +243,25 @@ function findHits(content, filePath) {
         // 单行块注释, 跳过 {/* ... */} 之间的内容, 扫描前后.
         const before = line.slice(0, openIdx);
         const after = line.slice(closeIdx + 3);
-        const beforeHits = scanLineForHits(before, i + 1, filePath);
-        const afterHits = scanLineForHits(after, i + 1, filePath);
+        const beforeHits = scanLineForHits(before, i + 1, rel);
+        const afterHits = scanLineForHits(after, i + 1, rel);
         hits.push(...beforeHits, ...afterHits);
         continue;
       }
       // 多行块注释开始, 扫描 {/* 之前的内容, 之后的内容在后续行检查.
       inJsxBlock = true;
       const before = line.slice(0, openIdx);
-      const beforeHits = scanLineForHits(before, i + 1, filePath);
+      const beforeHits = scanLineForHits(before, i + 1, rel);
       hits.push(...beforeHits);
       continue;
     }
     if (isCommentLine(line)) continue;
     // 跳过 i18n 字典本身 (zh-CN/en-US 必然含 CJK).
-    if (filePath.endsWith('/i18n/zh-CN.ts') || filePath.endsWith('/i18n/en-US.ts')) continue;
-    // 跳过英文文档/UI 测试
-    if (filePath.includes('__tests__')) continue;
-    hits.push(...scanLineForHits(line, i + 1, filePath));
+    // R-39 修复: 不再 endsWith 硬编码 '/', 改用 POSIX rel 段比较 (Windows 上 filePath 用 '\\').
+    if (rel === 'src/i18n/zh-CN.ts' || rel === 'src/i18n/en-US.ts') continue;
+    // 跳过英文文档/UI 测试 (rel 已是 POSIX 形式, 段检测即可).
+    if (rel.includes('__tests__/') || rel.endsWith('/__tests__')) continue;
+    hits.push(...scanLineForHits(line, i + 1, rel));
   }
   return hits;
 }
@@ -256,8 +275,9 @@ function findHits(content, filePath) {
 function scanLineForHits(line, lineNum, filePath) {
   const hits = [];
   if (isCommentLine(line)) return hits;
-  if (filePath.endsWith('/i18n/zh-CN.ts') || filePath.endsWith('/i18n/en-US.ts')) return hits;
-  if (filePath.includes('__tests__')) return hits;
+  // R-39 修复: filePath 已是 POSIX rel (从 findHits 传进来), 不用再 endsWith('/').
+  if (filePath === 'src/i18n/zh-CN.ts' || filePath === 'src/i18n/en-US.ts') return hits;
+  if (filePath.includes('__tests__/') || filePath.endsWith('/__tests__')) return hits;
   // ① 字符串字面量中的 CJK
   const stringLiterals = line.match(/(['"`])(?:\\.|(?!\1).)*\1/g) ?? [];
   for (const lit of stringLiterals) {
