@@ -87,6 +87,38 @@ jobs:
       - name: Check i18n hardcode (T18 FR-03)
         run: npm run check-i18n-hardcode
 
+      # 8b — R-41: 从 git tag 同步版本号到构建配置.
+      #
+      # 触发场景:
+      #   - push tag vX.Y.Z  →  github.ref_type=tag, ref_name=vX.Y.Z
+      #   - workflow_dispatch + inputs.version  →  用 inputs.version
+      #   - workflow_dispatch 无输入  →  跳过 (使用 committed 0.0.1)
+      #
+      # 同步目标 (4 个文件, 见 scripts/sync-version-from-tag.mjs):
+      #   1. src-tauri/tauri.conf.json  →  "version" 字段
+      #   2. src-tauri/Cargo.toml       →  version 字段
+      #   3. src-tauri/entitlements/Info.plist  →  CFBundleShortVersionString + CFBundleVersion
+      #   4. package.json               →  "version" 字段
+      #
+      # 为什么需要这个步骤:
+      #   Tauri CLI 的 cargo tauri build 读 tauri.conf.json 的 version 字段,
+      #   同步到 macOS 的 CFBundleShortVersionString (About KITE 显示的版本号)
+      #   和 Windows resource 的 version 字段. 如果不更新, 永远显示 0.0.1.
+      - name: Sync version from tag (R-41)
+        shell: bash
+        run: |
+          set -e
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            GIT_TAG="${{ github.ref_name }}"
+          elif [ -n "${{ inputs.version }}" ]; then
+            GIT_TAG="v${{ inputs.version }}"
+          else
+            GIT_TAG=""
+          fi
+          BUILD_NUMBER="${{ github.run_number }}"
+          echo "[sync-version] GIT_TAG=${GIT_TAG}, BUILD_NUMBER=${BUILD_NUMBER}"
+          node scripts/sync-version-from-tag.mjs "${GIT_TAG}" "${BUILD_NUMBER}"
+
       # 9
       - name: Bundle Rust release
         # cargo tauri build 默认就是 release profile; 不接 --release 参数
