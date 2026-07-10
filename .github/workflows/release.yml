@@ -132,6 +132,11 @@ jobs:
 
       # 10 — T23.1 (FR-01 / AC-01-1, AC-01-2). Hard fail-fast on cargo audit.
       - name: Audit Rust (cargo audit)
+        # R-42: 显式声明 shell: bash. 默认值在 windows-latest 上是 PowerShell,
+        # 不识别 POSIX 语法 (if [ ... ] / ${PIPESTATUS[0]} / ${VAR:-0} 等),
+        # 报错 "Missing '(' after 'if' in if statement". 同时用到 GITHUB_STEP_SUMMARY /
+        # .reports/ 等 POSIX 路径处理, bash 是唯一一致选项.
+        shell: bash
         run: |
           cargo install cargo-audit --locked
           {
@@ -160,6 +165,8 @@ jobs:
 
       # 11 — T23.1 (FR-01 / AC-01-3). Hard fail-fast on npm audit High+.
       - name: Audit npm
+        # R-42: 同上, 显式 bash 避免 windows-latest 默认 PowerShell 解析错误.
+        shell: bash
         run: |
           {
             echo "### npm audit (${{ matrix.os }})"
