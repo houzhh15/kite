@@ -136,7 +136,14 @@ jobs:
         # 不识别 POSIX 语法 (if [ ... ] / ${PIPESTATUS[0]} / ${VAR:-0} 等),
         # 报错 "Missing '(' after 'if' in if statement". 同时用到 GITHUB_STEP_SUMMARY /
         # .reports/ 等 POSIX 路径处理, bash 是唯一一致选项.
+        # R-43: 加 working-directory: src-tauri. Cargo.lock 实际位于 src-tauri/Cargo.lock
+        # (workspace 是 kite/src-tauri/), 不在 repo 根. 缺这个字段时 cargo audit 从
+        # github.workspace (= repo 根) 跑, 找不到 Cargo.lock, 报:
+        #   error: not found: Couldn't load Cargo.lock
+        #   Caused by: I/O operation failed: entity not found
+        # step 9 (cargo tauri build) 显式 cd src-tauri, 这里没指定就踩坑.
         shell: bash
+        working-directory: src-tauri
         run: |
           cargo install cargo-audit --locked
           {
@@ -148,7 +155,7 @@ jobs:
           cargo audit --deny warnings 2>&1 | tee -a "$GITHUB_STEP_SUMMARY" || CARGO_AUDIT_RC=${PIPESTATUS[0]}
           CARGO_AUDIT_RC=${CARGO_AUDIT_RC:-0}
           # Emit JSON artifact for downstream forking (T23.4 dep-audit-report-{sha}).
-          mkdir -p .reports
+          mkdir -p ../.reports
           {
             echo "{\"ts\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\","
             echo " \"ecosystem\":\"cargo\","
@@ -157,7 +164,7 @@ jobs:
             echo " \"exit_code\":${CARGO_AUDIT_RC},"
             echo " \"os\":\"${{ matrix.os }}\","
             echo " \"sha\":\"${{ github.sha }}\"}"
-          } > .reports/dep-audit-cargo.json
+          } > ../.reports/dep-audit-cargo.json
           if [ "${CARGO_AUDIT_RC}" -ne 0 ]; then
             echo "::error::cargo audit --deny warnings failed with exit ${CARGO_AUDIT_RC}"
             exit ${CARGO_AUDIT_RC}
