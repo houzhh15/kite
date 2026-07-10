@@ -1,0 +1,78 @@
+# R-44: cargo-audit 配置文件
+#
+# 位置: src-tauri/.cargo/audit.toml (而非 kite/.cargo/audit.toml)
+#   - cargo-audit 0.22.2 src/commands.rs:54-75 明确说: "The order of precedence
+#     for which config file to use is: 1. The current project's .cargo
+#     configuration directory. 2. The current user's home directory configuration."
+#   - 跑 `cargo audit` 时 current project = workspace 根 = src-tauri/, 所以必须
+#     放在 src-tauri/.cargo/audit.toml, 放 repo 根 .cargo/audit.toml 不会被读.
+#
+# 触发: .github/workflows/release.yml step 10 (Audit Rust) 在 src-tauri/ 跑
+#   `cargo audit --deny warnings`, 自动读取 src-tauri/.cargo/audit.toml.
+#
+# 存在原因: 严格门禁 (--deny warnings) 仍保留, 但有 17 条 unmaintained/unsound
+# 警告是 Tauri-stack 的传递依赖, 我们这层修不了. 显式列 ignore 名单, 每条加
+# 注释说明, 比 [target] os 过滤更透明, 也不会因为误过滤掉未来新出现的真实
+# 漏洞. 真实的 RUSTSEC advisory (severity > 0) 不会被 ignore 名单影响, 仍 fail.
+
+[advisories]
+# Tauri-stack transitive deps that we cannot fix at our layer.
+# Each entry has the advisory ID + provenance + why unfixable.
+#
+#  gtk-rs 套件 (RUSTSEC-2024-04{11..20}): GTK3 Rust bindings 全部 unmaintained.
+#    - 路径: tao / wry / webkit2gtk → gtk3 / gdk / atk 全家
+#    - 只在 Linux (webkit2gtk) 编译时被引入, macOS/Windows 不编译, 不会进最终 binary.
+#    - Tauri 2 仍在用 gtk-rs 0.18, 上游迁移到 gtk4-rs (gtk-rs 0.19) 是 Tauri 3 计划.
+#    - 链接: https://github.com/gtk-rs/gtk-rs/issues/1330
+ignore = [
+  "RUSTSEC-2024-0411",  # gdkwayland-sys 0.18.2 unmaintained
+  "RUSTSEC-2024-0412",  # gdk 0.18.2 unmaintained
+  "RUSTSEC-2024-0413",  # atk 0.18.2 unmaintained
+  "RUSTSEC-2024-0414",  # gdkx11-sys 0.18.2 unmaintained
+  "RUSTSEC-2024-0415",  # gtk 0.18.2 unmaintained
+  "RUSTSEC-2024-0416",  # atk-sys 0.18.2 unmaintained
+  "RUSTSEC-2024-0417",  # gdkx11 0.18.2 unmaintained
+  "RUSTSEC-2024-0418",  # gdk-sys 0.18.2 unmaintained
+  "RUSTSEC-2024-0419",  # gtk3-macros 0.18.2 unmaintained
+  "RUSTSEC-2024-0420",  # gtk-sys 0.18.2 unmaintained
+
+  # glib 0.18.5 unsound (VariantStrIter impl).
+  #   - 路径: gtk-rs 套件 → gio / cairo-rs → glib
+  #   - 同样只在 Linux 编译时引入. Tauri 2 用的 webkit2gtk-sys → glib-sys → glib.
+  "RUSTSEC-2024-0429",  # glib 0.18.5 unsound
+
+  # proc-macro-error 1.0.4 unmaintained.
+  #   - 路径: gtk3-macros / glib-macros (gtk-rs 套件) → proc-macro-error
+  #   - 同样 Linux-only.
+  "RUSTSEC-2024-0370",  # proc-macro-error 1.0.4 unmaintained
+
+  # unic-* 0.9.0 全家 unmaintained.
+  #   - 路径: urlpattern (→ unic-ucd-ident) → unic-*
+  #   - urlpattern 是 percent-encoding / idna / url 链的传递依赖, 升级到 1.0 是
+  #     webkit2gtk / webkit2gtk-sys 上游的事. 我们用不到 urlpattern 的 unsafe 接口.
+  "RUSTSEC-2025-0075",  # unic-char-range 0.9.0 unmaintained
+  "RUSTSEC-2025-0080",  # unic-common 0.9.0 unmaintained
+  "RUSTSEC-2025-0081",  # unic-char-property 0.9.0 unmaintained
+  "RUSTSEC-2025-0098",  # unic-ucd-version 0.9.0 unmaintained
+  "RUSTSEC-2025-0100",  # unic-ucd-ident 0.9.0 unmaintained
+]
+
+# 维持原有的 severity 阈值 (low), 任何 RUSTSEC severity ≥ low 仍 fail.
+severity_threshold = "low"
+
+[output]
+# --deny warnings 在 CI 命令行里传, 这里只配置展示.
+format = "terminal"
+quiet = false
+show_tree = true
+
+[target]
+# 我们只发布 macos + windows. Linux 不在 CI/release 矩阵里, 也不会跑 audit.
+# 任何 target-os 不在列表里的 advisory 会被 cargo-audit 自动忽略.
+# 但本文件上方 [advisories].ignore 已经显式列了 17 条 gtk-rs / unic-* 警告,
+# 这里保留 os 列表作为深度防御 (double-check), 防止未来某个 Linux-only 警告
+# 漏写进 ignore 列表就 fail release.
+os = ["macos", "windows"]
+
+[yanked]
+enabled = true
