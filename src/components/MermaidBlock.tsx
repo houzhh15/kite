@@ -64,8 +64,8 @@ export function __resetMermaidForTest(): void {
 
 /** 模块级单例: 首次调用触发动态 import('mermaid'), 后续复用同一实例.
  *  由于 MermaidBlock 本身通过 React.lazy() 在 MarkdownRenderer 中按需加载
- *  (PreBlock 仅在 flags.mermaid===true 且节点是 mermaid 围栏时才渲染 Suspense),
- *  所以 mermaid-vendor 不会在关闭态的文档渲染中被加载 (AC-04-3). */
+ *  (PreBlock 仅在节点是 mermaid 围栏时渲染 Suspense),
+ *  所以普通文档不会加载 mermaid vendor。 */
 function loadMermaidOnce(): Promise<MermaidModule> {
   if (mermaidSingleton) return Promise.resolve(mermaidSingleton);
   if (mermaidLoadPromise) return mermaidLoadPromise;
@@ -79,6 +79,11 @@ function loadMermaidOnce(): Promise<MermaidModule> {
         theme: 'default',
         logLevel: 'error',
         fontFamily: 'inherit',
+        // Mermaid v11 从顶层读取 htmlLabels。仅设置 flowchart.htmlLabels 不会影响
+        // 节点标签，仍会生成被 SVG 安全净化器移除的 <foreignObject>。
+        // 同时设置顶层和 flowchart 兼容不同图形/版本，不扩大 HTML 白名单。
+        htmlLabels: false,
+        flowchart: { htmlLabels: false },
       });
       mermaidSingleton = mermaid;
       return mermaid;

@@ -61,8 +61,6 @@ function resetStores(): void {
       lineHeightId: 'cozy',
       codeFontSizeId: 'md',
       language: 'zh-CN',
-      mermaidEnabled: false,
-      katexEnabled: false,
       externalEditor: 'system',
       externalEditorCustomCmd: '',
       vaultRootMode: 'follow-current',

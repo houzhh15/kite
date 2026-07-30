@@ -81,6 +81,12 @@ function appErrorMessage(err: AppError): string {
 
 export interface DocStore {
   state: DocState;
+  /** 原生“打开文件”对话框及其关闭事件窗口内为 true；用于暂停旧文件的 focus 自动刷新。 */
+  nativeOpenDialogActive: boolean;
+  /** 在调用原生文件选择器前同步开启保护，并返回本轮操作令牌。 */
+  beginNativeOpenDialog(): number;
+  /** 仅最新一轮对话框可凭令牌延迟关闭保护，吞掉 macOS 随后的 focus/visibility 事件。 */
+  endNativeOpenDialog(token: number): void;
   /** T15 (FR-04): 历史路径栈. 空表示未打开任何文件. */
   history: string[];
   /** T15 (FR-04): 指针. -1 表示未打开; 否则 0..history.length-1. */
@@ -143,6 +149,11 @@ function basename(p: string): string {
   return last.replace(/\.(md|markdown|mdx)$/i, '');
 }
 
+/** 原生对话框关闭后，focus/visibilitychange 可能在随后一个任务才到达。 */
+const NATIVE_DIALOG_FOCUS_GUARD_MS = 100;
+let nativeDialogGuardGeneration = 0;
+let nativeDialogGuardTimer: ReturnType<typeof setTimeout> | null = null;
+
 const initialState: DocState = {
   currentPath: null,
   content: '',
@@ -157,6 +168,27 @@ const initialState: DocState = {
  */
 export const useDocStore = create<DocStore>((set, get) => ({
   state: initialState,
+  nativeOpenDialogActive: false,
+  beginNativeOpenDialog() {
+    nativeDialogGuardGeneration += 1;
+    if (nativeDialogGuardTimer !== null) {
+      clearTimeout(nativeDialogGuardTimer);
+      nativeDialogGuardTimer = null;
+    }
+    set({ nativeOpenDialogActive: true });
+    return nativeDialogGuardGeneration;
+  },
+  endNativeOpenDialog(token) {
+    // 连续打开时，旧流程的 finally 不能解除新对话框的保护。
+    if (token !== nativeDialogGuardGeneration) return;
+    if (nativeDialogGuardTimer !== null) clearTimeout(nativeDialogGuardTimer);
+    nativeDialogGuardTimer = setTimeout(() => {
+      nativeDialogGuardTimer = null;
+      if (token === nativeDialogGuardGeneration) {
+        set({ nativeOpenDialogActive: false });
+      }
+    }, NATIVE_DIALOG_FOCUS_GUARD_MS);
+  },
   history: [],
   cursor: -1,
 

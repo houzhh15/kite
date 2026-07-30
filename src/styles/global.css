@@ -90,7 +90,7 @@ body {
 .prose-kite > :first-child {
     margin-top: 0;
 }
-/* .prose-kite 块级元素 (table / pre / figure / img / hr / .kite-*) 默认撑满 article,
+/* .prose-kite 块级元素 (table / pre / figure / hr / .kite-*) 默认撑满 article,
  * 避免 prose 主题的 max-width 截断.
  * 段落 / 标题不再设 max-width — 完全跟随阅读区宽度, 由字号 + 字号档位自然控制行宽. */
 .prose-kite
@@ -98,7 +98,6 @@ body {
         table,
         pre,
         figure,
-        img,
         hr,
         .kite-codeblock,
         .kite-mermaid,

@@ -9,12 +9,8 @@
  *     保留目的是: 旧测试 `expect(REMARK_PLUGINS).toEqual([remarkGfm, remarkInlineMarks, remarkHtmlToText])`;
  *     MarkdownRenderer 在 flag 尚未注入前的兜底.
  *
- *   buildRemarkPlugins(flags) / buildRehypePlugins(flags) — T17-P2 新增工厂函数.
- *     - 基础链始终存在 (T12 不动).
- *     - flags.katex === true 时动态 import 'remark-math' + 'rehype-katex' + 'katex/dist/katex.min.css'.
- *     - flags.mermaid === true 时动态 import 'rehype-mermaid'.
- *     - 异步返回 Promise<PluggableList>; MarkdownRenderer 通过 useAsyncPluginMemo 缓存,
- *       key={flagsHash} 触发 remount, 重建插件链.
+ *   buildRemarkPlugins() / buildRehypePlugins() — 公式始终启用，但 vendor 仍动态加载.
+ *     Mermaid 围栏由 MarkdownRenderer 的 lazy MermaidBlock 接管.
  *
  *   COMMON_LANGS / COMMON_LANG_KEYS — 14 种高亮语言字典 (T13 baseline; alias 转发保持兼容).
  *
@@ -26,7 +22,10 @@
  */
 
 import remarkGfm from 'remark-gfm';
+import remarkMath from 'remark-math';
 import rehypeHighlight from 'rehype-highlight';
+import rehypeKatex from 'rehype-katex';
+import 'katex/dist/katex.min.css';
 import bash from 'highlight.js/lib/languages/bash';
 import javascript from 'highlight.js/lib/languages/javascript';
 import typescript from 'highlight.js/lib/languages/typescript';
@@ -102,66 +101,79 @@ export const COMMON_LANG_KEYS: ReadonlyArray<keyof typeof COMMON_LANGS> =
   COMMON_LANG_KEYS_SOURCE;
 
 /** T17-P2 (F-21/F-22): 工厂入参. 与 featureFlags 的 mermaid / katex 字段对齐. */
-export interface PipelineFlags {
-  mermaid: boolean;
-  katex: boolean;
+/**
+ * CommonMark 会在插件阶段前吞掉 `\\[` / `\\(` 的反斜杠，因此在解析边界把它们
+ * 规范化为 remark-math 原生分隔符。扫描器跳过 fenced code 与 inline code。
+ */
+export function normalizeLatexDelimiters(markdown: string): string {
+  let fenced = false;
+  let fenceChar = '';
+  let fenceLength = 0;
+
+  return markdown
+    .split('\n')
+    .map((line) => {
+      const fence = line.match(/^\s*(`{3,}|~{3,})/);
+      if (fence) {
+        const marker = fence[1];
+        if (!fenced) {
+          fenced = true;
+          fenceChar = marker[0];
+          fenceLength = marker.length;
+        } else if (marker[0] === fenceChar && marker.length >= fenceLength) {
+          fenced = false;
+        }
+        return line;
+      }
+      if (fenced) return line;
+
+      const display = line.match(/^(\s*)\\\[([\s\S]*?)\\\]\s*$/);
+      if (display) {
+        return `${display[1]}$$\n${display[2].trim()}\n${display[1]}$$`;
+      }
+
+      let result = '';
+      let inlineTicks = 0;
+      for (let i = 0; i < line.length; i += 1) {
+        if (line[i] === '`') {
+          let run = 1;
+          while (line[i + run] === '`') run += 1;
+          inlineTicks = inlineTicks === 0 ? run : inlineTicks === run ? 0 : inlineTicks;
+          result += line.slice(i, i + run);
+          i += run - 1;
+          continue;
+        }
+        if (inlineTicks === 0 && line[i] === '\\' && i + 1 < line.length) {
+          const delimiter = line[i + 1];
+          if (delimiter === '[' || delimiter === ']') {
+            result += '$$';
+            i += 1;
+            continue;
+          }
+          if (delimiter === '(' || delimiter === ')') {
+            result += '$';
+            i += 1;
+            continue;
+          }
+        }
+        result += line[i];
+      }
+      return result;
+    })
+    .join('\n');
 }
 
-/** T17-P2 (F-21/F-22): remark 插件工厂.
- *  - 基础链 [remarkGfm, remarkInlineMarks, remarkHtmlToText] 恒定.
- *  - flags.katex === true → 追加 remarkMath (动态 import).
- *  - T28 (F-46): 末尾追加 remarkWikilink (AST 改写 [[...]] → wikilink 节点).
- *  返回值类型为 unknown[] 以兼容 react-markdown 的 Pluggable 联合类型.
- *
- *  注意: 末尾追加的是 plugin factory (remarkWikilink), 不是工厂调用结果 (remarkWikilink()).
- *  unified 的 Pluggable 链需要 attacher, 由 unified 在 freeze 阶段调用 attacher 并传入
- *  options 得到真正的 transformer. 传 transformer 会让 unified 把它当 attacher 调用,
- *  tree=undefined 抛错. */
-export async function buildRemarkPlugins(
-  flags: PipelineFlags,
-): Promise<unknown[]> {
-  const plugins: unknown[] = [remarkGfm, remarkInlineMarks, remarkHtmlToText];
-  if (flags.katex) {
-    const mod = await import('remark-math');
-    plugins.push(mod.default);
-  }
-  plugins.push(remarkWikilink);
-  return plugins;
+/** 公式始终启用；同步插件链保证普通 Markdown 首帧无 loading 闪烁。 */
+export function buildRemarkPlugins(): unknown[] {
+  return [remarkGfm, remarkInlineMarks, remarkHtmlToText, remarkMath, remarkWikilink];
 }
 
-/** T17-P2 (F-21/F-22): rehype 插件工厂.
- *  - 基础链 [[rehypeHighlight, { languages: COMMON_LANGS }]] 恒定.
- *  - flags.mermaid === true → 追加 rehypeMermaid (动态 import).
- *  - flags.katex === true → 追加 [rehypeKatex, { strict, throwOnError }] + 副作用
- *    动态 import 'katex/dist/katex.min.css' (CSS 注入).
- *  返回值类型为 unknown[] 以兼容 react-markdown 的 Pluggable 联合类型.
- *
- *  关键: 动态 import 在 vite 编译时被识别为 code-split 点, manualChunks 把
- *  mermaid / katex / remark-math / rehype-katex / rehype-mermaid 路由到独立
- *  vendor chunk (vite.config.ts#manualChunks). 由于 import 是动态的, Rollup
- *  不会把 vendor 静态提升到 index 入口 (AC-04-3 关闭态不下载 vendor).
- *  MermaidBlock 同样使用动态 import + new Function('m', 'return import(m)')
- *  包裹确保 mermaid-vendor 也不进 index 入口. */
-export async function buildRehypePlugins(
-  flags: PipelineFlags,
-): Promise<unknown[]> {
-  const plugins: unknown[] = [
+/** KaTeX 始终启用；Mermaid 围栏仍由 lazy MermaidBlock 接管。 */
+export function buildRehypePlugins(): unknown[] {
+  return [
     [rehypeHighlight, { languages: COMMON_LANGS }],
+    [rehypeKatex, { strict: 'ignore', throwOnError: false }],
   ];
-  if (flags.mermaid) {
-    const mod = await import('rehype-mermaid');
-    plugins.push(mod.default);
-  }
-  if (flags.katex) {
-    const mod = await import('rehype-katex');
-    plugins.push([
-      mod.default,
-      { strict: 'ignore', throwOnError: false },
-    ]);
-    // 副作用: katex CSS 按需注入 (随 chunk 加载, 关闭态不进主入口).
-    await import('katex/dist/katex.min.css');
-  }
-  return plugins;
 }
 
 /**

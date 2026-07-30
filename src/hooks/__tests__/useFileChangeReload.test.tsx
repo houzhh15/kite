@@ -47,11 +47,47 @@ describe('useFileChangeReload — T26 (R-12 修复)', () => {
     useDocStore.setState((s) => ({
       ...s,
       state: { ...s.state, currentPath: null, status: 'idle' as MarkdownStatus },
+      nativeOpenDialogActive: false,
     }));
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
+  });
+
+  it('原生打开对话框关闭时的 focus/visibility 不刷新旧文件', async () => {
+    setDocState(FIXTURE_PATH, 'ok');
+    useDocStore.setState({ nativeOpenDialogActive: true });
+    const getFileFresh = vi.spyOn(tauri, 'getFileFresh');
+    const loadFile = vi.fn().mockResolvedValue(undefined);
+
+    renderHook(() => useFileChangeReload(loadFile, 'ok'));
+    fireWindowFocus();
+    fireVisibilityVisible();
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(getFileFresh).not.toHaveBeenCalled();
+    expect(loadFile).not.toHaveBeenCalled();
+  });
+
+  it('对话框保护解除后恢复正常 focus 自动刷新', async () => {
+    setDocState(FIXTURE_PATH, 'ok');
+    useDocStore.setState({ nativeOpenDialogActive: false });
+    const getFileFresh = vi
+      .spyOn(tauri, 'getFileFresh')
+      .mockResolvedValue({ mtime: 4321, content: '# fresh' });
+    const loadFile = vi.fn().mockResolvedValue(undefined);
+
+    renderHook(() => useFileChangeReload(loadFile, 'ok'));
+    fireWindowFocus();
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(getFileFresh).toHaveBeenCalledWith(FIXTURE_PATH);
+    expect(loadFile).toHaveBeenCalledWith(FIXTURE_PATH);
   });
 
   it('focus + mtime 较新 → 调 loadFile', async () => {

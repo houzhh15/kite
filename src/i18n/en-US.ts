@@ -105,14 +105,6 @@ export const enUS = {
       zhCN: '简体中文',
       enUS: 'English',
     },
-    // T17-P2 (F-21/F-22): Diagrams & Formulas section + two switch labels.
-    section: {
-      diagrams: 'Diagrams & Formulas',
-    },
-    mermaidEnable: 'Mermaid diagrams',
-    mermaidDesc: 'Render mermaid code blocks as diagrams; loads ~600 KB on enable',
-    katexEnable: 'KaTeX math',
-    katexDesc: 'Render inline / block math formulas; loads ~250 KB on enable',
     // T28 (F-46): vault root section — works with F-15 relative path jumps + wikilinks.
     vaultRoot: {
       title: 'Vault root',

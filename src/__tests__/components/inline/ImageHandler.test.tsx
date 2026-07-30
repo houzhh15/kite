@@ -105,4 +105,10 @@ describe('ImageHandler — 契约 5', () => {
     expect(img).not.toBeNull();
     expect(img?.getAttribute('alt')).toBe('placeholder');
   });
+
+  it('small images are not forced to full width', () => {
+    const { container } = render(<ImageHandler src="data:image/png;base64,x" alt="badge" />);
+    const img = container.querySelector('img');
+    expect(img?.style.width).not.toBe('100%');
+  });
 });

@@ -13,24 +13,19 @@
  *   - 外层包裹 article.prose-kite, 排版样式在 src/styles/global.css + inline.css.
  *   - React.memo 包裹: content prop 不变时不重渲 (性能).
  *
- *   T17-P2 (F-21/F-22) 增量:
- *   - useAsyncPluginMemo 把 flags.mermaid / flags.katex 序列化为 flagsHash,
- *     flagsHash 变化时重新 import mermaid / katex 相关插件; flagsHash 不变复用缓存.
- *   - <ReactMarkdown key={flagsHash} /> 强制 remount, 保证 react-markdown 内部插件链替换.
- *   - pre 节点自定义: isMermaidBlock(children) 命中 → MermaidBlock; 否则 CodeBlock.
+ *   图表与公式:
+ *   - KaTeX 插件动态加载，支持 $...$、$$...$$、\\(...\\)、\\[...\\].
+ *   - pre 节点自定义: isMermaidBlock(children) 命中 → lazy MermaidBlock; 否则 CodeBlock.
  */
 
-import { memo, useEffect, useState, lazy, Suspense, useMemo, useRef } from 'react';
+import { memo, lazy, Suspense, useMemo, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import rehypeHighlight from 'rehype-highlight';
-
 import {
   buildRemarkPlugins,
   buildRehypePlugins,
   transformUrl,
+  normalizeLatexDelimiters,
 } from '../lib/pipeline';
-import { getFlags } from '../lib/featureFlags';
 import LinkHandler from './LinkHandler';
 import ImageHandler from './ImageHandler';
 import FrontmatterPanel from './FrontmatterPanel';
@@ -43,17 +38,11 @@ import CodeBlock from './CodeBlock';
 import HeadingAnchor from './inline/HeadingAnchor';
 import { isMermaidBlock } from '../lib/mermaidDetect';
 import { useImageViewer } from '../hooks/useImageViewer';
-import { remarkInlineMarks } from '../lib/inline/remarkInlineMarks';
-import { remarkHtmlToText } from '../lib/inline/remarkHtmlToText';
-import { remarkWikilink } from '../lib/wikilink/remarkWikilink';
 import { WikilinkNode } from './WikilinkNode';
-import { COMMON_LANGS } from '../lib/pipeline';
 import { parseFrontmatter } from '../lib/frontmatter/parseFrontmatter';
 import { renderMeta } from '../lib/frontmatter/renderMeta';
 import type { FrontmatterMeta } from '../lib/frontmatter/types';
-// T17-P2 (F-21): MermaidBlock 通过 React.lazy + Suspense 按需加载,
-//   让 mermaid vendor chunk 仅在 flags.mermaid===true 时被 fetch,
-//   关闭态主入口不引用 mermaid vendor (AC-04-3).
+// MermaidBlock 通过 React.lazy + Suspense 按需加载，仅含 mermaid 围栏时获取 vendor chunk.
 const MermaidBlockLazy = memo(
   lazy(() => import('./MermaidBlock').then((m) => ({ default: m.default }))),
 );
@@ -61,10 +50,6 @@ const MermaidBlockLazy = memo(
 export interface MarkdownRendererProps {
   /** 原始 markdown 文本. */
   content: string;
-}
-
-function flagsHashOf(flags: { mermaid: boolean; katex: boolean }): string {
-  return `${flags.mermaid ? 'm' : '-'}${flags.katex ? 'k' : '-'}`;
 }
 
 /**
@@ -76,92 +61,12 @@ function fingerprint(s: string): string {
   return `${s.length}:${s.length > 0 ? s.charCodeAt(0) : 0}:${s.length > 1 ? s.charCodeAt(s.length - 1) : 0}`;
 }
 
-/** useAsyncPluginMemo: 异步加载插件链, 仅在 flagsHash 变化时重 import.
- *  关闭态 (flags.mermaid===false && flags.katex===false) 走同步路径, 工厂内
- *  `await import` 不执行, 直接返回 [基础链] 而非 Promise, 避免 MarkdownRenderer
- *  首屏挂载就显示 loading 占位 (AC-04-3 关闭态保持原渲染体验). */
-function useAsyncPluginMemo(
-  kind: 'remark' | 'rehype',
-  flags: { mermaid: boolean; katex: boolean },
-): unknown[] | undefined {
-  const flagsHash = flagsHashOf(flags);
-  const [cache, setCache] = useState<{
-    hash: string;
-    plugins: unknown[] | undefined;
-  }>(() => {
-    // 同步初始化: 关闭态直接产出基础链; 启用态返回 undefined (触发 effect 内异步加载).
-    if (!flags.mermaid && !flags.katex) {
-      const plugins =
-        kind === 'remark'
-          ? buildRemarkPluginsSync(flags)
-          : buildRehypePluginsSync(flags);
-      return { hash: flagsHash, plugins };
-    }
-    return { hash: flagsHash, plugins: undefined };
-  });
-
-  useEffect(() => {
-    // 关闭态 (flagsHash 不变) → 跳过异步加载.
-    if (!flags.mermaid && !flags.katex) {
-      setCache((prev) =>
-        prev.hash === flagsHash
-          ? prev
-          : { hash: flagsHash, plugins: buildRehypePluginsSync(flags) },
-      );
-      return;
-    }
-    let cancelled = false;
-    setCache((prev) => (prev.hash === flagsHash ? prev : { hash: flagsHash, plugins: undefined }));
-    const p =
-      kind === 'remark'
-        ? buildRemarkPlugins(flags)
-        : buildRehypePlugins(flags);
-    p.then(
-      (plugins) => {
-        if (cancelled) return;
-        setCache({ hash: flagsHash, plugins });
-      },
-      (err: unknown) => {
-        if (cancelled) return;
-        console.warn(`[MarkdownRenderer] ${kind} plugin build failed:`, err);
-        // 失败时回退到空数组 (不传任何额外插件, 至少基础高亮仍可用).
-        setCache({ hash: flagsHash, plugins: [] });
-      },
-    );
-    return () => {
-      cancelled = true;
-    };
-  }, [kind, flagsHash, flags]);
-
-  if (cache.hash !== flagsHash) return undefined;
-  return cache.plugins;
-}
-
-/** 同步版本 (关闭态): 不调 `await import`, 直接返回基础链. */
-function buildRemarkPluginsSync(flags: { mermaid: boolean; katex: boolean }): unknown[] {
-  // 关闭态 katex=false → 不 import remark-math. 同步基线即可.
-  // T28 (F-46): 末尾追加 remarkWikilink (FR-01), 同步首屏也支持 wikilink 渲染.
-  void flags;
-  // ⚠ 重要: unified 插件链要求传入 **plugin factory** (attacher), 而不是 factory 的返回值.
-  //   若传入 remarkWikilink() (已调用), unified 会把内层 transformer 当作 attacher,
-  //   在 freeze 阶段以 `transformer.call(processor, undefined)` 调用, 内层 tree=undefined 报错.
-  //   正确做法: 传 factory, 由 unified 在 freeze 阶段调用 factory 并传入 options,
-  //   factory 返回真正的 (tree)=>void transformer, 再由 unified 在 run 阶段调用.
-  return [remarkGfm, remarkInlineMarks, remarkHtmlToText, remarkWikilink];
-}
-
-function buildRehypePluginsSync(flags: { mermaid: boolean; katex: boolean }): unknown[] {
-  void flags;
-  return [[rehypeHighlight, { languages: COMMON_LANGS }]];
-}
-
 /** pre 节点自定义: mermaid 命中 → MermaidBlock (lazy); 否则 CodeBlock. */
 function PreBlock(props: {
   children?: React.ReactNode;
   node?: unknown;
 }): JSX.Element {
-  const flags = getFlags();
-  if (flags.mermaid && isMermaidBlock(props.children)) {
+  if (isMermaidBlock(props.children)) {
     // 从 children 中提取 code text (mermaid 块需要原始字符串).
     const code = extractPreText(props.children);
     return (
@@ -197,10 +102,8 @@ function MarkdownRendererInner({ content }: MarkdownRendererProps): JSX.Element 
     console.count('MarkdownRenderer render');
   }
 
-  const flags = getFlags();
-  const flagsHash = flagsHashOf(flags);
-  const remarkPlugins = useAsyncPluginMemo('remark', flags);
-  const rehypePlugins = useAsyncPluginMemo('rehype', flags);
+  const remarkPlugins = useMemo(() => buildRemarkPlugins(), []);
+  const rehypePlugins = useMemo(() => buildRehypePlugins(), []);
 
   // T26 (F-28): 在两条 return 分支之前上提 frontmatter 解析 (设计 §3.6.0).
   //   - content 不变时 useMemo 命中缓存, 解析 0 额外开销.
@@ -227,21 +130,7 @@ function MarkdownRendererInner({ content }: MarkdownRendererProps): JSX.Element 
     () => (Object.keys(parsed.meta).length > 0 ? renderMeta(parsed.meta) : []),
     [parsed.meta],
   );
-
-  // 在异步插件链加载完成前不渲染 react-markdown; 避免插件链闪烁.
-  if (!remarkPlugins || !rehypePlugins) {
-    return (
-      <article
-        data-testid="markdown-article"
-        className="prose-kite w-full"
-      >
-        {rows.length > 0 && <FrontmatterPanel rows={rows} />}
-        <div data-testid="markdown-loading" className="text-muted">
-          …
-        </div>
-      </article>
-    );
-  }
+  const markdownBody = useMemo(() => normalizeLatexDelimiters(parsed.body), [parsed.body]);
 
   return (
     <article
@@ -250,7 +139,6 @@ function MarkdownRendererInner({ content }: MarkdownRendererProps): JSX.Element 
     >
       {rows.length > 0 && <FrontmatterPanel rows={rows} />}
       <ReactMarkdown
-        key={flagsHash}
         remarkPlugins={remarkPlugins as never[]}
         rehypePlugins={rehypePlugins as never[]}
         // T19 (FR-03): 在 AST 阶段改写所有 href/src; 危险协议由 urlSafe 改写为 '#'.
@@ -284,7 +172,7 @@ function MarkdownRendererInner({ content }: MarkdownRendererProps): JSX.Element 
           wikilink: WikilinkNode as never,
         } as unknown as never}
       >
-        {parsed.body}
+        {markdownBody}
       </ReactMarkdown>
     </article>
   );

@@ -61,16 +61,11 @@ const RUNTIME_LITERAL_EXCEPTIONS = [
 
 /**
  * T18 静态键完整性校验. 覆盖 21 个命名空间的关键键 (≥50 个).
- * 保留 T17-P2 既有 8 键; 新增 outline/status/statusBar/recent/codeBlock/
- * search/shortcuts/theme/dialog/image/app/skipLink 的关键键.
+ * 保留仍在使用的 T17-P2 Mermaid 状态键; 新增 outline/status/statusBar/recent/
+ * codeBlock/search/shortcuts/theme/dialog/image/app/skipLink 的关键键.
  */
 const REQUIRED_KEYS = [
-  // T17-P2 既有 (保留)
-  'settings.section.diagrams',
-  'settings.mermaidEnable',
-  'settings.mermaidDesc',
-  'settings.katexEnable',
-  'settings.katexDesc',
+  // T17-P2 Mermaid 加载状态 (设置开关已移除，功能始终启用)
   'toast.mermaidBundleHint',
   'toast.mermaidLoadFailed',
   'fallback.mermaidError',

@@ -10,8 +10,6 @@
  *   2. 订阅 prefs 变化 → setProperty('--kite-font-size/line-height') (FR-08)
  *   3. 订阅 prefs 变化 → 300ms debounce → savePreferences() (FR-04, NFR-01)
  *   4. visibilitychange→hidden / pagehide → 取消 debounce + 同步 save (AC-FR04-3)
- *   5. T17-P2 (F-21/F-22): hydrate 完成后调用 featureFlags.hydrateFlags
- *      把 mermaidEnabled / katexEnabled 同步到内存 flag (设计 §3.2.2).
  *
  * 纪律:
  *   - 不在 React 渲染期间调 IPC; 全部放进 useEffect.
@@ -23,7 +21,6 @@ import { useEffect, useRef } from 'react';
 
 import { usePrefStore, type Prefs } from '../stores/prefStore';
 import { loadPreferences, savePreferences } from '../lib/tauri';
-import { hydrateFlags as hydrateFeatureFlags } from '../lib/featureFlags';
 
 const DEBOUNCE_MS = 300;
 
@@ -38,8 +35,11 @@ function shallowEqual(a: Prefs, b: Prefs): boolean {
     a.fontSize === b.fontSize &&
     a.lineHeight === b.lineHeight &&
     a.codeBlockTheme === b.codeBlockTheme &&
-    a.mermaidEnabled === b.mermaidEnabled &&
-    a.katexEnabled === b.katexEnabled
+    a.language === b.language &&
+    a.externalEditor === b.externalEditor &&
+    a.externalEditorCustomCmd === b.externalEditorCustomCmd &&
+    a.vaultRootMode === b.vaultRootMode &&
+    a.vaultRootCustom === b.vaultRootCustom
   );
 }
 
@@ -56,9 +56,7 @@ export function usePreferences(): UsePreferencesReturn {
         const p = await loadPreferences();
         if (cancelled) return;
         usePrefStore.getState().hydrate(p);
-        // T17-P2 (F-21/F-22): hydrate 完成后把 mermaid/katex 持久化值同步到内存 flag.
         const cur = usePrefStore.getState().prefs;
-        hydrateFeatureFlags({ mermaid: cur.mermaidEnabled, katex: cur.katexEnabled });
         lastSavedRef.current = cur;
       } catch (err) {
         if (cancelled) return;
@@ -66,7 +64,6 @@ export function usePreferences(): UsePreferencesReturn {
         // FR-01 / AC-FR01-3: fallback 默认
         usePrefStore.getState().hydrate();
         const cur = usePrefStore.getState().prefs;
-        hydrateFeatureFlags({ mermaid: cur.mermaidEnabled, katex: cur.katexEnabled });
         lastSavedRef.current = cur;
       }
     })();
@@ -105,7 +102,18 @@ export function usePreferences(): UsePreferencesReturn {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [hydrated, prefs.theme, prefs.fontSize, prefs.lineHeight, prefs.codeBlockTheme, prefs.mermaidEnabled, prefs.katexEnabled]);
+  }, [
+    hydrated,
+    prefs.theme,
+    prefs.fontSize,
+    prefs.lineHeight,
+    prefs.codeBlockTheme,
+    prefs.language,
+    prefs.externalEditor,
+    prefs.externalEditorCustomCmd,
+    prefs.vaultRootMode,
+    prefs.vaultRootCustom,
+  ]);
 
   // 4) pagehide / visibilitychange→hidden 同步 flush (AC-FR04-3).
   useEffect(() => {

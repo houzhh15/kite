@@ -70,11 +70,6 @@ export function Settings(props: SettingsProps): JSX.Element | null {
   const resetReadingPrefs = usePrefStore((s) => s.resetReadingPrefs);
   const language = usePrefStore((s) => s.prefs.language);
   const setLanguage = usePrefStore((s) => s.setLanguage);
-  // T17-P2 (F-21/F-22): mermaidEnabled / katexEnabled 状态 + setter.
-  const mermaidEnabled = usePrefStore((s) => s.prefs.mermaidEnabled);
-  const katexEnabled = usePrefStore((s) => s.prefs.katexEnabled);
-  const setMermaidEnabled = usePrefStore((s) => s.setMermaidEnabled);
-  const setKatexEnabled = usePrefStore((s) => s.setKatexEnabled);
   // T28 (F-46 / FR-04): vault 根配置.
   const vaultRootMode = usePrefStore((s) => s.prefs.vaultRootMode);
   const vaultRootCustom = usePrefStore((s) => s.prefs.vaultRootCustom);
@@ -243,102 +238,6 @@ export function Settings(props: SettingsProps): JSX.Element | null {
                 </button>
               );
             })}
-          </div>
-        </fieldset>
-      </section>
-
-      {/* T17-P2 (F-21/F-22): 图表与公式分组 — 两个独立开关.
-        role="switch" + aria-checked, label/description 走 i18n. */}
-      <section
-        className="mb-4"
-        data-section="diagrams"
-        data-testid="settings-diagrams"
-      >
-        <fieldset>
-          <legend className="mb-2 text-sm text-muted">
-            {t('settings.section.diagrams')}
-          </legend>
-          <div className="mb-2 flex items-start justify-between gap-4">
-            <div className="flex-1">
-              <label
-                htmlFor="mermaid-enable"
-                className="text-sm font-medium"
-                id="mermaid-enable-label"
-              >
-                {t('settings.mermaidEnable')}
-              </label>
-              <p
-                id="mermaid-enable-desc"
-                className="text-xs text-muted"
-              >
-                {t('settings.mermaidDesc')}
-              </p>
-            </div>
-            <button
-              id="mermaid-enable"
-              type="button"
-              role="switch"
-              aria-checked={mermaidEnabled}
-              aria-describedby="mermaid-enable-desc"
-              aria-labelledby="mermaid-enable-label"
-              data-testid="settings-mermaid"
-              onClick={() => setMermaidEnabled(!mermaidEnabled)}
-              className={cx(
-                'relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border',
-                mermaidEnabled
-                  ? 'border-accent bg-accent'
-                  : 'border-border bg-fg/10',
-              )}
-            >
-              <span
-                className={cx(
-                  'inline-block h-5 w-5 transform rounded-full bg-white shadow transition',
-                  mermaidEnabled ? 'translate-x-5' : 'translate-x-0.5',
-                )}
-                aria-hidden="true"
-              />
-            </button>
-          </div>
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex-1">
-              <label
-                htmlFor="katex-enable"
-                className="text-sm font-medium"
-                id="katex-enable-label"
-              >
-                {t('settings.katexEnable')}
-              </label>
-              <p
-                id="katex-enable-desc"
-                className="text-xs text-muted"
-              >
-                {t('settings.katexDesc')}
-              </p>
-            </div>
-            <button
-              id="katex-enable"
-              type="button"
-              role="switch"
-              aria-checked={katexEnabled}
-              aria-describedby="katex-enable-desc"
-              aria-labelledby="katex-enable-label"
-              data-testid="settings-katex"
-              onClick={() => setKatexEnabled(!katexEnabled)}
-              className={cx(
-                'relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border',
-                katexEnabled
-                  ? 'border-accent bg-accent'
-                  : 'border-border bg-fg/10',
-              )}
-            >
-              <span
-                className={cx(
-                  'inline-block h-5 w-5 transform rounded-full bg-white shadow transition',
-                  katexEnabled ? 'translate-x-5' : 'translate-x-0.5',
-                )}
-                aria-hidden="true"
-              />
-            </button>
           </div>
         </fieldset>
       </section>
