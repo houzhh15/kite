@@ -86,8 +86,6 @@ describe('loadAndHydrate — 启动加载与容错', () => {
         lineHeightId: 'cozy',
         codeFontSizeId: 'md',
         language: 'zh-CN',
-        mermaidEnabled: false,
-        katexEnabled: false,
         externalEditor: 'system',
         externalEditorCustomCmd: '',
         vaultRootMode: 'follow-current',

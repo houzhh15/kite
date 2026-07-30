@@ -68,10 +68,6 @@ export interface Prefs {
   codeFontSizeId: CodeFontSize;
   /** T15 (FR-05): 用户界面语言. 默认 zh-CN. */
   language: Language;
-  /** T17-P2 (F-21): mermaid 图表渲染开关. 默认 false. */
-  mermaidEnabled: boolean;
-  /** T17-P2 (F-22): KaTeX 公式渲染开关. 默认 false. */
-  katexEnabled: boolean;
   /** T24 (F-26): 外部编辑器预设. 默认 'system'. */
   externalEditor: ExternalEditor;
   /** T24 (F-26): 自定义编辑器命令模板. 默认 '' (≤256 字符). */
@@ -117,10 +113,6 @@ export interface PrefStore extends PrefState {
   resetReadingPrefs(): void;
   /** T15 (FR-05): 设置界面语言. 写内存态; 持久化由 usePreferences debounce 自动触发. */
   setLanguage(lng: Language): void;
-  /** T17-P2 (F-21): mermaid 图表渲染开关. clamp boolean 后写入内存态; 持久化由 usePreferences debounce 自动触发. */
-  setMermaidEnabled(v: boolean): void;
-  /** T17-P2 (F-22): KaTeX 公式渲染开关. clamp boolean 后写入内存态; 持久化由 usePreferences debounce 自动触发. */
-  setKatexEnabled(v: boolean): void;
   /** T24 (F-26): 外部编辑器预设 setter. 非法值 console.warn + 忽略 (AC-06-3). */
   setExternalEditor(editor: ExternalEditor): void;
   /** T24 (F-26): 自定义命令模板 setter. 长度 >256 截断 + console.warn (AC-06-4). */
@@ -140,8 +132,6 @@ const defaults: Prefs = {
   lineHeightId: 'cozy',
   codeFontSizeId: 'md',
   language: 'zh-CN',
-  mermaidEnabled: false,
-  katexEnabled: false,
   externalEditor: 'system',
   externalEditorCustomCmd: '',
   vaultRootMode: 'follow-current',
@@ -333,26 +323,6 @@ export const usePrefStore = create<PrefStore>((set, get) => ({
     });
   },
 
-  // T17-P2 (F-21): mermaidEnabled setter. clamp boolean 后写内存态.
-  // 持久化由 usePreferences 300ms debounce 自动触发; 非法值 → console.warn + 忽略.
-  setMermaidEnabled(v) {
-    if (typeof v !== 'boolean') {
-      console.warn(`[prefStore] invalid mermaidEnabled: ${String(v)}`);
-      return;
-    }
-    set((s) => ({ prefs: { ...s.prefs, mermaidEnabled: v } }));
-  },
-
-  // T17-P2 (F-22): katexEnabled setter. clamp boolean 后写内存态.
-  // 持久化由 usePreferences 300ms debounce 自动触发; 非法值 → console.warn + 忽略.
-  setKatexEnabled(v) {
-    if (typeof v !== 'boolean') {
-      console.warn(`[prefStore] invalid katexEnabled: ${String(v)}`);
-      return;
-    }
-    set((s) => ({ prefs: { ...s.prefs, katexEnabled: v } }));
-  },
-
   // T24 (F-26): 外部编辑器预设 setter. 非法值 console.warn + 忽略 (AC-06-3).
   setExternalEditor(editor) {
     if (!isExternalEditor(editor)) {
@@ -408,7 +378,6 @@ export const usePrefStore = create<PrefStore>((set, get) => ({
   // T15 (FR-05): language 字段若 patch 提供但非法, 视为缺省值 'zh-CN' (AC-05-2).
   // T15 (AC-03-2 / AC-05-1): hydrate 完成后同步 i18n.changeLanguage,
   //   让 store 持久化的语言在首屏即时生效 (避免闪烁回退到默认).
-  // T17-P2 (F-21/F-22): mermaidEnabled / katexEnabled 字段若 patch 提供但非法, 保持当前值.
   hydrate(p) {
     const patch = p ?? {};
     const sanitizedFontSize =
@@ -416,14 +385,6 @@ export const usePrefStore = create<PrefStore>((set, get) => ({
     const sanitizedLineHeight =
       patch.lineHeight !== undefined && isLineHeight(patch.lineHeight)
         ? patch.lineHeight
-        : undefined;
-    const sanitizedMermaidEnabled =
-      typeof (patch as { mermaidEnabled?: unknown }).mermaidEnabled === 'boolean'
-        ? (patch as { mermaidEnabled: boolean }).mermaidEnabled
-        : undefined;
-    const sanitizedKatexEnabled =
-      typeof (patch as { katexEnabled?: unknown }).katexEnabled === 'boolean'
-        ? (patch as { katexEnabled: boolean }).katexEnabled
         : undefined;
     set((s) => {
       const nextFontSize =
@@ -488,14 +449,6 @@ export const usePrefStore = create<PrefStore>((set, get) => ({
           lineHeightId: lineHeightFromNumber(nextLineHeight),
           codeFontSizeId: s.prefs.codeFontSizeId,
           language: nextLanguage,
-          mermaidEnabled:
-            sanitizedMermaidEnabled !== undefined
-              ? sanitizedMermaidEnabled
-              : s.prefs.mermaidEnabled,
-          katexEnabled:
-            sanitizedKatexEnabled !== undefined
-              ? sanitizedKatexEnabled
-              : s.prefs.katexEnabled,
           externalEditor: nextExternalEditor,
           externalEditorCustomCmd: nextCustomCmd,
           vaultRootMode: nextVaultMode,

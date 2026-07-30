@@ -14,6 +14,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, waitFor } from '@testing-library/react';
 import { I18nextProvider } from 'react-i18next';
 
+const mockMermaidInitialize = vi.fn();
 const mockMermaidRender = vi.fn();
 const mockPushToast = vi.fn();
 
@@ -24,7 +25,7 @@ vi.mock('../../lib/toast', () => ({
 vi.mock('mermaid', () => {
   return {
     default: {
-      initialize: vi.fn(),
+      initialize: (...args: unknown[]) => mockMermaidInitialize(...args),
       render: (...args: unknown[]) => mockMermaidRender(...args),
       parse: vi.fn(),
     },
@@ -40,6 +41,7 @@ beforeEach(async () => {
 
 describe('MermaidBlock (T17-P2)', () => {
   beforeEach(() => {
+    mockMermaidInitialize.mockReset();
     mockMermaidRender.mockReset();
     mockPushToast.mockReset();
     mockMermaidRender.mockResolvedValue({
@@ -66,6 +68,22 @@ describe('MermaidBlock (T17-P2)', () => {
     expect(rendered?.getAttribute('role')).toBe('img');
     expect(rendered?.getAttribute('aria-label')).toBeTruthy();
     expect(container.querySelector('svg')).toBeTruthy();
+  });
+
+  it('uses SVG text labels so sanitization does not remove diagram text', async () => {
+    const { container } = render(
+      <I18nextProvider i18n={i18n}>
+        <MermaidBlock code="graph TD;A[外部依赖]-->B[AI Agent]" />
+      </I18nextProvider>,
+    );
+    await waitFor(() => expect(container.querySelector('svg')).toBeTruthy());
+    expect(mockMermaidInitialize).toHaveBeenCalledWith(
+      expect.objectContaining({
+        securityLevel: 'strict',
+        htmlLabels: false,
+        flowchart: { htmlLabels: false },
+      }),
+    );
   });
 
   it('renders fallback DOM when mermaid.render rejects (no toast)', async () => {

@@ -27,8 +27,6 @@ const FULL_PREFS = {
   lineHeightId: 'cozy' as const,
   codeFontSizeId: 'md' as const,
   language: 'zh-CN' as const,
-  mermaidEnabled: false as const,
-  katexEnabled: false as const,
   externalEditor: 'system' as const,
   externalEditorCustomCmd: '',
   vaultRootMode: 'follow-current' as const,

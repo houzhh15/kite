@@ -90,10 +90,6 @@ export interface Preferences {
   codeBlockTheme?: string;
   /** T15 (FR-05): 界面语言. 值域 'zh-CN' | 'en-US'. 缺省/非法回退 zh-CN. */
   language?: 'zh-CN' | 'en-US';
-  /** T17-P2 (F-21): mermaid 图表渲染开关. 缺省/非法回退 false. */
-  mermaidEnabled?: boolean;
-  /** T17-P2 (F-22): KaTeX 公式渲染开关. 缺省/非法回退 false. */
-  katexEnabled?: boolean;
   /** T24 (F-26): 外部编辑器预设 (缺省 'system'). */
   externalEditor?: ExternalEditor;
   /** T24 (F-26): 自定义编辑器命令模板 (≤256 字符). */

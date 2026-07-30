@@ -8,7 +8,7 @@
  * 验证 happy path: dialog.open → readMarkdownFile → state.status === 'ok' 且
  * useDocStore.getState().state.content 与 fixture 字符串一致.
  */
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { act, renderHook } from '@testing-library/react';
 
 import { useMarkdownDoc } from '../useMarkdownDoc';
@@ -43,7 +43,14 @@ beforeEach(() => {
 describe('useMarkdownDoc integration (mocked IPC)', () => {
   beforeEach(() => {
     // 避免上一个用例的副作用影响
-    useDocStore.setState({ state: { currentPath: null, content: '', title: '', dirty: false } });
+    useDocStore.setState({
+      state: { currentPath: null, content: '', title: '', dirty: false },
+      nativeOpenDialogActive: false,
+    });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it('happy path: open -> ok, useDocStore mirrors content', async () => {
@@ -62,6 +69,88 @@ describe('useMarkdownDoc integration (mocked IPC)', () => {
     expect(stored.content).toBe(FIXTURE_CONTENT);
     expect(stored.currentPath).toBe(FIXTURE_PATH);
     expect(stored.dirty).toBe(false);
+  });
+
+  it('native dialog guard covers selection and file loading, then releases', async () => {
+    vi.useFakeTimers();
+    let resolveDialog: ((path: string) => void) | undefined;
+    const { open } = await import('@tauri-apps/plugin-dialog');
+    const openMock = open as unknown as ReturnType<typeof vi.fn>;
+    openMock.mockImplementationOnce(
+      () => new Promise<string>((resolve) => {
+        resolveDialog = resolve;
+      }),
+    );
+
+    const { result } = renderHook(() => useMarkdownDoc());
+    let opening!: Promise<void>;
+    act(() => {
+      opening = result.current.open();
+    });
+    expect(useDocStore.getState().nativeOpenDialogActive).toBe(true);
+
+    await act(async () => {
+      resolveDialog?.(FIXTURE_PATH);
+      await opening;
+    });
+    expect(useDocStore.getState().state.currentPath).toBe(FIXTURE_PATH);
+    expect(useDocStore.getState().state.content).toBe(FIXTURE_CONTENT);
+    expect(useDocStore.getState().nativeOpenDialogActive).toBe(true);
+
+    act(() => {
+      vi.advanceTimersByTime(100);
+    });
+    expect(useDocStore.getState().nativeOpenDialogActive).toBe(false);
+  });
+
+  it('dialog cancellation releases the guard after the close-event window', async () => {
+    vi.useFakeTimers();
+    const { open } = await import('@tauri-apps/plugin-dialog');
+    const openMock = open as unknown as ReturnType<typeof vi.fn>;
+    openMock.mockResolvedValueOnce(null);
+
+    const { result } = renderHook(() => useMarkdownDoc());
+    await act(async () => {
+      await result.current.open();
+    });
+    expect(useDocStore.getState().nativeOpenDialogActive).toBe(true);
+
+    act(() => {
+      vi.advanceTimersByTime(100);
+    });
+    expect(useDocStore.getState().nativeOpenDialogActive).toBe(false);
+  });
+
+  it('dialog failure releases the guard after the close-event window', async () => {
+    vi.useFakeTimers();
+    const { open } = await import('@tauri-apps/plugin-dialog');
+    const openMock = open as unknown as ReturnType<typeof vi.fn>;
+    openMock.mockRejectedValueOnce(new Error('dialog unavailable'));
+
+    const { result } = renderHook(() => useMarkdownDoc());
+    await act(async () => {
+      await result.current.open();
+    });
+    expect(useDocStore.getState().nativeOpenDialogActive).toBe(true);
+
+    act(() => {
+      vi.advanceTimersByTime(100);
+    });
+    expect(useDocStore.getState().nativeOpenDialogActive).toBe(false);
+  });
+
+  it('older dialog completion cannot release a newer dialog guard', () => {
+    vi.useFakeTimers();
+    const first = useDocStore.getState().beginNativeOpenDialog();
+    const second = useDocStore.getState().beginNativeOpenDialog();
+
+    useDocStore.getState().endNativeOpenDialog(first);
+    vi.advanceTimersByTime(100);
+    expect(useDocStore.getState().nativeOpenDialogActive).toBe(true);
+
+    useDocStore.getState().endNativeOpenDialog(second);
+    vi.advanceTimersByTime(100);
+    expect(useDocStore.getState().nativeOpenDialogActive).toBe(false);
   });
 
   // T19 (R-04 修复): open() 路径也应写 useDocStore.history, 否则 Toolbar

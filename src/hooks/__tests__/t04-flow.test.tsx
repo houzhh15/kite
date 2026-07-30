@@ -48,8 +48,6 @@ describe('T04 flow integration (主题 / 字号 / 行高三项联动)', () => {
         lineHeightId: 'cozy',
         codeFontSizeId: 'md',
         language: 'zh-CN',
-        mermaidEnabled: false,
-        katexEnabled: false,
         externalEditor: 'system',
         externalEditorCustomCmd: '',
         vaultRootMode: 'follow-current',

@@ -26,8 +26,6 @@ const BASE_PREFS = {
   lineHeightId: 'cozy' as const,
   codeFontSizeId: 'md' as const,
   language: 'zh-CN' as const,
-  mermaidEnabled: false,
-  katexEnabled: false,
   externalEditor: 'system' as const,
   externalEditorCustomCmd: '',
   vaultRootMode: 'follow-current' as const,

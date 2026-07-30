@@ -146,9 +146,13 @@ export function useFileChangeReload(
   // (loadFile 来自 useMarkdownDoc, 自身稳定), 不需要每 render 重新绑.
   useEffect(() => {
     const onFocus = (): void => {
+      // 原生“打开文件”对话框关闭也会触发 focus；此时 currentPath 仍可能是旧文件。
+      if (useDocStore.getState().nativeOpenDialogActive) return;
       void checkAndReload();
     };
     const onVisibility = (): void => {
+      // macOS 对话框关闭可能同时触发 visibilitychange，同样必须屏蔽旧路径刷新。
+      if (useDocStore.getState().nativeOpenDialogActive) return;
       // 过滤: 只在切到 visible 时检查; hidden 时跳过 (避免不必要 IPC).
       if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
         void checkAndReload();

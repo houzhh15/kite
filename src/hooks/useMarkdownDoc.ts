@@ -220,26 +220,27 @@ export function useMarkdownDoc(): UseMarkdownDocApi {
   }, []);
 
   const open = useCallback(async () => {
-    let picked: string | null = null;
+    const dialogToken = useDocStore.getState().beginNativeOpenDialog();
     try {
-      picked = await openDialog({
+      const picked = await openDialog({
         multiple: false,
         directory: false,
         filters: [{ name: 'Markdown', extensions: ['md', 'markdown', 'mdx'] }],
       });
+      // 用户取消 → 不动文档状态.
+      if (typeof picked !== 'string') return;
+      lastPathRef.current = picked;
+      await runOpenRef.current(picked);
+      // T19 (R-04 缓解): open() 路径也写入 history, 使 Toolbar ← → 能跨文件导航.
+      // 失败时 runOpenRef 已 pushToast, 不重复写历史.
+      if (useDocStore.getState().state.currentPath === picked) {
+        useDocStore.getState().pushHistory(picked);
+      }
     } catch (err) {
       // dialog 自身出错, 归一化到 UNKNOWN 通道 (例如权限未授予).
       pushToast({ kind: 'error', message: t(toErrorMessage(err)) });
-      return;
-    }
-    // 用户取消 → 不动状态, 直接退出.
-    if (typeof picked !== 'string') return;
-    lastPathRef.current = picked;
-    await runOpenRef.current(picked);
-    // T19 (R-04 缓解): open() 路径也写入 history, 使 Toolbar ← → 能跨文件导航.
-    // 失败时 runOpenRef 已 pushToast, 不重复写历史.
-    if (useDocStore.getState().state.currentPath === picked) {
-      useDocStore.getState().pushHistory(picked);
+    } finally {
+      useDocStore.getState().endNativeOpenDialog(dialogToken);
     }
   }, []);
 

@@ -128,14 +128,6 @@ export const zhCN = {
       zhCN: '简体中文',
       enUS: 'English',
     },
-    // T17-P2 (F-21/F-22): 图表与公式设置分组 + 两个开关 label/描述.
-    section: {
-      diagrams: '图表与公式',
-    },
-    mermaidEnable: 'Mermaid 图表渲染',
-    mermaidDesc: '渲染 mermaid 代码块为图表；启用后将按需加载约 600 KB 资源',
-    katexEnable: 'KaTeX 数学公式',
-    katexDesc: '渲染行内 / 块级数学公式；启用后将按需加载约 250 KB 资源',
     // T28 (F-46): vault 根分组 — 与 F-15 相对路径跳转 + wikilink 配合使用.
     vaultRoot: {
       title: 'Vault 根',
