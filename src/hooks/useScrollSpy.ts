@@ -263,12 +263,13 @@ export function useScrollSpy(options: UseScrollSpyOptions): UseScrollSpyReturn {
       if (scrollThrottle !== null) clearTimeout(scrollThrottle);
       boundRef.current = null;
     };
-    // 注: `headings` 变化由独立 effect 处理 (建立 IntersectionObserver).
-  }, [container, rootMargin]);
+  }, [container, headings]);
 
   // headings 引用变化: 重建 IntersectionObserver + 立即基于 reading-order 计算一次
   useEffect(() => {
     if (!container) return;
+    // 文档切换时不能沿用旧 heading 的交叉比例。
+    _ratios = new Map();
     const IO = (globalThis as { IntersectionObserver?: typeof IntersectionObserver })
       .IntersectionObserver;
     if (!IO) {

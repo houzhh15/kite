@@ -20,12 +20,10 @@ vi.mock('../../lib/tauri', () => ({
 }));
 
 import { useProgress } from '../useProgress';
-import { __resetScrollSpyForTest } from '../useScrollSpy';
 import { useProgressStore, __resetProgressStoreForTest } from '../../stores/progressStore';
 import { useDocStore } from '../../stores/docStore';
 
 beforeEach(() => {
-  __resetScrollSpyForTest();
   __resetProgressStoreForTest();
   saveProgressMock.mockReset();
   saveProgressMock.mockResolvedValue(undefined);
@@ -41,28 +39,46 @@ afterEach(() => {
 });
 
 describe('useProgress', () => {
-  it('scrollContainer=null 时 pct=0 + 不订阅', () => {
-    const { result } = renderHook(() => useProgress({ scrollContainer: null }));
+  it('直接消费 Reader progress，不创建 DOM 监听', () => {
+    const { result } = renderHook(() => useProgress({ path: '/a.md', progress: 0, scrollTop: 0 }));
     expect(result.current.pct).toBe(0);
   });
 
   it('返回 pct 与 persistNow 方法', () => {
-    const { result } = renderHook(() => useProgress({ scrollContainer: null }));
+    const { result } = renderHook(() => useProgress({ path: '/a.md', progress: 0.42, scrollTop: 120 }));
+    expect(result.current.pct).toBe(42);
     expect(typeof result.current.persistNow).toBe('function');
   });
 
   it('persistNow 调 flush(true)', async () => {
-    const { result } = renderHook(() => useProgress({ scrollContainer: null }));
+    const { result } = renderHook(() => useProgress({ path: '/a.md', progress: 0, scrollTop: 0 }));
     // 修改 lastPath 让 _lastSnapshot 与当前不一致 → 真正写盘.
     useProgressStore.getState().setLastPath('/a.md');
     await result.current.persistNow();
     expect(saveProgressMock).toHaveBeenCalledTimes(1);
   });
 
+  it('把 Reader 百分比和 scrollTop 写入当前文档进度', () => {
+    renderHook(() => useProgress({ path: '/a.md', progress: 0.42, scrollTop: 321 }));
+    expect(useProgressStore.getState().perFile['/a.md']).toMatchObject({
+      pct: 42,
+      scrollTop: 321,
+    });
+  });
+
+  it('不把旧文档的进度样本写入当前新文档', () => {
+    useDocStore.setState((state) => ({
+      state: { ...state.state, currentPath: '/b.md' },
+    }));
+    renderHook(() => useProgress({ path: '/a.md', progress: 0.75, scrollTop: 900 }));
+
+    expect(useProgressStore.getState().perFile['/b.md']).toBeUndefined();
+  });
+
   it('onUnmount flush(true) 自动调用', async () => {
     // 让 hydrate 后修改 state, 让 unmount flush 真正写盘.
     useProgressStore.getState().setLastPath('/a.md');
-    const { unmount } = renderHook(() => useProgress({ scrollContainer: null }));
+    const { unmount } = renderHook(() => useProgress({ path: '/a.md', progress: 0, scrollTop: 0 }));
     expect(saveProgressMock).not.toHaveBeenCalled();
     unmount();
     // 等 microtask.

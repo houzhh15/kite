@@ -26,7 +26,7 @@
  *   - ShortcutsHint 挂在顶层, hydrated 后判断是否首启.
  */
 
-import { useEffect, useRef, useState, lazy, Suspense } from 'react';
+import { useCallback, useEffect, useRef, useState, lazy, Suspense } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Toaster } from './components/Toaster';
@@ -253,33 +253,43 @@ export default function App(): JSX.Element {
     };
   }, [loadFile]);
 
-  const handleReaderMounted = (): void => {
+  const handleReaderMounted = useCallback((): void => {
     if (restoreScrollOnceRef.current) return;
     if (state.status !== 'ok') return;
     restoreScrollOnceRef.current = true;
     restoreScrollAfterOpen();
-  };
+  }, [state.status, restoreScrollAfterOpen]);
   // 切换文档时重置一次性 flag.
   useEffect(() => {
     restoreScrollOnceRef.current = false;
   }, [currentPath]);
 
-  // T09: Reader 把 progress / currentId 透传回顶层 (供 StatusBar + T11 占位).
-  const [progress, setProgress] = useState(0);
+  // Reader 是 ScrollSpy 的唯一所有者；App 只保存整数百分比和滚动位置。
+  const [readerProgress, setReaderProgress] = useState({
+    path: null as string | null,
+    progress: 0,
+    scrollTop: 0,
+  });
   const docContent = useDocStore((s) => s.state.content);
 
-  const handleCurrentChange = (id: string | null, p: number): void => {
-    if (typeof window !== 'undefined') {
+  const handleCurrentChange = useCallback((id: string | null, p: number): void => {
+    if (import.meta.env.DEV) {
       console.debug('[outline] current:', id, 'progress:', p.toFixed(3));
     }
-  };
+  }, []);
 
-  // T11: useProgress 订阅 useScrollSpy → progressStore (300ms debounce 落盘).
-  useProgress({
-    scrollContainer: typeof document !== 'undefined'
-      ? document.querySelector<HTMLElement>('[data-testid="reader-scroll-container"]')
-      : null,
-  });
+  const handleProgressChange = useCallback((progress: number, scrollTop: number): void => {
+    setReaderProgress((previous) => {
+      if (
+        previous.path === currentPath
+        && Math.round(previous.progress * 100) === Math.round(progress * 100)
+      ) return previous;
+      return { path: currentPath, progress, scrollTop };
+    });
+  }, [currentPath]);
+
+  // T11: 仅持久化 Reader 已计算出的进度，不再创建第二个 ScrollSpy。
+  useProgress(readerProgress);
 
   // T11: 注入 10 条全局快捷键 api (设计 §3.3.3).
   // T15 (FR-01/FR-04): 增加 toggleTree / historyBack / historyForward.
@@ -543,11 +553,11 @@ export default function App(): JSX.Element {
           }}
           docTitle={docTitle}
           onCurrentChange={handleCurrentChange}
-          onProgressChange={setProgress}
+          onProgressChange={handleProgressChange}
           onMounted={handleReaderMounted}
         />
       </div>
-      <StatusBar progress={progress} content={docContent} />
+      <StatusBar progress={readerProgress.progress} content={docContent} />
       {viewer.current ? (
         <ImageViewer src={viewer.current.src} alt={viewer.current.alt} onClose={viewer.close} />
       ) : null}

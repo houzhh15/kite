@@ -29,7 +29,7 @@ vi.mock('@tauri-apps/api/webview', () => ({
   }),
 }));
 
-function renderReader(content: string, onCurrentChange?: (id: string | null, p: number) => void, onProgressChange?: (p: number) => void) {
+function renderReader(content: string, onCurrentChange?: (id: string | null, p: number) => void, onProgressChange?: (p: number, scrollTop: number) => void) {
   return render(
     <Reader
       state={{ status: 'ok', doc: { content, lines: 0, bytes: 0 } } as never}
@@ -100,7 +100,8 @@ describe('Reader — T09 集成 (Outline + ProgressBar + useScrollSpy)', () => {
   it('onCurrentChange: 滚动时回调', async () => {
     const cb = vi.fn();
     const md = '# A\n# B\n# C';
-    const { container } = renderReader(md, cb);
+    const progressCb = vi.fn();
+    const { container } = renderReader(md, cb, progressCb);
     cb.mockClear();
 
     // 模拟滚动: 触发 reader-scroll-container 的 scroll 事件.
@@ -114,8 +115,9 @@ describe('Reader — T09 集成 (Outline + ProgressBar + useScrollSpy)', () => {
       });
       await new Promise<void>((r) => requestAnimationFrame(() => r()));
     }
-    // 回调可能在初始 mount 已被调用过; 不强制断言此时数量,
-    // 仅保证不抛错 + progress 仍然是 number.
+    const progressCall = progressCb.mock.calls[progressCb.mock.calls.length - 1];
+    expect(progressCall?.[0]).toBeCloseTo(0.5, 5);
+    expect(progressCall?.[1]).toBe(400);
     if (cb.mock.calls.length > 0) {
       const last = cb.mock.calls[cb.mock.calls.length - 1];
       expect(typeof last?.[1]).toBe('number');
