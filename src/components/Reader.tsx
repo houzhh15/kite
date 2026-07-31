@@ -44,8 +44,8 @@ export interface ReaderProps {
   onCurrentChange?: (id: string | null, progress: number) => void;
   /** T09: 文档标题 (用于 Outline 顶部展示, 来自 useDocStore.title). */
   docTitle?: string;
-  /** T09: 进度变化回调 (供 StatusBar 复用). */
-  onProgressChange?: (progress: number) => void;
+  /** T09: 进度与滚动位置变化回调 (供 StatusBar 和持久化复用). */
+  onProgressChange?: (progress: number, scrollTop: number) => void;
   /** T11: 当 OK 状态, Reader 内部 MarkdownView 挂载完成后回调. */
   onMounted?: () => void;
 }
@@ -147,7 +147,7 @@ interface MarkdownViewWithOutlineProps {
   content: string;
   title?: string;
   onCurrentChange?: (id: string | null, progress: number) => void;
-  onProgressChange?: (progress: number) => void;
+  onProgressChange?: (progress: number, scrollTop: number) => void;
   onMounted?: () => void;
 }
 
@@ -186,6 +186,9 @@ function MarkdownViewInner({
   );
 
   const sectionRef = useRef<HTMLElement | null>(null);
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const onMountedRef = useRef(onMounted);
+  onMountedRef.current = onMounted;
   // headings: 收集 article 内的 h1..h6[id]
   const [headings, setHeadings] = useState<HTMLElement[]>([]);
 
@@ -206,10 +209,12 @@ function MarkdownViewInner({
     setHeadings(nodes);
     // T11: content 渲染完成 + headings 收集完毕 → 通知 App 可执行 scrollTo (FR-10).
     // T13 (FR-08 / D-08): 同帧触发 first_paint 埋点 + measure 'cold_to_paint'.
-    if (onMounted || !isPerfDisabled()) {
+    let outerRaf: number | null = null;
+    let innerRaf: number | null = null;
+    if (onMountedRef.current || !isPerfDisabled()) {
       // 双 RAF, 等 MarkdownRenderer 的最终 commit + scrollHeight 稳定.
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
+      outerRaf = requestAnimationFrame(() => {
+        innerRaf = requestAnimationFrame(() => {
           if (!isPerfDisabled()) {
             perfMark('first_paint');
             const dur = perfMeasure('cold_to_paint', 'cold_start', 'first_paint');
@@ -220,14 +225,18 @@ function MarkdownViewInner({
               console.info('[perf] cold_to_paint:', dur.toFixed(1), 'ms');
             }
           }
-          if (onMounted) onMounted();
+          onMountedRef.current?.();
         });
       });
     }
-  }, [content, outline, onMounted]);
+    return () => {
+      if (outerRaf !== null) cancelAnimationFrame(outerRaf);
+      if (innerRaf !== null) cancelAnimationFrame(innerRaf);
+    };
+  }, [content, outline]);
 
   const { currentId, progress } = useScrollSpy({
-    container: sectionRef.current,
+    container: scrollContainerRef.current,
     headings,
     onCurrentChange,
     rootMargin: '0px 0px -60% 0px',
@@ -235,7 +244,7 @@ function MarkdownViewInner({
 
   // 把 progress 透传给 StatusBar 等顶层消费者.
   useEffect(() => {
-    if (onProgressChange) onProgressChange(progress);
+    onProgressChange?.(progress, scrollContainerRef.current?.scrollTop ?? 0);
   }, [progress, onProgressChange]);
 
   return (
@@ -246,7 +255,11 @@ function MarkdownViewInner({
     >
       <div className="flex h-full w-full min-h-0">
         <Outline outline={outline} currentId={currentId} title={title} />
-        <div className="min-h-0 flex-1 overflow-y-auto" data-testid="reader-scroll-container">
+        <div
+          ref={scrollContainerRef}
+          className="min-h-0 flex-1 overflow-y-auto"
+          data-testid="reader-scroll-container"
+        >
           <SearchHighlight {...highlightProps}>
             <MarkdownRenderer content={content} />
           </SearchHighlight>

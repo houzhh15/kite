@@ -4,8 +4,8 @@
  * 设计依据: docs/design/compiled.md §3.4 + §3.6.9 + 需求 FR-08.
  *
  * 责任:
- *   - 订阅 useScrollSpy 的 progress (∈[0,1]);
- *   - 当 progress / 滚动容器变化时, 订阅 useDocStore.currentPath, 写入 progressStore;
+ *   - 接收 Reader 唯一 ScrollSpy 计算出的 progress (∈[0,1]);
+ *   - 当 progress / scrollTop 变化时, 订阅 useDocStore.currentPath, 写入 progressStore;
  *   - 不直接调 IPC; 通过 progressStore.flush 触发;
  *   - onUnmount: flush(true) 同步落盘 (NFR-Robust-1).
  *
@@ -19,14 +19,16 @@
  *     这里仅用其作为生命周期信号, 不重新监听 scroll 事件).
  */
 import { useEffect, useRef } from 'react';
-
-import { __resetScrollSpyForTest, useScrollSpy } from './useScrollSpy';
 import { useDocStore } from '../stores/docStore';
 import { useProgressStore } from '../stores/progressStore';
 
 export interface UseProgressOptions {
-  /** 滚动容器 DOM; null 时仅订阅 useScrollSpy 模块级 progress. */
-  scrollContainer?: HTMLElement | null;
+  /** 产生该进度样本的文档路径；null 表示尚无可持久化文档。 */
+  path: string | null;
+  /** Reader 唯一 ScrollSpy 计算出的 0..1 阅读进度。 */
+  progress: number;
+  /** 同一 Reader 滚动容器的当前位置，用于下次恢复。 */
+  scrollTop: number;
 }
 
 export interface UseProgressReturn {
@@ -37,35 +39,23 @@ export interface UseProgressReturn {
 }
 
 /**
- * useProgress — 在 App / Reader 顶层挂载, 订阅 progress + 自动落盘.
+ * useProgress — 在 App 顶层挂载，消费 Reader 上报值并自动落盘。
  *
- * 不接收 content / headings 等参数; Reader 仍独立调 useScrollSpy 传 headings,
- * useProgress 仅消费 useScrollSpy 的模块级 snapshot.progress.
+ * 该 Hook 不监听 DOM、不创建 ScrollSpy；Reader 是滚动状态的唯一所有者。
  */
-export function useProgress(options: UseProgressOptions = {}): UseProgressReturn {
-  const { scrollContainer } = options;
-  // 订阅 useScrollSpy 模块级 snapshot (与 Reader 内部 useScrollSpy 共享).
-  const { progress } = useScrollSpy({
-    container: scrollContainer ?? null,
-    headings: [],
-    rootMargin: '0px 0px -60% 0px',
-  });
-
-  const lastProgressRef = useRef<number>(0);
+export function useProgress(options: UseProgressOptions): UseProgressReturn {
+  const { path, progress, scrollTop } = options;
+  const currentPath = useDocStore((state) => state.state.currentPath);
+  const lastProgressRef = useRef<number>(-1);
 
   useEffect(() => {
     const pctInt = Math.round(progress * 100);
     if (pctInt === lastProgressRef.current) return;
     lastProgressRef.current = pctInt;
-    const currentPath = useDocStore.getState().state.currentPath;
-    if (!currentPath) return;
-    // 取滚动容器 scrollTop (若有); 否则用估算值 (progress * max).
-    const scrollTop =
-      scrollContainer instanceof HTMLElement
-        ? scrollContainer.scrollTop
-        : 0;
+    // 路径切换时可能仍收到旧 Reader 的最后一个样本，绝不能写入新文档。
+    if (!currentPath || path !== currentPath) return;
     useProgressStore.getState().setProgress(currentPath, pctInt, scrollTop);
-  }, [progress, scrollContainer]);
+  }, [currentPath, path, progress, scrollTop]);
 
   // 文档切换 (currentPath 变化) → flush 老值, 防止 pending debounce 丢失 (R-04).
   useEffect(() => {
@@ -99,6 +89,3 @@ export function useProgress(options: UseProgressOptions = {}): UseProgressReturn
 }
 
 export default useProgress;
-
-// 显式 re-export 测试用 helpers.
-export { __resetScrollSpyForTest };
