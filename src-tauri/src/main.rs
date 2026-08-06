@@ -129,6 +129,7 @@ fn main() {
             // T29 (R-35): 拷贝文件到系统剪贴板 (NSPasteboard/CF_HDROP/text/uri-list).
             // 不能走 Web Clipboard API, Tauri WebView 沙箱限制下返回 NotAllowedError.
             commands::copy_file_to_clipboard,
+            commands::copy_path_to_clipboard,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
