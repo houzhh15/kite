@@ -187,7 +187,9 @@ export const zhCN = {
     // 行为等价于 Finder/Explorer 中 Cmd/Ctrl+C 复制文件. 用户在其他位置粘贴
     // 会创建文件副本 (粘贴到文本编辑器则粘贴文件名).
     copyFile: '拷贝文件',
+    copyPath: '拷贝路径',
     successCopy: '已拷贝 {{name}} 到剪贴板',
+    successCopyPath: '已拷贝文件路径',
     failCopy: '拷贝失败：{{message}}',
   },
   fullscreen: {

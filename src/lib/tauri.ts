@@ -618,6 +618,11 @@ export function copyFileToClipboard(path: string): Promise<void> {
   return safeInvoke<void>('copy_file_to_clipboard', { path });
 }
 
+/** 把当前文件绝对路径作为纯文本写入系统剪贴板。 */
+export function copyPathToClipboard(path: string): Promise<void> {
+  return safeInvoke<void>('copy_path_to_clipboard', { path });
+}
+
 /**
  * FileFreshPayload — T26 (R-12 修复) 外部编辑器改回刷新 IPC 返回.
  *
@@ -676,6 +681,7 @@ export const tauri = {
   getFileFresh,
   // T29 (R-35): 拷贝文件到系统剪贴板.
   copyFileToClipboard,
+  copyPathToClipboard,
 };
 
 export default tauri;

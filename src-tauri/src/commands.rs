@@ -630,3 +630,10 @@ pub async fn copy_file_to_clipboard(path: String) -> Result<(), AppError> {
     let p = PathBuf::from(path);
     crate::services::clipboard::copy_file_to_clipboard(&p)
 }
+
+/// 把当前文件的绝对路径作为纯文本写入系统剪贴板。
+#[tauri::command]
+pub async fn copy_path_to_clipboard(path: String) -> Result<(), AppError> {
+    let p = PathBuf::from(path);
+    crate::services::clipboard::copy_path_to_clipboard(&p)
+}

@@ -163,7 +163,9 @@ export const enUS = {
     // T29 (R-35): Copy current markdown file to system clipboard, equivalent
     // to Cmd/Ctrl+C in Finder/Explorer. Pasting creates a file copy elsewhere.
     copyFile: 'Copy file',
+    copyPath: 'Copy path',
     successCopy: 'Copied {{name}} to clipboard',
+    successCopyPath: 'File path copied',
     failCopy: 'Copy failed: {{message}}',
   },
   fullscreen: {

@@ -66,13 +66,17 @@ describe('ToolbarExportMenu', () => {
     expect(msg).toMatch(/desktop app|桌面应用/);
   });
 
-  it('菜单包含 HTML / PDF / 拷贝文件 三项', () => {
+  it('菜单包含 HTML / PDF / 拷贝文件 / 拷贝路径四项', () => {
     setTauriEnv(true);
     render(<ToolbarExportMenu disabled={false} />);
     fireEvent.click(screen.getByTestId('toolbar-export'));
     expect(screen.getByTestId('toolbar-export-html')).toBeTruthy();
     expect(screen.getByTestId('toolbar-export-pdf')).toBeTruthy();
-    expect(screen.getByTestId('toolbar-export-copy')).toBeTruthy();
+    const copyFile = screen.getByTestId('toolbar-export-copy');
+    const copyPath = screen.getByTestId('toolbar-export-copy-path');
+    expect(copyFile).toBeTruthy();
+    expect(copyPath).toBeTruthy();
+    expect(copyFile.nextElementSibling).toBe(copyPath);
   });
 
   // T29 R-35: 点击「拷贝文件」→ copyFileToClipboard IPC 被调用, 弹成功 toast.
@@ -111,6 +115,63 @@ describe('ToolbarExportMenu', () => {
   });
 
   // T29 R-35: IPC 失败时弹错误 toast (R-04 错误透传).
+  it('点击「拷贝路径」把完整绝对路径作为纯文本传给 IPC', async () => {
+    setTauriEnv(true);
+    const { useDocStore } = await import('../stores/docStore');
+    const currentPath = '/tmp/测试目录/my note.md';
+    useDocStore.setState((store) => ({
+      state: {
+        ...store.state,
+        currentPath,
+        content: '# hello',
+        title: 'my note',
+      },
+    }));
+    const tauri = await import('../lib/tauri');
+    const copySpy = vi
+      .spyOn(tauri, 'copyPathToClipboard')
+      .mockResolvedValue(undefined);
+
+    render(<ToolbarExportMenu disabled={false} />);
+    fireEvent.click(screen.getByTestId('toolbar-export'));
+    fireEvent.click(screen.getByTestId('toolbar-export-copy-path'));
+
+    await vi.waitFor(() => {
+      expect(copySpy).toHaveBeenCalledWith(currentPath);
+    });
+    expect(
+      useToastStore.getState().items.some((toast) => toast.kind === 'success')
+    ).toBe(true);
+  });
+
+  it('copyPathToClipboard IPC 失败时显示错误详情', async () => {
+    setTauriEnv(true);
+    const { useDocStore } = await import('../stores/docStore');
+    useDocStore.setState((store) => ({
+      state: {
+        ...store.state,
+        currentPath: '/tmp/note.md',
+        content: '# hello',
+        title: 'note',
+      },
+    }));
+    const tauri = await import('../lib/tauri');
+    vi.spyOn(tauri, 'copyPathToClipboard').mockRejectedValue(
+      new Error('clipboard unavailable')
+    );
+
+    render(<ToolbarExportMenu disabled={false} />);
+    fireEvent.click(screen.getByTestId('toolbar-export'));
+    fireEvent.click(screen.getByTestId('toolbar-export-copy-path'));
+
+    await vi.waitFor(() => {
+      const errorToast = useToastStore
+        .getState()
+        .items.find((toast) => toast.kind === 'error');
+      expect(errorToast?.message).toContain('clipboard unavailable');
+    });
+  });
+
   it('copyFileToClipboard IPC 失败时弹错误 toast', async () => {
     setTauriEnv(true);
     const { useDocStore } = await import('../stores/docStore');

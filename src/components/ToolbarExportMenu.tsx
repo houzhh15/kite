@@ -26,7 +26,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useDocStore } from '../stores/docStore';
-import { copyFileToClipboard, exportHtml } from '../lib/tauri';
+import { copyFileToClipboard, copyPathToClipboard, exportHtml } from '../lib/tauri';
 import { isTauri } from '../lib/env';
 import { pushToast } from '../lib/toast';
 import { buildHtml } from '../lib/exportHtml';
@@ -249,6 +249,38 @@ export function ToolbarExportMenu({
     }
   };
 
+  const handleCopyPath = async (): Promise<void> => {
+    setOpen(false);
+    if (disabled) return;
+    if (!isTauri()) {
+      showDevModeToast();
+      return;
+    }
+    const currentPath = docStore.state.currentPath;
+    if (!currentPath) {
+      pushToast({
+        kind: 'error',
+        message: t('export.failGeneric', { message: 'no file' }),
+      });
+      return;
+    }
+    try {
+      await copyPathToClipboard(currentPath);
+      pushToast({ kind: 'success', message: t('export.successCopyPath') });
+    } catch (err) {
+      const msg =
+        err instanceof Error
+          ? err.message
+          : typeof err === 'string'
+            ? err
+            : 'unknown';
+      pushToast({
+        kind: 'error',
+        message: t('export.failCopy', { message: msg }),
+      });
+    }
+  };
+
   const handleClick = (e: React.MouseEvent<HTMLButtonElement>): void => {
     if (disabled) {
       e.preventDefault();
@@ -315,6 +347,15 @@ export function ToolbarExportMenu({
             className="block w-full rounded px-3 py-2 text-left text-sm hover:bg-fg/5"
           >
             {t('export.copyFile')}
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            data-testid="toolbar-export-copy-path"
+            onClick={() => void handleCopyPath()}
+            className="block w-full rounded px-3 py-2 text-left text-sm hover:bg-fg/5"
+          >
+            {t('export.copyPath')}
           </button>
         </div>
       )}
