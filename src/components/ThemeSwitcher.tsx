@@ -15,7 +15,7 @@
  *
  * 纪律:
  *   - role="radiogroup" + role="radio"; 不用 aria-pressed (语义冲突).
- *   - 不接收 props; 受控源严格 = useTheme().
+ *   - 不接收 props; 受控源严格 = prefStore，主题解析由 App 唯一负责.
  *   - 不引入按钮 label 之外的子元素; 不挂 onClick 之外的额外事件.
  *   - 不渲染 sepia (Theme 类型不包含).
  */
@@ -24,11 +24,12 @@ import { useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { THEME_OPTIONS, type Theme } from '../lib/theme-types';
-import { useTheme } from '../hooks/useTheme';
+import { usePrefStore } from '../stores/prefStore';
 
 export function ThemeSwitcher(): JSX.Element {
   const { t } = useTranslation();
-  const { theme: current, setTheme } = useTheme();
+  const current = usePrefStore((s) => s.prefs.theme);
+  const setTheme = usePrefStore((s) => s.setTheme);
   const groupRef = useRef<HTMLDivElement>(null);
 
   /**

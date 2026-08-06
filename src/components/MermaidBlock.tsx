@@ -22,6 +22,7 @@ import { useTranslation } from 'react-i18next';
 
 import { pushToast } from '../lib/toast';
 import { sanitizeSvg } from '../lib/svgSanitizer';
+import type { AppliedTheme } from '../lib/theme-types';
 
 // T17-P2 (F-21): 运行时通过 new Function('m', 'return import(m)') 包装动态
 // import, 让 Rollup 不追踪 mermaid 的静态依赖图, 避免 mermaid-vendor
@@ -39,6 +40,8 @@ type Status =
 export interface MermaidBlockProps {
   /** 围栏内原始代码文本 (去除 language-mermaid 标记). */
   code: string;
+  /** KITE 已解析出的实际主题。 */
+  appliedTheme?: AppliedTheme;
 }
 
 // ---- 模块级单例 ----
@@ -53,6 +56,7 @@ let mermaidSingleton: MermaidModule | null = null;
 let mermaidLoadPromise: Promise<MermaidModule> | null = null;
 let mermaidLoadFailed = false;
 let mermaidBundleHintShown = false;
+let mermaidRenderQueue: Promise<void> = Promise.resolve();
 
 /** 测试 hook: 重置模块级 singleton + guard. 运行时不应调用. */
 export function __resetMermaidForTest(): void {
@@ -60,6 +64,7 @@ export function __resetMermaidForTest(): void {
   mermaidLoadPromise = null;
   mermaidLoadFailed = false;
   mermaidBundleHintShown = false;
+  mermaidRenderQueue = Promise.resolve();
 }
 
 /** 模块级单例: 首次调用触发动态 import('mermaid'), 后续复用同一实例.
@@ -73,18 +78,6 @@ function loadMermaidOnce(): Promise<MermaidModule> {
     try {
       const mod = await import('mermaid');
       const mermaid = (mod.default ?? mod) as unknown as MermaidModule;
-      mermaid.initialize({
-        startOnLoad: false,
-        securityLevel: 'strict',
-        theme: 'default',
-        logLevel: 'error',
-        fontFamily: 'inherit',
-        // Mermaid v11 从顶层读取 htmlLabels。仅设置 flowchart.htmlLabels 不会影响
-        // 节点标签，仍会生成被 SVG 安全净化器移除的 <foreignObject>。
-        // 同时设置顶层和 flowchart 兼容不同图形/版本，不扩大 HTML 白名单。
-        htmlLabels: false,
-        flowchart: { htmlLabels: false },
-      });
       mermaidSingleton = mermaid;
       return mermaid;
     } catch (err) {
@@ -95,6 +88,39 @@ function loadMermaidOnce(): Promise<MermaidModule> {
   return mermaidLoadPromise;
 }
 
+function buildMermaidConfig(appliedTheme: AppliedTheme): Record<string, unknown> {
+  return {
+    startOnLoad: false,
+    securityLevel: 'strict',
+    theme: appliedTheme === 'dark' ? 'dark' : 'default',
+    logLevel: 'error',
+    fontFamily: 'inherit',
+    // Mermaid v11 从顶层读取 htmlLabels。两处都关闭，确保净化前不生成
+    // <foreignObject>，且不扩大 SVG 安全白名单。
+    htmlLabels: false,
+    flowchart: { htmlLabels: false },
+  };
+}
+
+/** Mermaid 配置是全局状态，initialize 与对应 render 必须作为一个任务串行执行。 */
+function renderMermaidSerialized(
+  mermaid: MermaidModule,
+  id: string,
+  code: string,
+  appliedTheme: AppliedTheme,
+): Promise<{ svg: string }> {
+  const task = mermaidRenderQueue.then(async () => {
+    mermaid.initialize(buildMermaidConfig(appliedTheme));
+    return mermaid.render(id, code);
+  });
+  // 无论当前图是否解析失败，下一张图都必须能继续渲染。
+  mermaidRenderQueue = task.then(
+    () => undefined,
+    () => undefined,
+  );
+  return task;
+}
+
 // ---- 组件 ----
 
 let idCounter = 0;
@@ -103,7 +129,10 @@ function nextMermaidId(): string {
   return `kite-mermaid-${Date.now().toString(36)}-${idCounter}`;
 }
 
-export function MermaidBlock({ code }: MermaidBlockProps): JSX.Element {
+export function MermaidBlock({
+  code,
+  appliedTheme = 'light',
+}: MermaidBlockProps): JSX.Element {
   const { t } = useTranslation();
   const [status, setStatus] = useState<Status>({ kind: 'idle' });
   const uniqueId = useMemo(() => nextMermaidId(), []);
@@ -126,7 +155,12 @@ export function MermaidBlock({ code }: MermaidBlockProps): JSX.Element {
           pushToast({ kind: 'info', message: t('toast.mermaidBundleHint') });
         }
         try {
-          const result = await mermaid.render(uniqueId, code);
+          const result = await renderMermaidSerialized(
+            mermaid,
+            uniqueId,
+            code,
+            appliedTheme,
+          );
           if (cancelled) return;
           // T20 (FR-05 / AC-05-1): 在 setStatus 前先 sanitize, store 与 dangerouslySetInnerHTML
           // 都只接触净化后 SVG (双层防护). sanitizeSvg 永不抛 (设计 §3.3 契约); 失败回退为
@@ -161,7 +195,7 @@ export function MermaidBlock({ code }: MermaidBlockProps): JSX.Element {
     };
     // 注意: 不要把 t / ariaLabel / uniqueId 加进 deps — 这些可能在每次 render
     // 拿到新引用, 会让 effect 反复触发, 进而无限循环 (mock 测试环境尤为明显).
-  }, [code]);
+  }, [code, appliedTheme]);
 
   if (status.kind === 'rendered') {
     return (

@@ -42,6 +42,7 @@ import { WikilinkNode } from './WikilinkNode';
 import { parseFrontmatter } from '../lib/frontmatter/parseFrontmatter';
 import { renderMeta } from '../lib/frontmatter/renderMeta';
 import type { FrontmatterMeta } from '../lib/frontmatter/types';
+import type { AppliedTheme } from '../lib/theme-types';
 // MermaidBlock 通过 React.lazy + Suspense 按需加载，仅含 mermaid 围栏时获取 vendor chunk.
 const MermaidBlockLazy = memo(
   lazy(() => import('./MermaidBlock').then((m) => ({ default: m.default }))),
@@ -50,6 +51,8 @@ const MermaidBlockLazy = memo(
 export interface MarkdownRendererProps {
   /** 原始 markdown 文本. */
   content: string;
+  /** 已解析的实际主题，用于生成同主题的 Mermaid SVG。测试/独立渲染默认浅色。 */
+  appliedTheme?: AppliedTheme;
 }
 
 /**
@@ -65,18 +68,20 @@ function fingerprint(s: string): string {
 function PreBlock(props: {
   children?: React.ReactNode;
   node?: unknown;
+  appliedTheme: AppliedTheme;
 }): JSX.Element {
-  if (isMermaidBlock(props.children)) {
+  const { appliedTheme, ...preProps } = props;
+  if (isMermaidBlock(preProps.children)) {
     // 从 children 中提取 code text (mermaid 块需要原始字符串).
-    const code = extractPreText(props.children);
+    const code = extractPreText(preProps.children);
     return (
       <Suspense fallback={<pre data-testid="mermaid-loading">{code}</pre>}>
-        <MermaidBlockLazy code={code} />
+        <MermaidBlockLazy code={code} appliedTheme={appliedTheme} />
       </Suspense>
     );
   }
-  // 通过 unknown 二次断言避免 spread 在 union 类型上不可索引的错误.
-  const passthrough = props as unknown as { children?: React.ReactNode };
+  // 不把内部 appliedTheme 属性透传到 DOM。
+  const passthrough = preProps as unknown as { children?: React.ReactNode };
   return <CodeBlock {...passthrough} />;
 }
 
@@ -91,7 +96,10 @@ function extractPreText(node: React.ReactNode): string {
   return '';
 }
 
-function MarkdownRendererInner({ content }: MarkdownRendererProps): JSX.Element {
+function MarkdownRendererInner({
+  content,
+  appliedTheme = 'light',
+}: MarkdownRendererProps): JSX.Element {
   // T08 step-5: 注册 image viewer 单例 hook (不直接调 useImageViewer.open,
   // 由 ImageHandler 内部通过 hook 调 open 即可, 这里取 viewer 引用用于
   // 父级链上联动 — 当前未使用, 保留以备未来 inline 模式扩展).
@@ -104,6 +112,16 @@ function MarkdownRendererInner({ content }: MarkdownRendererProps): JSX.Element 
 
   const remarkPlugins = useMemo(() => buildRemarkPlugins(), []);
   const rehypePlugins = useMemo(() => buildRehypePlugins(), []);
+  const themedPreBlock = useMemo(
+    () =>
+      function ThemedPreBlock(props: {
+        children?: React.ReactNode;
+        node?: unknown;
+      }): JSX.Element {
+        return <PreBlock {...props} appliedTheme={appliedTheme} />;
+      },
+    [appliedTheme],
+  );
 
   // T26 (F-28): 在两条 return 分支之前上提 frontmatter 解析 (设计 §3.6.0).
   //   - content 不变时 useMemo 命中缓存, 解析 0 额外开销.
@@ -157,7 +175,7 @@ function MarkdownRendererInner({ content }: MarkdownRendererProps): JSX.Element 
           code: InlineCode as never,
           // T08 step-3: 块级代码块 → 工具栏 (Copy / Fold) + 语言徽标.
           // T17-P2: mermaid 命中时路由到 MermaidBlock.
-          pre: PreBlock as never,
+          pre: themedPreBlock as never,
           // T09: h1~h6 注入锚点 id (与 Outline lib/outline.slugifyWithCounter 复用).
           // react-markdown 9.x 自定义组件会传入 children + 节点 props; 通过类型断言平滑过渡.
           h1: HeadingAnchor as never,

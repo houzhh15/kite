@@ -79,7 +79,7 @@ import { setWikilinkLoadFile } from './lib/wikilink/loadFileRef';
 export default function App(): JSX.Element {
   const { t } = useTranslation(); // T18 (FR-02): 4 个 toast 文案通过 t('app.*') 取值.
   usePreferences(); // T04: 顶层挂载, 启动 hydrate + 订阅 store debounced save.
-  useTheme(); // T03 step-10: 单行订阅, 不修改 JSX.
+  const { appliedTheme } = useTheme(); // T03/T17: 统一解析主题并传给 Mermaid 渲染链.
   // T21 (R-05 修复): 目录树根目录 — 不再是硬编码 null 占位.
   // 文件夹按钮 → treeOpen=true 触发 FileTree 渲染空态; 空态里点 "选择文件夹" 触发
   // Tauri directory dialog, 选完后 setTreeRootPath → FileTree 重渲染为目录树.
@@ -483,6 +483,7 @@ export default function App(): JSX.Element {
       <DragOverlay />
       <Toolbar
         disabled={state.status === 'loading'}
+        appliedTheme={appliedTheme}
         onOpen={open}
         // T20 (R-04 关键修复): RecentList 列表项点击 → 必须走 App.tsx 内
         // 同一份 useMarkdownDoc() 的 loadFile, 这样 OPEN_OK dispatch 才
@@ -546,6 +547,7 @@ export default function App(): JSX.Element {
         )}
         <Reader
           state={state}
+          appliedTheme={appliedTheme}
           onRetry={retry}
           onOpen={open}
           onRenderError={() => {

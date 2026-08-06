@@ -86,6 +86,79 @@ describe('MermaidBlock (T17-P2)', () => {
     );
   });
 
+  it('uses the official dark theme while preserving strict SVG-text security settings', async () => {
+    const { container } = render(
+      <I18nextProvider i18n={i18n}>
+        <MermaidBlock code="sequenceDiagram\nA->>B: readable message" appliedTheme="dark" />
+      </I18nextProvider>,
+    );
+
+    await waitFor(() => expect(container.querySelector('svg')).toBeTruthy());
+    expect(mockMermaidInitialize).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        theme: 'dark',
+        securityLevel: 'strict',
+        htmlLabels: false,
+        flowchart: { htmlLabels: false },
+      }),
+    );
+  });
+
+  it('rerenders unchanged diagram source when the applied theme changes', async () => {
+    mockMermaidRender
+      .mockResolvedValueOnce({ svg: '<svg data-theme="light"><text>A</text></svg>' })
+      .mockResolvedValueOnce({ svg: '<svg data-theme="dark"><text>A</text></svg>' });
+    const { container, rerender } = render(
+      <I18nextProvider i18n={i18n}>
+        <MermaidBlock code="graph TD;A-->B" appliedTheme="light" />
+      </I18nextProvider>,
+    );
+    await waitFor(() => expect(container.querySelector('svg')?.getAttribute('data-theme')).toBe('light'));
+
+    rerender(
+      <I18nextProvider i18n={i18n}>
+        <MermaidBlock code="graph TD;A-->B" appliedTheme="dark" />
+      </I18nextProvider>,
+    );
+
+    await waitFor(() => expect(container.querySelector('svg')?.getAttribute('data-theme')).toBe('dark'));
+    expect(mockMermaidRender).toHaveBeenCalledTimes(2);
+    expect(mockMermaidInitialize).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ theme: 'default' }),
+    );
+    expect(mockMermaidInitialize).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ theme: 'dark' }),
+    );
+  });
+
+  it('continues the serialized render queue after one diagram fails', async () => {
+    mockMermaidRender
+      .mockRejectedValueOnce(new Error('bad first diagram'))
+      .mockResolvedValueOnce({ svg: '<svg data-testid="second-svg"><text>B</text></svg>' });
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    try {
+      const { container } = render(
+        <I18nextProvider i18n={i18n}>
+          <>
+            <MermaidBlock code="invalid first" appliedTheme="light" />
+            <MermaidBlock code="graph TD;A-->B" appliedTheme="dark" />
+          </>
+        </I18nextProvider>,
+      );
+
+      await waitFor(() => expect(container.querySelector('[data-testid="second-svg"]')).toBeTruthy());
+      expect(mockMermaidRender).toHaveBeenCalledTimes(2);
+      expect(mockMermaidInitialize).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({ theme: 'dark' }),
+      );
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+
   it('renders fallback DOM when mermaid.render rejects (no toast)', async () => {
     mockMermaidRender.mockRejectedValueOnce(new Error('Syntax error'));
     // mock render 失败场景前先静默掉 bundle hint toast (模块级 guard 由 __reset 重置).
