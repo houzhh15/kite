@@ -15,6 +15,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ErrorInfo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { MarkdownState } from '../types/markdown';
+import type { AppliedTheme } from '../lib/theme-types';
 import { EmptyState, ErrorView, LoadingView } from './StatusView';
 import { ErrorBoundary } from './ErrorBoundary';
 import { slugify } from '../lib/inline/slugify';
@@ -37,6 +38,7 @@ import {
 
 export interface ReaderProps {
   state: MarkdownState;
+  appliedTheme?: AppliedTheme;
   onRetry: () => void;
   onRenderError: (err: Error, info: ErrorInfo) => void;
   onOpen: () => void;
@@ -67,6 +69,7 @@ function scrollToHash(): void {
 
 export function Reader({
   state,
+  appliedTheme = 'light',
   onRetry,
   onRenderError,
   onOpen,
@@ -105,6 +108,7 @@ export function Reader({
       view = doc ? (
         <MarkdownViewWithOutline
           content={doc.content}
+          appliedTheme={appliedTheme}
           title={docTitle}
           onCurrentChange={onCurrentChange}
           onProgressChange={onProgressChange}
@@ -145,6 +149,7 @@ export function Reader({
 
 interface MarkdownViewWithOutlineProps {
   content: string;
+  appliedTheme?: AppliedTheme;
   title?: string;
   onCurrentChange?: (id: string | null, progress: number) => void;
   onProgressChange?: (progress: number, scrollTop: number) => void;
@@ -153,6 +158,7 @@ interface MarkdownViewWithOutlineProps {
 
 function MarkdownViewInner({
   content,
+  appliedTheme,
   title,
   onCurrentChange,
   onProgressChange,
@@ -261,7 +267,7 @@ function MarkdownViewInner({
           data-testid="reader-scroll-container"
         >
           <SearchHighlight {...highlightProps}>
-            <MarkdownRenderer content={content} />
+            <MarkdownRenderer content={content} appliedTheme={appliedTheme} />
           </SearchHighlight>
         </div>
       </div>
@@ -273,6 +279,7 @@ function MarkdownViewInner({
 
 function MarkdownViewWithOutline({
   content,
+  appliedTheme,
   title,
   onCurrentChange,
   onProgressChange,
@@ -283,6 +290,7 @@ function MarkdownViewWithOutline({
   return (
     <MarkdownViewInner
       content={memoContent}
+      appliedTheme={appliedTheme}
       title={title}
       onCurrentChange={onCurrentChange}
       onProgressChange={onProgressChange}

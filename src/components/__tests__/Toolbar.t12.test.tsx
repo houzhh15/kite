@@ -150,7 +150,9 @@ describe('Toolbar — T20+ Logo 主题切换 (R-06 修复)', () => {
 
   it('theme=dark → logo src 指向 kite_logo_dark.png (深色变体)', () => {
     usePrefStore.setState((s) => ({ prefs: { ...s.prefs, theme: 'dark' } }));
-    const { getByTestId } = render(<Toolbar disabled={false} onOpen={() => {}} />);
+    const { getByTestId } = render(
+      <Toolbar disabled={false} appliedTheme="dark" onOpen={() => {}} />,
+    );
     const logo = getByTestId('toolbar-logo');
     expect(logo.getAttribute('src')).toMatch(/kite_logo_dark\.png/);
   });

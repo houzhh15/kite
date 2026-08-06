@@ -19,7 +19,7 @@ import { usePrefStore } from '../stores/prefStore';
 import { useDocStore } from '../stores/docStore';
 import { useLayoutStore } from '../stores/layoutStore';
 import { useFullscreen } from '../hooks/useFullscreen';
-import { useTheme } from '../hooks/useTheme';
+import type { AppliedTheme } from '../lib/theme-types';
 import { FullscreenButton } from './FullscreenButton';
 import { ToolbarExportMenu } from './ToolbarExportMenu';
 import {
@@ -32,6 +32,7 @@ import kiteLogoDarkUrl from '../assets/kite_logo_dark.png';
 
 export interface ToolbarProps {
   disabled: boolean;
+  appliedTheme?: AppliedTheme;
   onOpen: () => void;
   /** T19 (FR-04): Toolbar 后退按钮点击 → 走 useMarkdownDoc.loadFile(history[cursor-1]). */
   onBack?: () => void;
@@ -54,6 +55,7 @@ export interface ToolbarProps {
 
 export function Toolbar({
   disabled,
+  appliedTheme = 'light',
   onOpen,
   onBack,
   onForward,
@@ -71,9 +73,7 @@ export function Toolbar({
   const fontMeta = getFontSizeMeta(fontSizeId);
   const announcerRef = useRef<HTMLSpanElement | null>(null);
 
-  // T20+ (R-06 修复): useTheme().appliedTheme 用于在 dark 模式下切换
-  // Logo 到深色变体 (kite_logo_dark.png), 避免深蓝文字 "kite" 在暗背景上不可读.
-  const { appliedTheme } = useTheme();
+  // App 统一解析 appliedTheme，避免 Toolbar 重复注册系统主题监听器。
   const logoSrc = appliedTheme === 'dark' ? kiteLogoDarkUrl : kiteLogoUrl;
 
   // T15 (FR-01/FR-04): treeOpen 状态 + canGoBack/Forward.
