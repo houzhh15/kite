@@ -391,6 +391,31 @@ export const zhCN = {
   frontmatter: {
     title: '笔记属性',
   },
+  // 收藏 (favorites): 左侧栏虚拟文件夹 — 工具栏星标 + 目录树 + 子目录管理.
+  favorites: {
+    sectionTitle: '收藏',
+    emptyHint: '暂无收藏。阅读文档时，点击工具栏的 ☆ 添加收藏',
+    addCurrent: '添加当前文档到收藏',
+    removeCurrent: '取消收藏',
+    buttonDisabled: '请先打开 Markdown 文档',
+    openFile: '打开文档',
+    expand: '展开目录',
+    collapse: '折叠目录',
+    newFolder: '新建目录',
+    createChild: '新建子目录',
+    rename: '重命名',
+    moveTo: '移动到…',
+    rootLevel: '收藏根目录',
+    folderNamePlaceholder: '输入目录名称（Enter 确认，Esc 取消）',
+    deleteFolder: '删除目录',
+    unfavorite: '取消收藏',
+    deleteConfirm: '确定要移除该收藏目录吗？磁盘上的文件不会被删除。',
+    deleteNonEmptyConfirm:
+      '该目录包含 {{folders}} 个子目录和 {{files}} 个收藏。移除后仅删除收藏引用，磁盘上的文件不受影响。确定继续？',
+    removedToast: '已移除收藏（磁盘文件未删除）',
+    nameInvalid: '目录名称无效：不能为空，且不能包含 / 或 \\',
+    opFailed: '操作失败，请重试',
+  },
 } as const;
 
 export type ZhCNMessages = typeof zhCN;
@@ -454,6 +479,8 @@ export const i18nKeys = {
   externalEditor: zhCN.externalEditor,
   // T26 (F-28): Obsidian 风格 frontmatter 面板.
   frontmatter: zhCN.frontmatter,
+  // 收藏 (favorites): 左侧栏虚拟文件夹.
+  favorites: zhCN.favorites,
 } as const;
 
 export type I18nKeys = typeof i18nKeys;

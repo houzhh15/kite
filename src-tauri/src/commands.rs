@@ -637,3 +637,101 @@ pub async fn copy_path_to_clipboard(path: String) -> Result<(), AppError> {
     let p = PathBuf::from(path);
     crate::services::clipboard::copy_path_to_clipboard(&p)
 }
+// ---------- 21. get_favorites (收藏 — F-Fav) ----------
+//
+// 返回完整收藏快照 { version, folders, files }. 永不失败 (内存快照).
+#[tauri::command]
+pub async fn get_favorites(
+    state: tauri::State<'_, crate::services::favorites::FavoritesState>,
+) -> Result<crate::services::favorites::FavoritesSnapshot, AppError> {
+    Ok(crate::services::favorites::get_favorites(&state))
+}
+
+// ---------- 22. add_favorite (收藏 — F-Fav) ----------
+//
+// - Input: path (String), parentId (Option<String>, None=收藏根).
+// - Output: Ok(FavoritesSnapshot) — 变更后整包快照, 前端直接替换本地状态.
+// - Error: NOT_FOUND (路径不存在) | INVALID_PATH (非 Markdown/目录/空) | IO.
+// - 幂等: 同一路径已收藏 → 返回当前快照, 不产生重复.
+#[tauri::command]
+pub async fn add_favorite(
+    state: tauri::State<'_, crate::services::favorites::FavoritesState>,
+    app: tauri::AppHandle,
+    path: String,
+    parent_id: Option<String>,
+) -> Result<crate::services::favorites::FavoritesSnapshot, AppError> {
+    crate::services::favorites::add_favorite(&state, &app, path, parent_id)
+}
+
+// ---------- 23. remove_favorite (收藏 — F-Fav) ----------
+//
+// - Input: fileId (String, 收藏文件节点 ID).
+// - Output: Ok(FavoritesSnapshot). 幂等 (不存在 → no-op).
+#[tauri::command]
+pub async fn remove_favorite(
+    state: tauri::State<'_, crate::services::favorites::FavoritesState>,
+    app: tauri::AppHandle,
+    file_id: String,
+) -> Result<crate::services::favorites::FavoritesSnapshot, AppError> {
+    crate::services::favorites::remove_favorite(&state, &app, file_id)
+}
+
+// ---------- 24. create_favorite_folder (收藏 — F-Fav) ----------
+//
+// - Input: parentId (Option<String>, None=根), name (String).
+// - Output: Ok(FavoritesSnapshot).
+// - Error: INVALID_PATH (空名/分隔符/过长/同父重名/深度超限) | NOT_FOUND (父目录不存在).
+#[tauri::command]
+pub async fn create_favorite_folder(
+    state: tauri::State<'_, crate::services::favorites::FavoritesState>,
+    app: tauri::AppHandle,
+    parent_id: Option<String>,
+    name: String,
+) -> Result<crate::services::favorites::FavoritesSnapshot, AppError> {
+    crate::services::favorites::create_favorite_folder(&state, &app, parent_id, name)
+}
+
+// ---------- 25. rename_favorite_folder (收藏 — F-Fav) ----------
+//
+// - Input: folderId (String), name (String).
+// - Output: Ok(FavoritesSnapshot).
+// - Error: INVALID_PATH (空名/分隔符/过长/同父重名) | NOT_FOUND.
+#[tauri::command]
+pub async fn rename_favorite_folder(
+    state: tauri::State<'_, crate::services::favorites::FavoritesState>,
+    app: tauri::AppHandle,
+    folder_id: String,
+    name: String,
+) -> Result<crate::services::favorites::FavoritesSnapshot, AppError> {
+    crate::services::favorites::rename_favorite_folder(&state, &app, folder_id, name)
+}
+
+// ---------- 26. move_favorite_node (收藏 — F-Fav) ----------
+//
+// - Input: nodeId (String, 目录或文件节点), targetParentId (Option<String>, None=根).
+// - Output: Ok(FavoritesSnapshot).
+// - Error: INVALID_PATH (移入自身/后代/空名校验失败) | NOT_FOUND.
+#[tauri::command]
+pub async fn move_favorite_node(
+    state: tauri::State<'_, crate::services::favorites::FavoritesState>,
+    app: tauri::AppHandle,
+    node_id: String,
+    target_parent_id: Option<String>,
+) -> Result<crate::services::favorites::FavoritesSnapshot, AppError> {
+    crate::services::favorites::move_favorite_node(&state, &app, node_id, target_parent_id)
+}
+
+// ---------- 27. delete_favorite_folder (收藏 — F-Fav) ----------
+//
+// - Input: folderId (String), recursive (bool; false=仅空目录).
+// - Output: Ok(FavoritesSnapshot). 只删收藏元数据, 永不触碰磁盘文件.
+// - Error: INVALID_PATH (非空且未 recursive) | NOT_FOUND.
+#[tauri::command]
+pub async fn delete_favorite_folder(
+    state: tauri::State<'_, crate::services::favorites::FavoritesState>,
+    app: tauri::AppHandle,
+    folder_id: String,
+    recursive: bool,
+) -> Result<crate::services::favorites::FavoritesSnapshot, AppError> {
+    crate::services::favorites::delete_favorite_folder(&state, &app, folder_id, recursive)
+}

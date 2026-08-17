@@ -17,6 +17,10 @@ import { useTranslation } from 'react-i18next';
 import { RecentList } from './RecentList';
 import { usePrefStore } from '../stores/prefStore';
 import { useDocStore } from '../stores/docStore';
+import useFavoritesStore, {
+  favoriteForPath,
+  pendingKeyForPath,
+} from '../stores/favoritesStore';
 import { useLayoutStore } from '../stores/layoutStore';
 import { useFullscreen } from '../hooks/useFullscreen';
 import type { AppliedTheme } from '../lib/theme-types';
@@ -378,6 +382,8 @@ export function Toolbar({
         {/* T26 (R-12 修复): 重新加载按钮 — Cmd/Ctrl+R 同款, 由 useFileChangeReload
             提供 reload, focus / 手动按钮 / 快捷键三条入口都汇到同一份 IPC. */}
         <ReloadButton docLoaded={!exportDisabled} onReload={() => onReload?.()} />
+        {/* 收藏 (favorites): ☆/★ 一键收藏当前文档 — 星标状态来自 favoritesStore. */}
+        <FavoriteButton docLoaded={!exportDisabled} />
         {/* T16-P2 (FR-03 / NFR-U-02): 全屏按钮. */}
         <FullscreenButton
           state={{
@@ -428,6 +434,60 @@ function ReloadButton({
       }
     >
       {t('app.reload')}
+    </button>
+  );
+}
+
+/**
+ * FavoriteButton — 「收藏」当前文档 (工具栏 ☆ / ★).
+ *
+ * 责任:
+ *   - 读取 useFavoritesStore (数据唯一来源为 Rust favorites.json) + useDocStore.currentPath.
+ *   - enabled = docLoaded && currentPath !== null && favorites loaded.
+ *   - 未收藏 → ☆, 点击 addFavorite(根); 已收藏 → ★ (aria-pressed), 点击 removeFavorite.
+ *   - pendingKeys 含该路径时禁用, 防双击竞态 (store 层同样有 guard).
+ */
+function FavoriteButton({ docLoaded }: { docLoaded: boolean }): JSX.Element {
+  const { t } = useTranslation();
+  const currentPath = useDocStore((s) => s.state.currentPath);
+  const snapshot = useFavoritesStore((s) => s.snapshot);
+  const loaded = useFavoritesStore((s) => s.loaded);
+  const pendingKeys = useFavoritesStore((s) => s.pendingKeys);
+  const addFavorite = useFavoritesStore((s) => s.addFavorite);
+  const removeFavorite = useFavoritesStore((s) => s.removeFavorite);
+
+  const enabled = docLoaded && currentPath !== null && loaded;
+  const pending =
+    !!currentPath && pendingKeys.includes(pendingKeyForPath(currentPath));
+  const fav = favoriteForPath(snapshot, currentPath);
+  const active = fav !== undefined;
+  const ariaLabel = !enabled
+    ? t('favorites.buttonDisabled')
+    : active
+      ? t('favorites.removeCurrent')
+      : t('favorites.addCurrent');
+
+  return (
+    <button
+      type="button"
+      data-testid="toolbar-favorite"
+      aria-label={ariaLabel}
+      aria-pressed={active}
+      title={ariaLabel}
+      disabled={!enabled || pending}
+      onClick={() => {
+        if (!currentPath) return;
+        if (fav) void removeFavorite(fav.id);
+        else void addFavorite(currentPath, null);
+      }}
+      className={
+        'rounded-md border px-3 py-1.5 text-sm hover:bg-fg/5 ' +
+        'focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ' +
+        'disabled:cursor-not-allowed disabled:opacity-40 ' +
+        (active ? 'border-accent bg-accent/20 text-accent' : 'border-fg/30')
+      }
+    >
+      {active ? '★' : '☆'}
     </button>
   );
 }

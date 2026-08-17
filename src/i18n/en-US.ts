@@ -362,6 +362,31 @@ export const enUS = {
   frontmatter: {
     title: 'Note Properties',
   },
+  // Favorites: virtual folder tree in the sidebar — toolbar star + management.
+  favorites: {
+    sectionTitle: 'Favorites',
+    emptyHint: 'No favorites yet. Click ☆ in the toolbar while reading to add one.',
+    addCurrent: 'Add current document to Favorites',
+    removeCurrent: 'Remove from Favorites',
+    buttonDisabled: 'Open a Markdown document first',
+    openFile: 'Open document',
+    expand: 'Expand folder',
+    collapse: 'Collapse folder',
+    newFolder: 'New folder',
+    createChild: 'New subfolder',
+    rename: 'Rename',
+    moveTo: 'Move to…',
+    rootLevel: 'Favorites root',
+    folderNamePlaceholder: 'Enter folder name (Enter to confirm, Esc to cancel)',
+    deleteFolder: 'Delete folder',
+    unfavorite: 'Remove favorite',
+    deleteConfirm: 'Remove this favorites folder? Files on disk are not touched.',
+    deleteNonEmptyConfirm:
+      'This folder contains {{folders}} subfolder(s) and {{files}} favorite(s). Only the references will be removed — files on disk are untouched. Continue?',
+    removedToast: 'Removed from Favorites (files on disk are untouched)',
+    nameInvalid: 'Invalid folder name: cannot be empty or contain / or \\',
+    opFailed: 'Operation failed, please retry',
+  },
 } as const;
 
 export type EnUSMessages = typeof enUS;
