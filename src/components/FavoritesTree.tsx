@@ -271,6 +271,7 @@ export function FavoritesTree({ onOpenFile }: FavoritesTreeProps): JSX.Element {
           >
             <button
               type="button"
+              data-testid={`fav-folder-toggle-${f.id}`}
               aria-expanded={isExpanded}
               aria-label={t(
                 isExpanded ? 'favorites.collapse' : 'favorites.expand',

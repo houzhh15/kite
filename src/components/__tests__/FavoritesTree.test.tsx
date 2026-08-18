@@ -283,6 +283,112 @@ describe('FavoritesTree', () => {
     expect(state.deleteFavoriteFolder).not.toHaveBeenCalled();
   });
 
+  it('删除非空目录: confirm 消息含子目录与文件数; accept → IPC(recursive=true)', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    setSnapshot(
+      snapOf({
+        folders: [
+          { id: 'd_parent', parentId: null, name: '父目录', createdAt: '' },
+          { id: 'd_child', parentId: 'd_parent', name: '子目录', createdAt: '' },
+        ],
+        files: [
+          {
+            id: 'f_in_parent',
+            parentId: 'd_parent',
+            path: '/x/in-parent.md',
+            displayName: 'in-parent.md',
+            addedAt: '',
+          },
+          {
+            id: 'f_in_child',
+            parentId: 'd_child',
+            path: '/x/in-child.md',
+            displayName: 'in-child.md',
+            addedAt: '',
+          },
+        ],
+      }),
+    );
+    render(<FavoritesTree onOpenFile={() => {}} />);
+
+    // 提示文案必须明确说明 cascade: 1 子目录 + 2 个文件 + 磁盘文件不受影响.
+    const confirmSpy = window.confirm as unknown as ReturnType<typeof vi.spyOn>;
+    fireEvent.click(screen.getByTestId('fav-folder-menu-d_parent'));
+    fireEvent.click(screen.getByTestId('fav-menu-delete'));
+    const promptArg = confirmSpy.mock.calls[0]?.[0] as string;
+    expect(promptArg).toContain('1');
+    expect(promptArg).toContain('2');
+    expect(promptArg).toContain('收藏引用');
+
+    await waitFor(() => {
+      expect(state.deleteFavoriteFolder).toHaveBeenCalledWith(
+        'd_parent',
+        true,
+      );
+    });
+  });
+
+  it('移动文件到目录后再次渲染: 文件应显示在新父级下', async () => {
+    setSnapshot(
+      snapOf({
+        folders: [
+          { id: 'd_a', parentId: null, name: 'A', createdAt: '' },
+        ],
+        files: [
+          {
+            id: 'f_1',
+            parentId: null,
+            path: '/x/a.md',
+            displayName: 'a.md',
+            addedAt: '',
+          },
+        ],
+      }),
+    );
+    const { unmount } = render(<FavoritesTree onOpenFile={() => {}} />);
+    // 初始: 文件在根级, 直接渲染.
+    expect(screen.getByTestId('fav-file-f_1')).toBeTruthy();
+
+    // 用户发起 move → IPC mock 返回更新后的 snapshot (f_1 已移入 d_a).
+    state.moveFavoriteNode.mockResolvedValue({
+      version: 1,
+      folders: [
+        { id: 'd_a', parentId: null, name: 'A', createdAt: '' },
+      ],
+      files: [
+        {
+          id: 'f_1',
+          parentId: 'd_a',
+          path: '/x/a.md',
+          displayName: 'a.md',
+          addedAt: '',
+        },
+      ],
+    });
+    fireEvent.click(screen.getByTestId('fav-file-menu-f_1'));
+    fireEvent.click(screen.getByTestId('fav-menu-move-to'));
+    fireEvent.click(screen.getByTestId('fav-move-d_a'));
+
+    // 等待 store 替换 snapshot (与 UI 渲染同步).
+    await waitFor(() => {
+      const snap = useFavoritesStore.getState().snapshot;
+      expect(snap.files[0]?.parentId).toBe('d_a');
+    });
+
+    // 重渲染后: 根级无文件, f_1 应在 d_a 之下.
+    // 默认 expanded = 全部展开, 所以文件行应直接可见; 否则点击 chevron 强制展开.
+    const fileRow = screen.queryByTestId('fav-file-f_1');
+    if (!fileRow) {
+      fireEvent.click(screen.getByTestId('fav-folder-toggle-d_a'));
+    }
+    expect(screen.getByTestId('fav-file-f_1')).toBeTruthy();
+    // 数据一致性: 文件行的 aria-label 应展示路径 (路径未被影响).
+    expect(
+      screen.getByRole('button', { name: /a\.md/ }),
+    ).toBeTruthy();
+    unmount();
+  });
+
   it('当前文档在收藏列表中时高亮 (bg-accent)', () => {
     const path = '/Users/me/notes/a.md';
     setSnapshot(

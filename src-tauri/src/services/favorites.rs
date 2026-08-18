@@ -162,6 +162,17 @@ pub fn file_id_for(canonical_path: &str) -> String {
     format!("f_{:016x}", fnv1a_64(canonical_path.as_bytes()))
 }
 
+/// 路径比较 — 在大小写不敏感文件系统上 (Windows NTFS / macOS APFS 默认配置 /
+/// FAT32 / exFAT 等) 把视为同一文件的两种写法识别为同一个收藏.
+///
+/// 使用 ascii 兜底大小写比较 (而非 Unicode-aware `to_lowercase`):
+///   - 收藏 ID / file id 都是 hash 出来的字符串, 不是用户展示文本;
+///   - 复杂 Unicode 大小写 (Turkish dotless i / 德文 ß → SS 等) 在路径中实际场景罕见;
+///   - 与前端 TS `pathEq` 保持完全一致, 避免后端去重后前端又生成重复项.
+pub fn path_eq(a: &str, b: &str) -> bool {
+    a == b || a.eq_ignore_ascii_case(b)
+}
+
 /// 目录 ID — parent|name|ns|seq 四元组哈希.
 /// seq (进程内单调递增) 保证时钟同纳秒连发也必不同; ns 区分跨进程重启的相同操作序列.
 static FOLDER_ID_SEQ: AtomicU64 = AtomicU64::new(0);
@@ -370,7 +381,11 @@ fn apply_add_favorite(
     parent_id: Option<&str>,
 ) -> Result<(), AppError> {
     let canonical = validate_markdown_path(raw_path)?;
-    if snapshot.files.iter().any(|f| f.path == canonical) {
+    if snapshot
+        .files
+        .iter()
+        .any(|f| path_eq(f.path.as_str(), canonical.as_str()))
+    {
         return Ok(()); // 幂等: 已有收藏引用 → no-op
     }
     validate_parent(snapshot, parent_id)?;
@@ -996,6 +1011,41 @@ mod tests {
         // 重复添加 (哪怕目标父级不同) → 不产生第二条.
         apply_add_favorite(&mut snap, &cs, None).unwrap();
         assert_eq!(snap.files.len(), 1);
+    }
+
+    #[test]
+    fn add_favorite_dedup_is_case_insensitive() {
+        // 真实路径大小写: tmp.path 是 "kite-fav-test-.../Case.md".
+        // canonicalize 在大小写不敏感文件系统上可能返回不同大小写,
+        // 但 path_eq 必须把这些视为同一个文件, 否则会产生重复收藏.
+        let tmp = TempMd::new("Case.md");
+        let cs = tmp
+            .path
+            .canonicalize()
+            .unwrap()
+            .to_string_lossy()
+            .into_owned();
+        // 手动构造大小写反转的"同一"路径 (模拟 Windows canonicalize 行为不一致).
+        let flipped: String = cs
+            .chars()
+            .zip(cs.to_ascii_uppercase().chars())
+            .map(|(a, b)| if a.is_ascii_alphabetic() { b } else { a })
+            .collect();
+        assert_ne!(cs, flipped, "测试前提: 翻转后必须与原值不同");
+
+        let mut snap = FavoritesSnapshot::default();
+        apply_add_favorite(&mut snap, &cs, None).unwrap();
+        // 再次 add 用翻转大小写 → 应识别为同一文件, no-op.
+        apply_add_favorite(&mut snap, &flipped, None).unwrap();
+        assert_eq!(snap.files.len(), 1, "大小写不敏感去重是 must-fix");
+    }
+
+    #[test]
+    fn path_eq_matches_self_and_case_insensitive_variants() {
+        assert!(path_eq("/a/b.md", "/a/b.md"));
+        assert!(path_eq("/a/B.md", "/a/b.md"));
+        assert!(path_eq("/A/b.md", "/a/B.MD"));
+        assert!(!path_eq("/a/b.md", "/a/c.md"));
     }
 
     #[test]

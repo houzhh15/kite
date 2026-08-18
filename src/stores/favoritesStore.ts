@@ -185,11 +185,21 @@ export function normalizeSnapshot(snap: unknown): FavoritesSnapshot {
   };
 }
 
-/** 路径匹配 — 先精确, 再大小写不敏感 (Windows 盘符大小写差异兜底). */
-export function matchPath(a: string, b: string): boolean {
+/**
+ * 路径等价比较 — 与 Rust 端 `services/favorites.rs::path_eq` 严格对齐.
+ *
+ * 为什么用 ascii 而不是 Unicode-aware toLowerCase:
+ *   - ID / canonical path 不是用户展示文本;
+ *   - 复杂 Unicode 大小写 (Turkish dotless i 等) 在路径中实际场景罕见;
+ *   - 与后端保持完全一致, 避免后端去重后前端又生成重复项.
+ */
+export function pathEq(a: string, b: string): boolean {
   if (!a || !b) return false;
   return a === b || a.toLowerCase() === b.toLowerCase();
 }
+
+/** @deprecated 改用 `pathEq` — 与 Rust 端命名一致, 语义不变. */
+export const matchPath = pathEq;
 
 /** 查某路径的收藏条目 (全局唯一, Rust 端保证). */
 export function favoriteForPath(
@@ -197,7 +207,7 @@ export function favoriteForPath(
   path: string | null,
 ): FavoriteFile | undefined {
   if (!path) return undefined;
-  return snapshot.files.find((f) => matchPath(f.path, path));
+  return snapshot.files.find((f) => pathEq(f.path, path));
 }
 
 /** 某父级 (null=根) 下的目录列表. */

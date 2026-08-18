@@ -141,8 +141,8 @@ test.describe('Favorites (收藏虚拟文件夹)', () => {
   }) => {
     await mockFavorites(page);
     await page.goto('tauri://localhost');
-    // 打开文件抽屉 (Ctrl+T).
-    await page.keyboard.press('Control+t');
+    // 等待 hydrate 完成 (favorites-section 是常驻 UI, 出现即就绪).
+    await page.locator('[data-testid="favorites-section"]').waitFor();
     const section = page.locator('[data-testid="favorites-section"]');
     await expect(section).toBeVisible();
     // 空态提示存在.
@@ -185,7 +185,7 @@ test.describe('Favorites (收藏虚拟文件夹)', () => {
       },
     });
     await page.goto('tauri://localhost');
-    await page.keyboard.press('Control+t');
+    await page.locator('[data-testid="favorites-section"]').waitFor();
 
     // 收藏文件行可见.
     const row = page.locator('[data-testid="fav-file-f_1"]');
@@ -223,7 +223,7 @@ test.describe('Favorites (收藏虚拟文件夹)', () => {
       },
     });
     await page.goto('tauri://localhost');
-    await page.keyboard.press('Control+t');
+    await page.locator('[data-testid="favorites-section"]').waitFor();
 
     const row = page.locator('[data-testid="fav-file-f_9"]');
     await expect(row).toBeVisible();
@@ -256,7 +256,7 @@ test.describe('Favorites (收藏虚拟文件夹)', () => {
       },
     });
     await page.goto('tauri://localhost');
-    await page.keyboard.press('Control+t');
+    await page.locator('[data-testid="favorites-section"]').waitFor();
 
     // 目录菜单 → 新建子目录.
     await page.getByTestId('fav-folder-menu-d_a').click();
@@ -287,7 +287,7 @@ test.describe('Favorites (收藏虚拟文件夹)', () => {
       },
     });
     await page.goto('tauri://localhost');
-    await page.keyboard.press('Control+t');
+    await page.locator('[data-testid="favorites-section"]').waitFor();
 
     page.on('dialog', (dialog) => dialog.accept());
 

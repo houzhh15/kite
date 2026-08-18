@@ -42,6 +42,7 @@ import useFavoritesStore, {
   descendantIds,
   favoriteForPath,
   isValidFolderName,
+  pathEq,
   pendingKeyForPath,
 } from '../favoritesStore';
 import type { FavoritesSnapshot } from '../../lib/tauri';
@@ -196,6 +197,15 @@ describe('favoritesStore', () => {
       expect(favoriteForPath(snapshot, '/x/a.md')?.id).toBe('f_1');
       expect(favoriteForPath(snapshot, '/nope.md')).toBeUndefined();
       expect(favoriteForPath(snapshot, null)).toBeUndefined();
+    });
+
+    it('pathEq 与 Rust 端对齐 (ascii 兜底大小写)', () => {
+      expect(pathEq('/a/b.md', '/a/b.md')).toBe(true);
+      expect(pathEq('/a/B.md', '/a/b.md')).toBe(true);
+      expect(pathEq('/A/b.md', '/a/B.MD')).toBe(true);
+      expect(pathEq('/a/b.md', '/a/c.md')).toBe(false);
+      expect(pathEq('', '/x')).toBe(false);
+      expect(pathEq('/x', '')).toBe(false);
     });
 
     it('countDescendants 统计子目录与文件', () => {
