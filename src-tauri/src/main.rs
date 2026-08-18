@@ -33,6 +33,7 @@ use std::path::PathBuf;
 
 use kite_lib::commands;
 use kite_lib::pending_open::{is_markdown_path, PendingOpen};
+use kite_lib::services::favorites as favorites_svc;
 use kite_lib::services::recent_dirs as recent_dirs_svc;
 use kite_lib::services::recent_files as recent_svc;
 // macOS / iOS / Android 专属: RunEvent::Opened 变体在这些平台才存在;
@@ -71,6 +72,13 @@ fn main() {
             app.manage(recent_dirs_svc::init_state());
             if let Err(e) = recent_dirs_svc::load_from_store(app.handle()) {
                 eprintln!("[recent_dirs] hydrate failed: {e}");
+            }
+
+            // 收藏 (favorites): 独立 JSON 文件 app_data_dir/favorites.json.
+            // degraded 模式见 services/favorites.rs 模块头 — version 过新时保留原文件、拒绝变更.
+            app.manage(favorites_svc::FavoritesState::new());
+            if let Err(e) = favorites_svc::load_from_store(app.handle()) {
+                eprintln!("[favorites] hydrate failed: {e}");
             }
 
             // T20+ (R-07 修复): dev 模式下运行时设置 Dock / Window 图标.
@@ -130,6 +138,14 @@ fn main() {
             // 不能走 Web Clipboard API, Tauri WebView 沙箱限制下返回 NotAllowedError.
             commands::copy_file_to_clipboard,
             commands::copy_path_to_clipboard,
+            // 收藏 (favorites) — 7 个 IPC 命令必须显式注册 (同 recent_dirs 约定).
+            commands::get_favorites,
+            commands::add_favorite,
+            commands::remove_favorite,
+            commands::create_favorite_folder,
+            commands::rename_favorite_folder,
+            commands::move_favorite_node,
+            commands::delete_favorite_folder,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

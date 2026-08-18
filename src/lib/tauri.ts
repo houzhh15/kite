@@ -658,6 +658,126 @@ export function getFileFresh(path: string): Promise<FileFreshPayload> {
   return safeInvoke<FileFreshPayload>('get_file_fresh', { path });
 }
 
+/**
+ * 收藏 (favorites) — 虚拟文件夹数据模型.
+ *
+ * 字段与 src-tauri/src/services/favorites.rs 严格一一对应 (serde camelCase).
+ * 扁平节点 + parentId 引用; `parentId=null` 表示收藏根层级.
+ */
+
+/** 收藏中的虚拟目录. */
+export interface FavoriteFolder {
+  /** 稳定 ID (Rust 端生成, d_ 前缀). */
+  id: string;
+  /** 父目录 ID; null=收藏根. */
+  parentId: string | null;
+  /** 目录名 (同父级唯一, ≤100 字符, 不含路径分隔符). */
+  name: string;
+  /** ISO8601 UTC. */
+  createdAt: string;
+}
+
+/** 被收藏的 Markdown 文件 (仅路径引用, 不复制真实文件). */
+export interface FavoriteFile {
+  /** 稳定 ID (由规范化路径确定性派生, f_ 前缀) — 同一路径全局唯一. */
+  id: string;
+  /** 父目录 ID; null=收藏根. */
+  parentId: string | null;
+  /** 规范化后的绝对路径 (Rust canonicalize). */
+  path: string;
+  /** basename (Rust 端派生, 前端只读). */
+  displayName: string;
+  /** ISO8601 UTC. */
+  addedAt: string;
+}
+
+/** 一次 IPC 往返返回的完整快照 — 变更类命令统一返回整包, 前端直接替换本地状态. */
+export interface FavoritesSnapshot {
+  version: number;
+  folders: FavoriteFolder[];
+  files: FavoriteFile[];
+}
+
+/**
+ * getFavorites — 读取收藏快照. 永不 reject (内存快照; web 模式 → IPC unavailable reject).
+ */
+export function getFavorites(): Promise<FavoritesSnapshot> {
+  return safeInvoke<FavoritesSnapshot>('get_favorites');
+}
+
+/**
+ * addFavorite — 收藏当前文档到指定目录 (null=根).
+ * - 幂等: 同一路径已收藏 → 返回当前快照, 不产生重复.
+ * - Error: NOT_FOUND | INVALID_PATH (非 Markdown/目录) | IO.
+ */
+export function addFavorite(
+  path: string,
+  parentId?: string | null,
+): Promise<FavoritesSnapshot> {
+  return safeInvoke<FavoritesSnapshot>('add_favorite', {
+    path,
+    parentId: parentId ?? null,
+  });
+}
+
+/** removeFavorite — 按文件节点 ID 取消收藏. 幂等; Error: IO. */
+export function removeFavorite(fileId: string): Promise<FavoritesSnapshot> {
+  return safeInvoke<FavoritesSnapshot>('remove_favorite', { fileId });
+}
+
+/**
+ * createFavoriteFolder — 新建虚拟目录 (parentId=null 表示根).
+ * - Error: INVALID_PATH (空名/分隔符/过长/同父重名/深度超限) | NOT_FOUND.
+ */
+export function createFavoriteFolder(
+  parentId: string | null,
+  name: string,
+): Promise<FavoritesSnapshot> {
+  return safeInvoke<FavoritesSnapshot>('create_favorite_folder', {
+    parentId,
+    name,
+  });
+}
+
+/** renameFavoriteFolder — Error: INVALID_PATH (空名/同父重名) | NOT_FOUND. */
+export function renameFavoriteFolder(
+  folderId: string,
+  name: string,
+): Promise<FavoritesSnapshot> {
+  return safeInvoke<FavoritesSnapshot>('rename_favorite_folder', {
+    folderId,
+    name,
+  });
+}
+
+/**
+ * moveFavoriteNode — 移动目录或文件到目标父级 (null=根).
+ * - Error: INVALID_PATH (移入自身/后代) | NOT_FOUND.
+ */
+export function moveFavoriteNode(
+  nodeId: string,
+  targetParentId: string | null,
+): Promise<FavoritesSnapshot> {
+  return safeInvoke<FavoritesSnapshot>('move_favorite_node', {
+    nodeId,
+    targetParentId,
+  });
+}
+
+/**
+ * deleteFavoriteFolder — 删除目录 (含子树). recursive=false 时仅允许空目录.
+ * 只删收藏引用 — 永不触碰磁盘文件. Error: INVALID_PATH | NOT_FOUND.
+ */
+export function deleteFavoriteFolder(
+  folderId: string,
+  recursive: boolean,
+): Promise<FavoritesSnapshot> {
+  return safeInvoke<FavoritesSnapshot>('delete_favorite_folder', {
+    folderId,
+    recursive,
+  });
+}
+
 /** 默认导出聚合对象 (方便消费者 `import { tauri } from '@/lib/tauri'`). */
 export const tauri = {
   readMarkdownFile,
@@ -682,6 +802,14 @@ export const tauri = {
   // T29 (R-35): 拷贝文件到系统剪贴板.
   copyFileToClipboard,
   copyPathToClipboard,
+  // 收藏 (favorites): 7 个 IPC wrapper.
+  getFavorites,
+  addFavorite,
+  removeFavorite,
+  createFavoriteFolder,
+  renameFavoriteFolder,
+  moveFavoriteNode,
+  deleteFavoriteFolder,
 };
 
 export default tauri;

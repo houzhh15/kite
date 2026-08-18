@@ -36,6 +36,7 @@ import { useTranslation } from 'react-i18next';
 
 import { listDir, isAppError, type DirEntry } from '../lib/tauri';
 import { RecentDirList } from './RecentDirList';
+import { FavoritesTree } from './FavoritesTree';
 import { useRecentDirsStore } from '../stores/recentDirsStore';
 
 export interface FileTreeProps {
@@ -280,7 +281,7 @@ export function FileTree({
       {!rootPath ? (
         <div
           data-testid="file-tree-empty"
-          className="flex h-full flex-col items-center justify-center gap-3 px-4 text-sm text-muted"
+          className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 px-4 text-sm text-muted"
         >
           <p className="text-center">{t('tree.emptyHint')}</p>
           <button
@@ -358,6 +359,9 @@ export function FileTree({
           </ul>
         </>
       )}
+
+      {/* 收藏 (favorites): 左侧栏底部常驻虚拟文件夹区 — 与真实目录树上下分区. */}
+      <FavoritesTree onOpenFile={onOpenFile} />
 
       {/* T26 (R-12) 增量: 右侧拖拽手柄.
             模式与 Outline.tsx 的 outline-resize-handle 1:1 一致:

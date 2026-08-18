@@ -13,6 +13,8 @@ pub mod preferences;
 pub mod progress;
 pub mod recent_files;
 pub mod recent_dirs;
+// 收藏虚拟文件夹 (favorites.json, 独立于真实文件系统).
+pub mod favorites;
 pub mod external;
 pub mod external_editor;
 pub mod fs_reader;

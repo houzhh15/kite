@@ -64,6 +64,7 @@ import { cycleTheme, usePrefStore } from './stores/prefStore';
 import { useProgressStore } from './stores/progressStore';
 import { useRecentStore } from './stores/recentStore';
 import { useRecentDirsStore } from './stores/recentDirsStore';
+import useFavoritesStore from './stores/favoritesStore';
 import { useLayoutStore } from './stores/layoutStore';
 import { useImageViewer as useImageViewerHook } from './hooks/useImageViewer';
 import { useSearch } from './hooks/useSearch';
@@ -454,6 +455,11 @@ export default function App(): JSX.Element {
   // 失败仅 console.warn, 不抛错, 与 recentStore.load 行为一致.
   useEffect(() => {
     void useRecentDirsStore.getState().load();
+  }, []);
+
+  // 收藏 (favorites): 启动期 hydrate. 失败兜底为空快照, UI 不崩.
+  useEffect(() => {
+    void useFavoritesStore.getState().load();
   }, []);
 
   // T25 (F-27): handleRootPathChange 包装层 — 选完目录时, 写入最近目录历史.

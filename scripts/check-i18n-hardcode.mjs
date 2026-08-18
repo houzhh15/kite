@@ -147,6 +147,18 @@ const REQUIRED_KEYS = [
   'common.dropHint',
   'common.closeNotification',
   'common.externalOpened',
+  // 收藏 (favorites) — 工具栏星标 + 虚拟子目录管理.
+  'favorites.sectionTitle',
+  'favorites.emptyHint',
+  'favorites.addCurrent',
+  'favorites.removeCurrent',
+  'favorites.newFolder',
+  'favorites.createChild',
+  'favorites.rename',
+  'favorites.moveTo',
+  'favorites.unfavorite',
+  'favorites.deleteConfirm',
+  'favorites.nameInvalid',
 ];
 
 async function walk(dir, baseDir) {
