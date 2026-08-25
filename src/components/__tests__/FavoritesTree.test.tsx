@@ -113,6 +113,66 @@ describe('FavoritesTree', () => {
     expect(onOpenFile).toHaveBeenCalledWith('/Users/me/notes/a.md');
   });
 
+  it('右键文件夹 → 弹出目录菜单 (preventDefault 阻止浏览器原生菜单)', () => {
+    setSnapshot(
+      snapOf({
+        folders: [
+          { id: 'd_a', parentId: null, name: '工作', createdAt: '' },
+        ],
+      }),
+    );
+    render(<FavoritesTree onOpenFile={() => {}} />);
+    const row = screen.getByTestId('fav-folder-d_a').firstElementChild as HTMLElement;
+    fireEvent.contextMenu(row);
+    expect(screen.getByTestId('fav-menu-folder')).toBeTruthy();
+  });
+
+  it('右键文件 → 弹出文件菜单 (移动到… + 取消收藏)', () => {
+    setSnapshot(
+      snapOf({
+        files: [
+          {
+            id: 'f_1',
+            parentId: null,
+            path: '/Users/me/notes/a.md',
+            displayName: 'a.md',
+            addedAt: '',
+          },
+        ],
+      }),
+    );
+    render(<FavoritesTree onOpenFile={() => {}} />);
+    const row = screen
+      .getByTestId('fav-file-f_1')
+      .firstElementChild as HTMLElement;
+    fireEvent.contextMenu(row);
+    expect(screen.getByTestId('fav-menu-file')).toBeTruthy();
+    // 校验条目集合: 移动到… + 取消收藏 (与 ⋯ 按钮完全一致).
+    expect(screen.getByTestId('fav-menu-move-to')).toBeTruthy();
+    expect(screen.getByTestId('fav-menu-unfavorite')).toBeTruthy();
+  });
+
+  it('左键文件夹行 → 切换展开 (aria-expanded 翻转)', () => {
+    setSnapshot(
+      snapOf({
+        folders: [
+          { id: 'd_a', parentId: null, name: '工作', createdAt: '' },
+        ],
+      }),
+    );
+    render(<FavoritesTree onOpenFile={() => {}} />);
+    // 初始: 默认全部展开 (expanded=null → 全部为 expanded).
+    const toggle = screen.getByTestId('fav-folder-toggle-d_a');
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    // 左键点击行 (非按钮) → 折叠.
+    const row = screen.getByTestId('fav-folder-d_a').firstElementChild as HTMLElement;
+    fireEvent.click(row);
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    // 再点 → 展开.
+    fireEvent.click(row);
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+  });
+
   it('新建根目录: ＋ → 输入 → Enter → IPC(null, 名称)', async () => {
     render(<FavoritesTree onOpenFile={() => {}} />);
     fireEvent.click(screen.getByRole('button', { name: '新建目录' }));

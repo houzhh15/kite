@@ -1,0 +1,33 @@
+fix(favorites-ui): left-click expand / right-click menu, opaque background
+
+UX feedback (PR #5 follow-up):
+
+1. Folder row semantics inverted:
+   - 左键整行 → 展开 / 折叠 (替代原来的「打开菜单)
+   - 右键 → 弹出目录菜单 (替代原来的「左键触发)
+   - preventDefault 阻止浏览器 / Tauri 默认右键菜单
+   - 文件行保留: 左键打开 / 右键弹出文件菜单 (移动到…, 取消收藏)
+   - ⋯ 按钮继续可用 → 键盘 / a11y 入口, 与右键行为一致
+   - 目录名由 <button> 改为 <span>; 选中态高亮 (bg-accent) 保留
+
+2. Resize overlap fix (screenshot 2):
+   - 收藏区 section 加 bg-bg → 永远遮挡上方目录区文字
+   - min-h-[150] → min-h-[180]; h-[38%] → h-[42%]; max-h-[320] → max-h-[340]
+   - 缩小窗口高度时仍能呈现 3~4 行内容, 且文字不再穿透
+   - <aside> 已有 bg-bg; 不需要重复声明
+
+3. Tests: +3 cases (右键文件夹 / 右键文件 / 左键切换展开).
+   总数: 1092 vitest (was 1089), 182 cargo, 0 clippy / tsc / eslint.
+
+技术要点:
+- 行 onClick + onContextMenu 各司其职; 子按钮 (toggle, ⋯) 用 stopPropagation
+  避免双重触发.
+- 文件菜单项与 ⋯ 完全一致 (移动到…, 取消收藏); 目录菜单项不变
+  (新建子目录, 重命名, 移动到…, 删除目录).
+- 单开为单 commit, 不与 #5 PR 混.
+
+未变 (后续 PR 候选):
+- #3 add_favorite 移动语义
+- #4 degraded 模式 UI 提示
+- #5 测试增强项 1-5 (并发, 空字段, display_name, emoji 边界, e2e)
+- check-contract 唯一报错 (vaultRoot.ts path import) 是历史遗留, 不在本次范围.

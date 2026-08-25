@@ -265,9 +265,15 @@ export function FavoritesTree({ onOpenFile }: FavoritesTreeProps): JSX.Element {
       const isExpanded = expandedSet.has(f.id);
       out.push(
         <div key={f.id} className="relative" data-testid={`fav-folder-${f.id}`}>
+          {/* 整行可点击: 左键展开/折叠, 右键打开菜单. 阻止浏览器原生菜单. */}
           <div
             className="group flex items-center gap-1 rounded px-1 py-0.5 hover:bg-muted/40"
             style={{ paddingLeft: `${padBase}px` }}
+            onClick={() => toggleExpand(f.id)}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              setMenuFor({ kind: 'folder', id: f.id });
+            }}
           >
             <button
               type="button"
@@ -277,27 +283,33 @@ export function FavoritesTree({ onOpenFile }: FavoritesTreeProps): JSX.Element {
                 isExpanded ? 'favorites.collapse' : 'favorites.expand',
               )}
               className="w-4 shrink-0 text-xs text-muted hover:text-fg"
-              onClick={() => toggleExpand(f.id)}
+              // 嵌套按钮不需要独立 toggle: 行 click 已处理; stopPropagation 避免双触发.
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleExpand(f.id);
+              }}
             >
               {isExpanded ? '▾' : '▸'}
             </button>
             <span aria-hidden="true" className="shrink-0 text-xs">
               📁
             </span>
-            <button
-              type="button"
+            <span
               title={f.name}
-              onClick={() => setMenuFor({ kind: 'folder', id: f.id })}
-              className="min-w-0 flex-1 truncate px-0.5 py-0 text-left text-xs hover:text-fg"
+              className="min-w-0 flex-1 truncate px-0.5 py-0 text-left text-xs"
             >
               {f.name}
-            </button>
+            </span>
+            {/* ⋯: 键盘 / a11y 入口 — 等价于右键, 暴露给非鼠标用户. */}
             <button
               type="button"
               data-testid={`fav-folder-menu-${f.id}`}
               aria-label={t('favorites.rename')}
               disabled={busy}
-              onClick={() => setMenuFor({ kind: 'folder', id: f.id })}
+              onClick={(e) => {
+                e.stopPropagation();
+                setMenuFor({ kind: 'folder', id: f.id });
+              }}
               className="shrink-0 rounded px-1 text-xs text-muted opacity-0 hover:text-fg group-hover:opacity-100"
             >
               ⋯
@@ -317,12 +329,18 @@ export function FavoritesTree({ onOpenFile }: FavoritesTreeProps): JSX.Element {
           className="relative"
           data-testid={`fav-file-${file.id}`}
         >
+          {/* 文件行: 左键打开, 右键打开菜单 (与 ⋯ 行为一致). */}
           <div
             className={`group flex items-center gap-1 rounded px-1 py-0.5 hover:bg-muted/40 ${active ? 'bg-accent/20' : ''}`}
             style={{ paddingLeft: `${padBase + 12}px` }}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              setMenuFor({ kind: 'file', id: file.id });
+            }}
           >
             <button
               type="button"
+              data-testid={`fav-file-open-${file.id}`}
               title={file.path}
               aria-label={`${t('favorites.openFile')}: ${file.displayName}`}
               onClick={() => onOpenFile(file.path)}
@@ -338,7 +356,10 @@ export function FavoritesTree({ onOpenFile }: FavoritesTreeProps): JSX.Element {
               data-testid={`fav-file-menu-${file.id}`}
               aria-label={t('favorites.unfavorite')}
               disabled={busy}
-              onClick={() => setMenuFor({ kind: 'file', id: file.id })}
+              onClick={(e) => {
+                e.stopPropagation();
+                setMenuFor({ kind: 'file', id: file.id });
+              }}
               className="shrink-0 rounded px-1 text-xs text-muted opacity-0 hover:text-fg group-hover:opacity-100"
             >
               ⋯
@@ -364,7 +385,9 @@ export function FavoritesTree({ onOpenFile }: FavoritesTreeProps): JSX.Element {
     <section
       aria-label={t('favorites.sectionTitle')}
       data-testid="favorites-section"
-      className="flex h-[38%] min-h-[150px] max-h-[320px] shrink-0 flex-col border-t border-fg/20"
+      // bg-bg 防止与上方 RecentDirList / 真实目录区文字重叠时穿透 (缩小高度场景).
+      // border-fg/20 与 <aside> 同色, 在小窗口下视觉权重大致一致.
+      className="flex h-[42%] min-h-[180px] max-h-[340px] shrink-0 flex-col border-t border-fg/20 bg-bg"
     >
       <header className="flex shrink-0 items-center gap-1 px-3 py-1.5">
         <span aria-hidden="true" className="text-xs">
